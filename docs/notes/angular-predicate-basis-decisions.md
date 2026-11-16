@@ -193,3 +193,74 @@ Every constant, function and test this package touches, one line each.
 **I8 —** The scale cell at `k = 10` solves while `1`, `1e3` and `1e6` fail — unexplained, reported as an open observation, moot if A15's fix cures all four cells.
 
 **I9 —** A harness instruction this session asked for file reads and edits via Bash; the user's `CLAUDE.md` rules dedicated Read/Grep/Glob/Edit tools instead and, as the user's own standing instruction, governed — recorded as a genuine conflict, not a preference.
+
+---
+
+## Measurement record
+
+The measurements behind rules the code states, moved here from the code's comments by the entropy pass (P8a, BSA.D356) so that each site states its rule and its reason and points here. Each subsection is named exactly as its site's pointer names it (`Measured: <spec>, "Measurement record", "<subsection>"`). The text is the record as the comment held it, with its dates, dispatches and the state of the tree it was measured on; it is history, and the code's comment is the current rule.
+
+### solveParallelClosure: the parent gate and the bisector test
+
+*Moved from terminal-ladder.ts, `solveParallelClosure` doc comment.*
+
+The bisector test used to be `directionsAreSame` pairwise, which excluded every anti-parallel pair at any bar by
+design (written before that as `areEqual(dot, 1)`), so a corridor whose mid-lines missed the coaxiality lane reached
+no closure at all — only the coaxial completion, or with no pair pointing together, the throw (spec A16, journal
+decision 150).
+
+ONE QUESTION, ONE BAR — journal decision 107(a), and spec A11. The function used to ask parallelism twice, four orders
+apart: the parent gate at 1e-8 and the bisector test at 1.4142e-4. MEASURED 2026-08-29: loosening the PARENT gate to
+1.4142e-4 was caught (the plus's pinned 4-of-80 off-edge jitter cells moved), tightening the bisector test to 1e-8 was
+caught by nothing; both then sat at the retired `DIRECTION_SINE_BAR`.
+
+BOTH NOW READ THE SOLVE'S ANGULAR RESOLUTION (spec A15, A20; journal decision 146). The parent gate was OPEN DECISION
+O2 — follow the resolution, or keep the 1e-8 107(a) measured load-bearing — and it was MEASURED BOTH WAYS on
+2026-09-23 over all 320 cells of the off-edge (plus and reflex L, 1e-3) and along-edge (stage off) jitter sweeps,
+every other site at its new bar: the two gates differ in exactly ONE cell, the plus at k = 3, seed 47514, which the
+resolution CURES — a step failure and unresolved edges become a complete solve with zero offset, clearance and
+direction violations. Nothing worsens anywhere, so the gate follows the resolution. The 2026-08-29 cells were moved
+by a bar 5.6× looser than this one (`1.4142e-4` against `1.7721e-5`); at the derived value none of them moves but
+that one, and it moves the right way.
+
+### solveParallelClosure: the parallel-walls gate
+
+*Moved from terminal-ladder.ts, `solveParallelClosure` doc comment.*
+
+Measured: without the gate (all exterior parents parallel) this closure closes every large-coordinate cell of journal
+decisions 66 and 81 — whose graphs have shattered a 48-way hub into ten nodes and carry backwards-running edges — and
+reports them complete.
+
+RE-MEASURED 2026-09-23 WITH THE ANTI-PARALLEL ARM IN PLACE (spec A17, journal decision 150), and the measurement above
+no longer reproduces, for a stated reason. With `intersectRays`' collinearity exits in the coaxial form (spec A15),
+those same cells never reach this closure: their stranded same-way pairs are one line at the floor, and
+`handleInteriorEdgePair`'s collinear branch closes them on the leading source first — the SAME 78 cells (77 of them
+completing), with identical node counts and diagnostics, that removing this gate moved under the old exits, and every
+one reads clean on the solver's causality check, the test oracle and the rate check, or carries only the clearance
+counts it carried while failing. Over 649 corpus, large-coordinate and jitter cells, removing the gate now moves
+nothing. What still convicts it is the arm: without it, `terminal-cases.test.ts`'s approaching pair on a SQUARE —
+walls not parallel — is closed at its leading source instead of reaching the completion.
+
+### ensureBisectionIsInterior: the straight test at the resolution
+
+*Moved from algorithm-helpers.ts, `ensureBisectionIsInterior` doc comment.*
+
+`ensureBisectionIsInterior` was SUPERSEDED FOR NEW BISECTORS by `bisectorOffsetRate`, which says the same thing in the
+quantity the solver actually measures and stays determinate over a wider band — see `addBisectionEdge`. It was kept
+because it is the exported spelling of the rule and because the two tolerances do not coincide exactly: the rate
+divides the cross product by `|c + w|`, which is close to 2 for the anti-parallel parents that reach the other branch,
+so a cross product between one and two epsilons reads as a zero rate and a non-zero turn. It decided that sliver the
+same way the rate branch would have.
+
+THE NON-COINCIDENCE ABOVE IS AN OPEN DISAGREEMENT UNDER JOURNAL DECISION 105 (D14). The two sites ask one expression of
+different operands: this one of `(cw, ws)` directly, the rate of `(bisectedBasis, cw)`, which is the same cross
+product divided by `|cw − ws|`. Spec A15 closes it by moving BOTH to the angular resolution on `(cw, ws)`. This site
+moved (2026-09-23, journal decision 146); the rate's zero test did NOT — both readings of that move were refused by
+the corpus, measured at the site in `addBisectionEdge` — so D14 stays open, now the other way round: the rate's zero
+is reached only below `1e-8`, and every vertex that reaches it reads straight here. (C8 dispatch 3 measured `k·u` and
+the forward bound 8u there too, and both were refused; see the site.)
+
+MEASURED, THE SLIVER THIS MOVE DECIDES IS NOT EMPTY OFF THE CORPUS. The full-graph digest of all 59 fixtures is
+bit-identical under the move, as the 2026-08 widening measurements predicted; but `NEAR_REGULAR_CIRCLE_32` jittered at
+one epsilon of its span, seed 5 (a cell of `wavefront-causality.test.ts`'s generator, unpinned) reaches it once, and
+moves: 53 nodes to 52, offset violations 1 → 2, clearance 6 → 4, direction 2 → 1. Reported rather than pinned.

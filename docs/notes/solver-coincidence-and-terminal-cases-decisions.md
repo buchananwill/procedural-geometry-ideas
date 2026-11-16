@@ -232,3 +232,99 @@ Nothing is deleted. Two `throw` sites stop being reachable for the inputs descri
 "Unable to generate any collision from last two edges" throw in `handleInteriorEdgePair` and the
 "Failed to collide interior edges in triangle" throw in `handleInteriorEdgeTriangle` — but both
 **remain in place** as guards for the cases decisions 11 and 13 route to them.
+
+---
+
+## Measurement record
+
+The measurements behind rules the code states, moved here from the code's comments by the entropy pass (P8a, BSA.D356) so that each site states its rule and its reason and points here. Each subsection is named exactly as its site's pointer names it (`Measured: <spec>, "Measurement record", "<subsection>"`). The text is the record as the comment held it, with its dates, dispatches and the state of the tree it was measured on; it is history, and the code's comment is the current rule.
+
+No spec owns the whole-event resolution or the pairwise fallback; their records are collected in this section as the nearest spec, the one that owns coincidence clustering and the terminal cases.
+
+### handleInteriorEdgePair: the co-linear closure's reach
+
+*Moved from algorithm-termination-cases.ts, `handleInteriorEdgePair`, the `co-linear-from-1` branch.*
+
+MEASURED: at native placement this branch is reached exactly twice across the 59-fixture corpus, both on
+`OFF_EDGE_JITTER_PLUS_SEED_7919`, and both were I5 crossed-pairing pins carrying a direction violation apiece. It is
+reached again on the large-coordinate cells journal decisions 66/81 accept, where it retires a bisector that used to
+be wired back to an EXTERIOR node; those cells still fail as pinned and their hub in-degrees moved with it
+(`large-coordinate-known-failures.test.ts`). Taking `id1` instead of the leading source is convicted by seven tests
+across five suites.
+
+### Narrowing a refused layer to its earliest arrival moment
+
+*Moved from algorithm-complex-cases.ts, `resolveLayerEvents`.*
+
+Journal decision 102 (strict linear causality, the earliest arrival wins) was first applied to the ORDER events are
+read in and not to how many of them one step CONSUMES, and the gap between those two was a defect: `window`
+(`layerWindow`) is an `fp_compare` window — an absolute 1e-8 on offsets of order 1e-1, some 1e8 ulps wide — and the
+pairwise fallback used to resolve all of it, so arrivals a million ulps apart in the wavefront clock were consumed as
+though they were simultaneous.
+
+**What that cost, measured.** Every refusal on the corpus is an edge claimed by two merges at once, and every one of
+those is one wavefront closing at two points a few render floors apart at offsets a few hundredths of an ulp-moment
+apart — a near-degenerate ring, not a simultaneous event. Resolved whole, BOTH closures fire in one step and each emits
+its own bisector into the corridor between them, where a ridge admits one; on `(seed 55433, k=4)` a three-way arrival
+is paired two at a time and the leftover wires backwards (that fixture's pinned direction violation,
+`wavefront-causality.test.ts`, and the narrowing's own conviction). Narrowed to the earliest moment, the earlier
+closure resolves alone and the later one is RECOMPUTED next step against the wavefront the first one left, so the
+third arrival of a three-way event terminates on the node the first two built.
+
+**Only where the whole-event resolution has already refused.** Narrowing unconditionally breaks the k-way hubs the
+clustering exists for — the reciprocal reports of one 48-way convergence are not within the ulp bar of each other —
+and was measured at over thirty failures across ten suites, F27's finding restated.
+
+**The rings of a step.** `ringsOfSubPolygon`, whose `null` once sent a layer to the pairwise fallback, was deleted: it
+keyed a ring on a unique widdershins parent, which every joined ring breaks (BSA.F91), and part A of the wavefront-order
+build found it `null` on no layer of any roster (BSA.F95).
+
+### Concurrency of the merges resolved whole
+
+*Moved from algorithm-complex-cases.ts, `resolveWhole`.*
+
+The tolerance audit's placed-node spec would resolve an arrival set to one node only where its PARENT set is
+concurrent — full rank and residual under a bar — and refuse loudly otherwise, because a least-squares node over a
+non-concurrent parent set is on none of the pairwise bisector loci (F32/F39). Swept over the 346 merges the whole-event
+branch actually resolves across the corpus: 253 carry three distinct oriented normals, 88 carry four, four are the
+high-degree hubs (10/16/32/48), and the worst concurrency residual anywhere is 5.56e-12 — three orders inside
+`EQUIDISTANCE_BAR`, with 344 of the 346 at machine zero. Exactly ONE set is rank-deficient: a two-arrival head-on
+corridor closure on `(seed 7919)` whose position comes from the collision itself and whose residual is 2.8e-17, which
+is the case a rank test would have refused wrongly.
+
+The pairs the audit measured as rank-2 — the 29/30 class — never reach that branch as one set at all: the narrowing
+(`resolveLayerEvents`) separates them into two arrival moments, so they resolve as two nodes joined by one ridge, which
+is what the rank-2 ruling prescribes, reached by causality instead of by a rank predicate. The gate is therefore
+unbuilt because the corpus offers nothing to convict it on, in the manner of journal decision 107(b).
+
+### Arrival order in the pairwise fallback
+
+*Moved from event-order.ts, `inArrivalOrder`.*
+
+The pairwise fallback once sorted a whole layer by priority and edge id alone, which threw the offsets away — and
+because each event there CONSUMES its edges, that was a PAIRING rule, not a display order: on `(seed 55433)` a
+collapsing 4-ring whose true pairing arrives 2.52e-11 ahead of its rival was paired by edge id instead, so the arm tip
+closed on the wrong two of its four walls and left its surviving ridge between the wrong parents. What that cost
+downstream is the fold population — 24 region-boundary folds across three fixtures before arrival ordering, 4 on one
+fixture after it, with both reflex Ls leaving it outright (`region-boundary-folds.test.ts`) — and six of the plus's ten
+failing near-floor jitter cells (journal decision 102).
+
+It did not cure the duplicate ridge: both pairings leave TWO bisectors spanning that ridge, so I5's count on this
+fixture was unmoved; the two collapse nodes are 3.9e-6 apart in unit space, journal decision 101's tolerance defect.
+
+### Coincidence at the perceptual floor
+
+*Moved from coincident-events.ts, `isOneEvent`.*
+
+**What the epsilon bar left behind, measured.** On `OFF_EDGE_JITTER_L_SEED_15838` the wavefront reaches a ridge where
+four walls are equidistant, and the arithmetic (1e-8) bar resolved it as two events 3.13e-7 apart in unit space —
+correctly distinct at 31 times the epsilon, and 2.7e-7 of the polygon's extent, so a **7480x** zoom would be needed to
+put two pixels between the nodes they produced. The pair then carried a bisector leaving one of them 5.2e-6 radians
+from its neighbour, which is a distinction no downstream planar consumer can act on (journal decision 78).
+
+**The rejected first attempt** widened `findOrAddNode` instead, so a later arrival was absorbed into a node already
+placed and already carrying edges: the arriving edge was re-pointed at a target its own wavefront vertex never
+travelled to, which put an edge on `OFF_EDGE_JITTER_L_SEED_15838` running BACKWARDS in the wavefront clock, took its
+census from 0 failed regions to 4, cost the strips their exact tiling, and stopped two CLEAN fixtures solving under
+translation. Merged at the event layer the hub is computed from its whole arrival set at once — the path a regular
+n-gon's k-way hub already takes — and none of that arises. See F27.

@@ -970,3 +970,52 @@ site's arithmetic is untouched), **no** (a new formula), **n/a** (no arithmetic 
 | 75 | dashboard [useCollisionSweep.ts](../../packages/dashboard/src/hooks/useCollisionSweep.ts) 38, 58–61, 83 | sweep `offsetDistance`; node distances; unweighted context | times; pass weights | — | N12 |
 | 76 | dashboard [skeletonToScene.ts](../../packages/dashboard/src/scene/adapters/skeletonToScene.ts) 283, 559–569; [PolygonCanvas.tsx](../../packages/dashboard/src/components/PolygonCanvas.tsx) 237; [DebugPanel.tsx](../../packages/dashboard/src/components/DebugPanel.tsx) 113–115 | labels print offsets as `d=` | print times | — | N12 |
 | 77 | dashboard [parcel-pipeline.ts](../../packages/dashboard/src/hooks/parcel-pipeline.ts) 168–170; [useRecursiveSubdivisionStore.ts](../../packages/dashboard/src/stores/useRecursiveSubdivisionStore.ts) 142 | fraction of max offset | fraction of max time; no change | — | N12 |
+
+---
+
+## Measurement record
+
+The measurements behind rules the code states, moved here from the code's comments by the entropy pass (P8a, BSA.D356) so that each site states its rule and its reason and points here. Each subsection is named exactly as its site's pointer names it (`Measured: <spec>, "Measurement record", "<subsection>"`). The text is the record as the comment held it, with its dates, dispatches and the state of the tree it was measured on; it is history, and the code's comment is the current rule.
+
+### handleInteriorEdgePair: W33's equi-time check
+
+*Moved from algorithm-termination-cases.ts, `handleInteriorEdgePair`, the `co-linear-from-1` closure.*
+
+W-SPEC W33 IS NOT IMPLEMENTED in the pair handler's co-linear closure, and that is a measured negative result rather
+than an omission — see the weighted-offsets delegate's report.
+
+W33 asks this closure to gain an equi-time check: the trailer reaches the leading source at
+`arrivalOf(T, …, separation)` while the leader was born there at its own birth arrival, and under weights the two need
+not agree. The check was written and run over the whole corpus AT UNIT WEIGHTS, where W33 predicted it might move the
+digest. It does not move the digest — every one of the 59 native-placement pins survives it — but it fires elsewhere,
+because the configurations that reach this branch are the near-anti-parallel corridors whose two mid-lines carry
+CONSTANT and slightly DIFFERENT times:
+
+- with W33's own stated consequence (fall through to the throw at the end of the collision branch): ten pinned
+  assertions across six suites move, and one of them is the recursion census reporting the plus seed at 16 failed
+  regions where 15 is pinned — a DEFECT GROWING, which the corpus doctrine treats as a regression and not as a re-pin;
+- with the softest consequence available (fall through to the ordinary `terminateEdgesAtPoint` on the collision): four
+  assertions move, including `NEAR_REGULAR_ROSETTE5_40` at 1e11 leaving one unresolved edge where two are pinned (an
+  unattributed CURE) and the 48-way cluster at 2e10 shattering into 12 nodes where 11 are pinned.
+
+Both outcomes rewrite the corpus's failure register, which is the lead's call and not a delegate's, and no §4 weighted
+fixture reaches this branch, so nothing is currently measuring what the check would buy. The closure therefore stands
+on the raw separation exactly as it did before weights, and the gap is reported rather than papered over.
+
+### The pair event's later reading, against the full-graph digest
+
+*Moved from collision-helpers.ts, `collideInteriorEdges`.*
+
+One event must carry one time, and until the later-reading rule existed it did not: one physical arrival reached the
+solver as two events with two different offsets (the `OFF_EDGE_JITTER_L_SEED_55433_K4` readings of `ie42 x ie52` remain
+stated at the site). The walls were measured as not concurrent before the correction was written.
+
+**What it cost the corpus, measured against a full-graph digest of all 59 fixtures.** Five of them — `Near Regular
+Peanut 32`, `Near Regular Ellipse 32`, `Slightly Deformed Peanut 1` and `2`, and `Near Regular Rosette5 40` — moved by a
+node COORDINATE and nothing else: same nodes, same in and out edges, same parents, worst movement 1.17e-13 in caller
+units on a 500-unit extent, which is 2.3e-16 of extent and so under an ulp of the shape. The layer window and the
+coincidence medoid both read this offset, and a member set at the window's edge is what shifted. The other 54 were
+bit-identical. Three instrument counters moved with it and were re-pinned where they live:
+`near-regular-ring-loss-diagnosis` 40 to 33 fired, `offset-event-boundary-regression` 179 to 176 fired — both with
+`silentLosses` still empty, so those mutations became HARMLESS rather than unreported — and
+`large-coordinate-known-failures`' half-merge split, [12,40] to [10,40].
