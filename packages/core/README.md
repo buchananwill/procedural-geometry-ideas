@@ -14,7 +14,7 @@ Ships ESM + CJS with bundled type declarations. The only runtime dependency is
 
 | Module              | What it does                                                                        |
 |---------------------|-------------------------------------------------------------------------------------|
-| **Straight skeleton** | Computes the straight skeleton of a simple polygon, including reflex/split events. |
+| **Straight skeleton** | Computes the straight skeleton of a simple polygon, with or without holes, including reflex/split events. |
 | **Random polygon**    | Generates random non-self-intersecting polygons from tunable parameters.           |
 | **Stroke → spline**   | Turns raw pointer-capture samples into a fitted cubic Bézier spline.               |
 | **D0L system**        | Deterministic context-free L-systems with turtle interpretation.                   |
@@ -22,7 +22,7 @@ Ships ESM + CJS with bundled type declarations. The only runtime dependency is
 Everything is exported from the package root:
 
 ```ts
-import { runAlgorithmV5, runStrokePipeline, generateRandomPolygon } from '@proc-geo/core';
+import { solveSkeleton, runStrokePipeline, generateRandomPolygon } from '@proc-geo/core';
 ```
 
 ---
@@ -34,10 +34,9 @@ its edges move inward at equal speed. It underpins roof generation, straight-lin
 approximation.
 
 ```ts
-import { runAlgorithmV5 } from '@proc-geo/core';
+import { solveSkeleton } from '@proc-geo/core';
 import type { Vector2 } from '@proc-geo/core';
 
-// Clockwise winding — see the warning below.
 const polygon: Vector2[] = [
   { x: 0, y: 0 },
   { x: 0, y: 120 },
@@ -45,42 +44,99 @@ const polygon: Vector2[] = [
   { x: 200, y: 0 },
 ];
 
-const context = runAlgorithmV5(polygon);
-const graph = context.graph; // nodes + edges of the completed skeleton
+const result = solveSkeleton(polygon);
+result.complete;    // true when the skeleton is fully resolved and can be trusted
+result.diagnostics; // what the boundary stage did to the input, and anything that went wrong
+result.graph;       // nodes + edges of the skeleton
 ```
 
-For this rectangle the result has 6 nodes and 10 edges: the 4 original corners plus the two ridge nodes where the
-bisectors meet.
+For this rectangle the graph has 6 nodes and 10 edges: the 4 original corners plus the two ridge nodes where the
+bisectors meet. The solve is `complete` with no diagnostics.
 
-> **Input must be wound clockwise.** Counter-clockwise input does *not* throw — the solver logs
-> `Skeleton remains incomplete` at `warn` level and returns a graph containing only the original boundary, with no
-> interior edges. If your winding is not already guaranteed, normalize first:
->
-> ```ts
-> import { ensureClockwiseSkeleton } from '@proc-geo/core';
->
-> const context = runAlgorithmV5(ensureClockwiseSkeleton(polygon));
-> ```
+> **Winding is normalised for you.** By default the outline is wound clockwise and every hole counter-clockwise
+> before solving, and a reversal is reported as a `winding-normalised` diagnostic, which does not make the result
+> incomplete. Pass `normaliseWinding: false` to say your winding is already right: a counter-clockwise single loop then
+> yields an unresolved skeleton, and a holed input with a mis-wound loop is refused by a throw.
 >
 > Note that "clockwise" is measured in the coordinate system you supply. Screen coordinates put y downward, so a
 > polygon that looks clockwise on screen is counter-clockwise numerically. `isClockwise` is exported if you want to
 > check.
 
-`runAlgorithmV5` takes at least three vertices and **throws** below that. Self-intersecting input is decomposed
-automatically (`decomposePolygon`) and the sub-results merged (`mergeSkeletonGraphs`).
+`solveSkeleton(vertices, options?)` takes these options (`SolveSkeletonOptions`), all optional:
 
-The returned `StraightSkeletonSolverContext` exposes the graph plus the solver's edge-lookup helpers. Exterior edges
-(the original polygon boundary) and interior edges (the bisector rays generated during the run) are tracked separately;
-interior edge IDs begin at `graph.numExteriorNodes`.
+| Option             | Meaning                                                                                              |
+|--------------------|------------------------------------------------------------------------------------------------------|
+| `holes`            | The outline's holes, each a `SkeletonHole`: `{ vertices, weights? }`. Omitted or empty is a single loop. |
+| `weights`          | The outline's per-edge wavefront speeds, one per vertex: `weights[i]` is the edge from vertex `i` to `i + 1`. Omitted is all ones. |
+| `normaliseWinding` | Wind the loops before solving, as above. Defaults to `true`.                                         |
+| `perceptualFloor`  | The smallest separation the client can render, in unit space (a fraction of the polygon's extent). Defaults to `SKELETON_NOISE_FLOOR`. |
+| `noiseFloor`       | The canonicalisation bar, in unit space. Defaults to `perceptualFloor`; set by the recursion driver, and best left alone. |
+
+It returns a `SkeletonSolveResult`:
+
+| Field           | Meaning                                                                                                 |
+|-----------------|---------------------------------------------------------------------------------------------------------|
+| `graph`         | The `StraightSkeletonGraph`: nodes, exterior and interior edges, and `loops`, the loop table.           |
+| `context`       | The `StraightSkeletonSolverContext`, with the solver's edge-lookup helpers, or `null` when the input self-intersected and was decomposed and merged. |
+| `complete`      | `true` when no blocking diagnostic was raised and the graph has at least one interior edge.            |
+| `diagnostics`   | `SkeletonDiagnostic[]`, each a `kind` and a `detail` line. `isBlockingDiagnosticKind` says which kinds make a result incomplete. |
+| `normalisation` | The unit-extent transform the solve ran in, already undone on `graph` and `context`.                    |
+| `weights`       | The per-exterior-edge weights the solve ran on, normalised to a minimum of `1`, every loop's concatenated. |
+| `loopMaps`      | Per loop, the outline first and then each hole, where each caller vertex and edge landed in the graph; `null` exactly when `context` is. |
+
+Exterior edges (the original boundary) and interior edges (the bisector rays generated during the run) are tracked
+separately; interior edge IDs begin at `graph.numExteriorNodes`. Self-intersecting single-loop input is decomposed
+automatically (`decomposePolygon`), the sub-results merged (`mergeSkeletonGraphs`), and a `self-intersecting`
+diagnostic says so.
+
+`solveSkeleton` **throws** a `SkeletonInputRefusal`, whose `kind` names the rule broken, when the input cannot be
+solved at all: a loop of fewer than three vertices or with a non-finite coordinate, a weight refused at the door, a
+mis-wound loop under `normaliseWinding: false`, or loops that cross, touch or nest wrongly.
+
+### Holes
+
+An outline may carry holes, passed on `options.holes`. Each hole may be wound either way, and may carry its own
+`weights`:
+
+```ts
+const outline: Vector2[] = [
+  { x: 0, y: 0 },
+  { x: 0, y: 10 },
+  { x: 10, y: 10 },
+  { x: 10, y: 0 },
+];
+const courtyard: Vector2[] = [
+  { x: 4, y: 4 },
+  { x: 6, y: 4 },
+  { x: 6, y: 6 },
+  { x: 4, y: 6 },
+];
+
+const holed = solveSkeleton(outline, { holes: [{ vertices: courtyard }] });
+holed.loopMaps; // per loop (outline first, then each hole): caller vertex -> exterior node
+```
+
+This concentric square solves `complete`, with the ridge square (2,2)–(8,8): 4 interior nodes and 16 interior edges.
+A holed solve can be refused by name where events of several rings coincide in a form the solver does not settle; the
+refusal is a `simultaneous-across-rings` or `multi-ring-step-refused` diagnostic, and `complete` is then `false`.
 
 ### Stepping through a run
 
-For visualization or debugging, `runAlgorithmV5Stepped` returns snapshots instead of just the final state, and reports
-failure by return value rather than throwing:
+For visualization or debugging, `solveSkeletonStepped` runs the same solve, holes and options included, and returns a
+snapshot of the graph after initialisation and after every step, each in the caller's coordinates. It throws exactly
+what `solveSkeleton` throws:
 
 ```ts
-const { snapshots, error } = runAlgorithmV5Stepped(polygon);
+import { solveSkeletonStepped } from '@proc-geo/core';
+
+const { snapshots, result: stepped, firstFailedSnapshot } = solveSkeletonStepped(polygon);
 ```
+
+`stepped` is what `solveSkeleton` returns, and `firstFailedSnapshot` is the snapshot after the first step that
+recorded a failure, or `null`.
+
+The older entries `runAlgorithmV5` and `runAlgorithmV5Stepped` are **deprecated**: they take no holes and have no
+diagnostics channel. Use `solveSkeleton` and `solveSkeletonStepped`.
 
 ### Logging
 
