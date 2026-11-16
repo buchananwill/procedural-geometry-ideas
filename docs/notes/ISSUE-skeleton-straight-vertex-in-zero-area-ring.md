@@ -2,11 +2,25 @@
 title: "Skeleton: a straight vertex between collinear hole walls is left in a ring of zero area"
 type: issue
 area: straight-skeleton
-status: open
+status: resolved
 date: 2026-11-15
+verified_by:
+  - packages/core/tests/straight-skeleton/holed-flat-and-third-front.test.ts
+  - apps/building-shell/tests/holed-fixtures.test.ts
 ---
 
 # Skeleton: a straight vertex between collinear hole walls is left in a ring of zero area
+
+**RESOLVED 2026-11-16 for steps of several rings** by the build of
+[the flat-ring and third-front spec](./skeleton-flat-ring-and-third-front-decisions.md) (BSA.D348; built `8e14378` to
+`add41b8`, revised at `ad8b323`, BSA.D354). The first cure below is the one built, generalised: a ring a multi-ring
+layer leaves that is flat by a positive test is a finished piece of skeleton and is closed in its step. `2h-int-1` is
+sound with its node at `(5.5, 10)`, and `2h-int-86`, `2h-int-144` and `2h-int-371` are sound, in
+`holed-flat-and-third-front.test.ts` (`flat-ring termination: the issue note's fuzz cases (decision 50)`); the five
+layouts below are holed fixtures, each sound by the roof checker and the L∞ oracle in
+`apps/building-shell/tests/holed-fixtures.test.ts`. Both files are green. The single-loop forms of the family stay
+with [the umbrella note on collinear walls](./ISSUE-skeleton-straight-bisector-between-collinear-walls.md), and a flat
+ring of a one-ring step is that spec's Deferred item. The text below is the record of the defect as it stood.
 
 Found by the courtyard fuzz run during the work on
 [the simultaneous-rings spec](./skeleton-simultaneous-rings-decisions.md) (roadmap node 5). Before that unit, the

@@ -2,11 +2,25 @@
 title: "Skeleton: a meeting of three fronts at one point is refused (two courtyards a wall apart)"
 type: issue
 area: straight-skeleton
-status: open
+status: resolved
 date: 2026-11-15
+verified_by:
+  - packages/core/tests/straight-skeleton/holed-flat-and-third-front.test.ts
+  - apps/building-shell/tests/holed-fixtures.test.ts
 ---
 
 # Skeleton: a meeting of three fronts at one point is refused (two courtyards a wall apart)
+
+**RESOLVED 2026-11-16** by the build of [the flat-ring and third-front spec](./skeleton-flat-ring-and-third-front-decisions.md)
+(BSA.D348; built `8e14378` to `add41b8`, revised at `ad8b323`, BSA.D354). Its third-front rule resolves the meeting as
+one whole event: the gap that faces the struck wall is not born, and the wall is cut at the node. E′ solves to its
+closed form below, in `holed-flat-and-third-front.test.ts` (`the third-front rule: E′ against its closed form
+(decision 50)`, with E′ translated, turned and weighted), and the five layouts below are holed fixtures, each sound by
+the roof checker and the L∞ oracle in `apps/building-shell/tests/holed-fixtures.test.ts`. Both files are green. What
+stays refused is that spec's decision 53: a vertex event across rings of more than two runs (simultaneous-rings
+decision 21), whose specimens are grid draws `uniform-1-523` and `uniform-1-1977`, and the third-front refusals of its
+decision 44, of which no specimen is kept. The section "Why the links cannot pair more than two runs" still explains
+the first. The text below is the record of the refusal as it stood.
 
 Recorded under [the simultaneous-rings spec](./skeleton-simultaneous-rings-decisions.md), decisions 22 and 44
 (BSA.D311). **The solver refuses this input by name. It does not solve it.** The refusal is a guard in production code

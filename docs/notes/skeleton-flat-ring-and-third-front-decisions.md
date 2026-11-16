@@ -2,10 +2,16 @@
 title: "Skeleton flat-ring termination and the third-front rule: decision spec"
 type: decision-spec
 area: straight-skeleton
-status: implementing
+status: completed
 date: 2026-11-15
 part_of: [holed-skeleton-roadmap.md, ISSUE-skeleton-three-front-meeting-refused.md, ISSUE-skeleton-straight-vertex-in-zero-area-ring.md]
 depends_on: [skeleton-simultaneous-rings-decisions.md]
+verified_by:
+  - packages/core/tests/straight-skeleton/holed-flat-and-third-front.test.ts
+  - "what stays refused (decision 21; flat-ring and third-front spec, decision 53)"
+  - apps/building-shell/tests/holed-fixtures.test.ts
+  - "grid 1: 2,000 two-courtyard islands, seed 1 (decision 54)"
+  - "grid 2: 1,000 equal-gap islands, seed 2 (decision 54)"
 ---
 
 # Skeleton flat-ring termination and the third-front rule: decision spec
@@ -338,6 +344,13 @@ BSA.D336).
 - **[The holed roof spec](./building-shell-holed-roof-decisions.md):** decisions 41 to 43 and 58 describe a set this
   removes. **[The dashboard holed spec](./dashboard-holed-fixtures-decisions.md):** decision 51's specimen is replaced.
 - **CLAUDE.md** and the courtyard tests' comments that call these layouts refused.
+
+**Made 2026-11-16** (BSA.D365, the entropy pass's P8b), each as an amendment line under the decision it touches: node
+5's decisions 15, 24, 26, 29, 38, 39, 40 and 44 and its Deferred item; both issue notes resolved; the holed roof spec's
+decisions 41 to 43 and 58; the dashboard holed spec's decision 51. **Not made:** node 5's decision 22, which this
+spec's decision 31 and `pairwiseLayerRefusal` still cite as live for a layer not resolved whole, so it is not replaced
+whole; it is left for the lead. The courtyard tests' comments already read the layouts as cured, and CLAUDE.md
+called none of them refused.
 
 ## 6. The lead's rulings, and what the build must settle
 

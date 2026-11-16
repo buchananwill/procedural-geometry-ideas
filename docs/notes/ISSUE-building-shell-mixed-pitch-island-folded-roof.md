@@ -2,11 +2,19 @@
 title: "Building Shell: a single-loop island of mixed pitch can be roofed with a folded roof and no refusal"
 type: issue
 area: building-shell
-status: open
+status: resolved
 date: 2026-11-15
+verified_by: [apps/building-shell/tests/mixed-pitch-island.test.ts]
 ---
 
 # Building Shell: a single-loop island of mixed pitch can be roofed with a folded roof and no refusal
+
+**RESOLVED 2026-11-16.** The four specimens' tests in
+[mixed-pitch-island.test.ts](../../apps/building-shell/tests/mixed-pitch-island.test.ts), `S13R20`, `S7R26`, `S15R29`
+and `M4902`, have been green since `ec96bc4` (BSA.D335 stage 1), with the control beside them: of two simultaneous
+events on one bisector, the solver's pairwise fallback now resolves the nearer along its ray first. Neither cure below
+was built; the cure was that change to core's event ordering (BSA.F108). Each specimen is kept as a passing test of its
+sound roof. The text below is the record of the defect as it stood.
 
 Found by the independent review of roadmap node 9 (BSA.F105) and filed for the user by BSA.D326. **It predates the
 holed-roof arc:** the reviewer found it identical at `9c0389a`, the arc's parent commit, and node 9's closing pass

@@ -249,6 +249,11 @@ loop table on the primary-bisector preview.
     fails when core has a blocking kind with no heading.
 51. **Decision 44's refusal specimen is node 5's E′** (the outline `[0,21]×[0,10]` with holes `[3,9]×[3,7]` and
     `[12,18]×[3,7]`), since the concentric square solves. Decision 46's `firstFailedSnapshot` test uses it too.
+    **AMENDED 2026-11-16** (BSA.D348; [flat-ring and third-front spec](./skeleton-flat-ring-and-third-front-decisions.md),
+    decision 53 and §6 item 7): E′ is solved by the third-front rule, so the refusal specimen is grid draw
+    `uniform-1-523`, a vertex event across rings of three runs that core refuses by name and that meets the
+    step-through tests (more than one frame). It is `REFUSAL_SPECIMEN` in the dashboard's
+    `tests/fixtures/holed-specimens.ts`, and replaces E′ in core's `solve-skeleton-stepped.test.ts` too.
 52. **A holed fixture whose result the guard marks incomplete is drawn as incomplete** under decisions 30 and 37, so a
     skeleton the solver itself distrusts never reads as finished.
 53. **This unit's first commit is the five small fixes of node 6's review** (BSA.D316), which touch core's tests, the

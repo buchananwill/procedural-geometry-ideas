@@ -134,6 +134,9 @@ with two pieces on the instigator's ring. Node 4's F1 to F7: unmoved.
 14. **A ring of two whose births share one node is closed there, unborn** (edge-acceptance decision 32, node 4
     decision 52): this is a ridge of no length.
 15. **Rings of three bisectors or more keep node 4's classification** by area sign and witness, and keep its refusal.
+    **AMENDED 2026-11-16** (BSA.D348; [flat-ring and third-front spec](./skeleton-flat-ring-and-third-front-decisions.md),
+    decisions 7 to 27): narrowed to rings of three or more that are not flat. A ring a multi-ring layer leaves whose area
+    is at or under the degenerate-area bar and that passes the flatness test is closed in its step and leaves no child.
 
 ### Several events in one layer
 
@@ -174,6 +177,8 @@ with two pieces on the instigator's ring. Node 4's F1 to F7: unmoved.
 24. **`multi-ring-step-refused` keeps exactly node 4's three causes,** except for the rings of two of decision 12:
     a multi-ring step with no event; one with a ring of fewer than three bisectors at its start; and an
     unclassifiable ring of three or more.
+    **AMENDED 2026-11-16** (BSA.D348; flat-ring and third-front spec, decisions 28 and 29): a fourth cause, a ring flat
+    by area that fails the flatness test, refused naming the clause it fails, with no ring of the layer closed.
 25. **The terminal ladder stays barred for multi-ring steps** (node 4 decision 23). Every fixture reaches its terminal
     states through one-ring children, so no multi-ring form is designed.
 
@@ -181,6 +186,9 @@ with two pieces on the instigator's ring. Node 4's F1 to F7: unmoved.
 
 26. **Termination needs nothing new.** A's root layer leaves four rings of two, which close as decision 11 describes.
     No step input remains, and the solve ends as a single loop's does (node 4 decision 24).
+    **AMENDED 2026-11-16** (BSA.D348; flat-ring and third-front spec, decisions 22 to 27): a flat ring a multi-ring
+    layer leaves is a finished piece of skeleton, closed in its step: its members end at its nodes, a stretch no level
+    member runs along is born as one ridge, every member and ridge is accepted, and it leaves no child.
 27. **Acceptance is the approved predicate, unchanged:** at the step boundary after the corridors close, no live
     bisector names a wall, so every wall is accepted there.
 28. **Each wall's face closes.** It is the wall, its two corner bisectors, and the ridge half-edge that names it. The
@@ -193,6 +201,9 @@ with two pieces on the instigator's ring. Node 4's F1 to F7: unmoved.
     two pieces of a segment standing on the instigator's ring. On one ring, rings only divide within a layer: a split, a
     vertex-to-vertex event and a merge gap each divide, and nothing joins. So each ring holds at most one piece, by
     induction over the layer's cuts. Measured: 0 of 60 corpus solves reach it.
+    **AMENDED 2026-11-16** (BSA.D348; flat-ring and third-front spec, decisions 1 to 6): the flat-ring termination and
+    the third-front rule are guarded the same way, by the step having more than one ring; a step of one ring keeps its
+    dispatch, flat rings of one-ring steps included.
 30. **No tolerance, window, constant or comparison moves.** Decision 12 reads a ring's size. Decision 17 reads the
     sign test already in `linkSplit`. The window, the moment bar and δ are unchanged.
 31. **A divergence on a single-loop roster is diagnosed** under stage 1 decision 31 and BSA.D284. None is expected.
@@ -243,6 +254,10 @@ with two pieces on the instigator's ring. Node 4's F1 to F7: unmoved.
 38. **Every solved fixture asserts node 4 decision 42's battery** and its closed form to `1e-9` of the extent; C2 and C1
     as decision 33 says. **E′** asserts its refusal by name: `complete: false`, `simultaneous-across-rings`, the
     message of decision 22, and no node made.
+    **AMENDED 2026-11-16** (BSA.D348): E′ is no longer refused. The third-front rule solves it, and the flat-ring and
+    third-front spec's decision 50 asserts its closed form (`holed-flat-and-third-front.test.ts`). The refusal
+    specimen is grid draw `uniform-1-523`, a vertex event across rings of three runs refused under decision 21 (that
+    spec's §6 item 7), asserted in `what stays refused (decision 21; flat-ring and third-front spec, decision 53)`.
 39. **Mutation gates, each turning a test red:**
     - Decision 12 removed: A, A′, B, C1, C2, D, E and F are refused.
     - `crossRingRuns` always `undefined`: A′ is refused. A to F pass pairwise, so A′ alone convicts it.
@@ -252,9 +267,15 @@ with two pieces on the instigator's ring. Node 4's F1 to F7: unmoved.
 
     A unit test of `crossRingRuns` holds its cases: one run on each of two rings; two runs on one ring with a third
     ring; three rings; a whole ring.
+    **AMENDED 2026-11-16** (BSA.D348): the gate "decision 22 removed" becomes the flat-ring and third-front spec's
+    decision 55: choosing the clear gap turns E′ red, and refusing before the layer instead of resolving turns the cured
+    building-shell layouts red.
 40. **Single-loop identity is held by node 4 decision 40's gates:** the digests, the sweep harness, the census and
     building-shell's goldens. A measuring run must count zero multi-ring steps, zero strikes with two pieces on the
     ring, and zero cross-ring merges over those rosters.
+    **AMENDED 2026-11-16** (BSA.D348; flat-ring and third-front spec, decisions 3 and 4): the gates add the probe's
+    count of zero firings of either rule over the single-loop rosters at both floors, the weighted fixtures and the
+    642-cell sweep, and byte-identical holed digests and goldens wherever neither rule fires.
 
 ### Amendments to earlier specs
 
@@ -280,6 +301,9 @@ with two pieces on the instigator's ring. Node 4's F1 to F7: unmoved.
     every gap equal, is a realistic footprint. Its refusal test is green because it asserts the guard, never a wrong
     skeleton; and `ISSUE-skeleton-three-front-meeting-refused.md` records the input, the true skeleton of the Deferred
     section, and why the links cannot pair more than two runs.
+    **AMENDED 2026-11-16** (BSA.D348): discharged. E′ is solved by the third-front rule and the issue note is
+    resolved; what stays refused is the flat-ring and third-front spec's decision 53, each refusal a guard by name with
+    a green test.
 45. **Decision 33 is settled by BSA.D309:** the clearance and offset oracles compare times. C1 and C2 assert no
     causality diagnostic, like every other fixture, and nothing of the oracle's is pinned.
 46. **The whole-event resolution of decision 7 is kept over the smaller pairwise change,** on A′'s evidence: a pairwise
@@ -290,6 +314,9 @@ with two pieces on the instigator's ring. Node 4's F1 to F7: unmoved.
 - **Meetings of more than two runs, or on a third front (E′):** these need an angular pairing around the node, which
   the links do not carry. They stay refused, and E′'s true skeleton is the ridge rectangle (1.5,1.5)–(19.5,8.5) plus
   the ridge x = 10.5.
+  **AMENDED 2026-11-16** (BSA.D348): narrowed to meetings of more than two runs and the refusals of the flat-ring and
+  third-front spec's decision 44. A third-front meeting of a layer resolved whole, E′'s among them, is resolved by that
+  spec's decisions 30 to 42.
 - **Whether a weighted fixture's oracle reports are pinned (C2, F4):** the lead's ruling under BSA.D307.
 - **The holed roster and the loop-aware consumers:** node 6. **The dashboard:** node 7. **Building-shell:** node 9,
   whose spec should name this one in `depends_on` (BSA.D306).

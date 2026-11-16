@@ -235,6 +235,12 @@ a single-pitch island it also asserts each node's and sample's height against `d
 25. **Every hip solid has its bottom at the plate, triangulated from `compLoops`, and `plateCap` goes.** A holed hip
     solid stood from the floor only because the hip fell to the plate along the slit, which Manifold could take as a
     diagonal (BSA.D132). With no slit, the roof meets the plate only at its eaves, as on every island.
+    **AMENDED 2026-11-16** (BSA.D326; decision 59): built otherwise. A holed island's hip solid stands from the floor,
+    its sides and floor the wall prism's own (`extrudeOutline` with no plate cap), and only an island with no hole has
+    its bottom at the plate (`plateBottom`). With the bottom at the plate, 36 all-gable split-band courtyards that built
+    clean failed in Cell laying: the union left a tuck where a gable piece and a covered rise stand back to back. The
+    reason this decision gave was reasoning that was never built. The fix is at `96148ec`, convicted by flipping the
+    solid back to the plate, which turns 38 tests red.
 26. **A gable piece's footprint trim is `compLoops(comp)`, the island with its holes.** `farWall` already stops the
     rectangle at a hole's near wall, so the trim moves nothing where that holds and keeps a piece off a hole where it
     does not. An island with no hole trims as today.
@@ -302,13 +308,22 @@ a single-pitch island it also asserts each node's and sample's height against `d
 41. **The regression is stated plainly: 8 footprints that build clean today are refused.** `CourtL`, `JutMidWall`,
     `BandRunsOnPastCut` and its y-mirror are refused as `simultaneous-across-rings`. `JutAlignedS`, `JutAlignedN`,
     `JutBelowCutLine` and its y-mirror are refused as `multi-ring-step-refused`.
+    **AMENDED 2026-11-16** (BSA.D348): the regression is cured. The skeleton's flat-ring and third-front rules solve all
+    8, and they are holed fixtures (flat-ring and third-front spec, decision 52), each sound in `holed-fixtures.test.ts`.
 42. **`HOLED_REFUSALS` holds those 8 with `TwoHolesProbe` and the draft's `TwoCourtyards`.** Each entry gives its Rings,
     its skeleton kind and its issue note: `ISSUE-skeleton-three-front-meeting-refused.md` for
     `simultaneous-across-rings`, and `ISSUE-skeleton-straight-vertex-in-zero-area-ring.md` for
     `multi-ring-step-refused`. Each note gains its specimens' Rings.
+    **AMENDED 2026-11-16** (BSA.D348): all 10 are cured and are `HOLED_FIXTURES` entries, with the user's `CourtL-draft`
+    beside them. `HOLED_REFUSALS`, in `src/fixture.ts`, holds grid draws `uniform-1-523` and `uniform-1-1977`
+    (`GridDraw523`, `GridDraw1977`), refused as `simultaneous-across-rings` under simultaneous-rings decision 21, a vertex
+    event across rings of three runs (flat-ring and third-front spec, decision 53 and §6 item 7). Both issue notes are
+    resolved.
 43. **Each entry's test asserts decision 17's hard error with the island and its kind,** and so is green on a guard in
     production code, as BSA.D311 reads BSA.D266 for a refusal by name. A cure turns it red, and the entry is promoted
     to a fixture. None is asserted as roofed.
+    **AMENDED 2026-11-16** (BSA.D348): as foreseen, the cure turned the 10 entries' tests red and each was promoted to
+    a fixture. The two entries that remain are asserted the same way.
 
 ### Goldens and pins
 
@@ -389,6 +404,9 @@ a single-pitch island it also asserts each node's and sample's height against `d
     nothing about how often an editor's user would meet the refusal.
 58. **The viewer's failure panel shows decision 17's message whole,** and the catalogue marks each `HOLED_REFUSALS`
     entry as refused with its cause, so a refused layout can be loaded and looked at.
+    **AMENDED 2026-11-16** (BSA.D348, BSA.D356): the entries the catalogue marks are now the two grid draws of decision
+    42's amendment; the 10 cured layouts load as holed fixtures. The viewer's roster is one export, `viewer/rosters.ts`
+    (`LISTED_FIXTURES`, `REFUSED_LAYOUTS`).
 
 59. **Decision 25 is REVERSED (BSA.D326, BSA.D327): a holed island's hip solid stands from the floor, as it did under
     the cut, and only an island with no hole has its bottom at the plate.** Built with its bottom at the plate, 36
