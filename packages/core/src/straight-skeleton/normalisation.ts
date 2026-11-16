@@ -1,6 +1,7 @@
 import {
     CollisionCache,
     StraightSkeletonGraph,
+    StraightSkeletonSolverContext,
     Vector2,
 } from './types';
 
@@ -371,4 +372,15 @@ export function denormaliseCollisionCache(cache: CollisionCache, normalisation: 
             }
         }
     }
+}
+
+/**
+ * Carry a solver context the solver has finished with back into the caller's coordinates, IN PLACE: its graph, its
+ * collision memo and its node position budgets, in that order, because all three are handed to the caller and any
+ * one left in unit space would answer in the wrong units. Once per context, as {@link denormaliseGraph}.
+ */
+export function denormaliseContext(context: StraightSkeletonSolverContext, normalisation: SkeletonNormalisation): void {
+    denormaliseGraph(context.graph, normalisation);
+    denormaliseCollisionCache(context.collisionCache, normalisation);
+    denormalisePositionUncertainties(context.positionUncertainties, normalisation);
 }

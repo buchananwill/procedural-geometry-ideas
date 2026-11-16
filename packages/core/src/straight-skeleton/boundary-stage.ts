@@ -1,6 +1,16 @@
-import {PerceptualFloorOptions, SkeletonLoopMap, Vector2, WeightOptions} from "./types";
+import {
+    PerceptualFloorOptions,
+    SkeletonDiagnostic,
+    SkeletonHole,
+    SkeletonLoop,
+    SkeletonLoopMap,
+    Vector2,
+    WeightOptions,
+} from "./types";
 import {crossProduct, makeBasis} from "./core-functions";
 import {maxWeightRatio, minWeightTurnSine} from "./constants";
+import {isClockwise} from "./planar-geometry";
+import {describeLoopConflict, findLoopConflict, isDegenerateHole} from "./skeleton-loops";
 import {SkeletonNormalisation, makeSkeletonNormalisation, normalisePolygon} from "./normalisation";
 import {
     CanonicalPolygon,
@@ -11,31 +21,9 @@ import {
 
 /*
  * THE BOUNDARY STAGE: what happens to a caller's loops before the solver sees them — the vertex checks, the weight
- * door, canonicalisation in unit space, and each loop's map onto the solved graph.
+ * door, canonicalisation in unit space, winding, the loop relations and each loop's map onto the solved graph —
+ * stated once, as {@link prepareBoundary}, for every solve entry.
  */
-
-/**
- * The boundary stage the two LEGACY entry points share: carry the polygon to unit extent, then
- * canonicalise it there against the standing noise floor.
- *
- * Stated once because it is one decision, not two: both entry points must hand the solver the same
- * polygon for the stepped snapshots to describe the solve `runAlgorithmV5` performs. Neither has a
- * diagnostics channel, so the removal is SILENT in both — which is what makes them legacy, and why
- * `solveSkeleton` keeps its own copy of the sequence: it reports what was removed, and it honours a
- * region-space `noiseFloor` override, and neither of those belongs here.
- *
- * THE PERCEPTUAL FLOOR IS THE ONE OPTION THESE TWO DO HONOUR (journal decision 106), because the
- * dashboard explorer drives them and the whole point of the option is that a client's renderer, not
- * this module, decides what can be seen. It is a single scale-free value, not a region pass-down.
- */
-export function canonicaliseInUnitSpace(
-    nodes: Vector2[],
-    normalisation: SkeletonNormalisation,
-    perceptualFloor: number,
-    pinnedIndices: readonly number[] = [],
-): CanonicalPolygon {
-    return canonicalisePolygon(normalisePolygon(nodes, normalisation), perceptualFloor, pinnedIndices);
-}
 
 /**
  * What the boundary stage does to a caller's ring: the surviving vertices and, on `indexRemap`,
@@ -49,11 +37,15 @@ export function canonicaliseInUnitSpace(
  * the graph was right every time. `indexRemap[i]` is the exterior node the caller's vertex `i`
  * became, or {@link REMOVED_VERTEX_INDEX} where it was removed as invisible.
  *
- * ONE SPELLING WITH THE SOLVE ITSELF — {@link canonicaliseInUnitSpace} is this function's
- * `vertices`, so a caller's remap cannot describe a different boundary from the one the solver
- * saw. It DOES NOT describe the self-intersecting path: `decomposePolygon` rebuilds the rings and
- * `mergeSkeletonGraphs` renumbers again, so a caller must check the survivor count against the
- * graph's `numExteriorNodes` before trusting the mapping.
+ * THE SOLVE'S CANONICALISATION, ASKED ALONE: the polygon carried to unit extent by the same transform, then
+ * `canonicalisePolygon` at the perceptual floor with the weight-change vertices pinned, as
+ * {@link prepareBoundary} canonicalises a single loop for the legacy entries, so a caller's remap cannot
+ * describe a different boundary from the one the solver saw. It DOES NOT describe the self-intersecting
+ * path: `decomposePolygon` rebuilds the rings and `mergeSkeletonGraphs` renumbers again, so a caller must
+ * check the survivor count against the graph's `numExteriorNodes` before trusting the mapping.
+ *
+ * NOT FOLDED INTO {@link prepareBoundary} (BSA.D356): it checks no vertex count and no finiteness, and
+ * passes the weight door only when the caller gives weights, so it refuses nothing it did not refuse before.
  */
 export function canonicaliseForSolve(
     vertices: Vector2[],
@@ -67,8 +59,7 @@ export function canonicaliseForSolve(
     const pinned = options?.weights === undefined || options.weights.length === 0
         ? []
         : weightChangeVertexIndices(weightsAtTheDoor(unitVertices, options.weights, resolvePerceptualFloor(options)));
-    return canonicaliseInUnitSpace(
-        vertices, normalisation, resolvePerceptualFloor(options), pinned);
+    return canonicalisePolygon(unitVertices, resolvePerceptualFloor(options), pinned);
 }
 
 /**
@@ -84,7 +75,7 @@ export function canonicaliseForSolve(
  *
  * The index is the caller's own, taken before canonicalisation can renumber anything.
  */
-export function nonFiniteVertexComplaint(vertices: readonly Vector2[]): string | undefined {
+function nonFiniteVertexComplaint(vertices: readonly Vector2[]): string | undefined {
     for (let index = 0; index < vertices.length; index++) {
         const {x, y} = vertices[index];
         if (!Number.isFinite(x) || !Number.isFinite(y)) {
@@ -94,11 +85,15 @@ export function nonFiniteVertexComplaint(vertices: readonly Vector2[]): string |
     return undefined;
 }
 
-export function assertVerticesAreFinite(vertices: Vector2[]): void {
-    const complaint = nonFiniteVertexComplaint(vertices);
-    if (complaint !== undefined) {
-        throw new Error(complaint);
+/**
+ * Decision 16: the complaint about a loop's vertex count, else about its first non-finite vertex, or `undefined`
+ * when the loop can be solved. Unprefixed; a refusal of a hole adds the hole's name.
+ */
+export function loopSolvabilityComplaint(vertices: readonly Vector2[]): string | undefined {
+    if (vertices.length < 3) {
+        return "Must have at least three nodes to perform algorithm";
     }
+    return nonFiniteVertexComplaint(vertices);
 }
 
 /*
@@ -111,7 +106,7 @@ export function assertVerticesAreFinite(vertices: Vector2[]): void {
  * solver used to call an offset is that edge's arrival TIME, `distance / weight`.
  *
  * EVERY REFUSAL HERE IS A THROW, NOT A DIAGNOSTIC, and every one of them names the offender. The
- * reason is the one `assertVerticesAreFinite` already states: `diagnostics` reports a solve that ran
+ * reason is the one {@link nonFiniteVertexComplaint} already states: `diagnostics` reports a solve that ran
  * and came back degraded, while these are inputs the solver cannot solve at all. All three run
  * BEFORE canonicalisation, so the index in the message is the caller's own, before any renumbering
  * (arc decision 124(b)).
@@ -267,10 +262,10 @@ function normaliseWeights(weights: readonly number[], minimum: number = Math.min
  * space (W-spec N19) — while the indices reported are the caller's own, which they still are because
  * nothing has been renumbered yet.
  *
- * The door of ONE LOOP: the one-loop case of {@link weightsAtTheDoorForLoops}, so the legacy entries and
- * `canonicaliseForSolve` pass the door `solveSkeleton` does.
+ * The door of ONE LOOP: the one-loop case of {@link weightsAtTheDoorForLoops}, so `canonicaliseForSolve` passes
+ * the door the solve entries do.
  */
-export function weightsAtTheDoor(
+function weightsAtTheDoor(
     unitVertices: readonly Vector2[],
     weights: readonly number[] | undefined,
     perceptualFloor: number,
@@ -289,7 +284,7 @@ export function weightsAtTheDoor(
  * test reads `Δw` against that one smallest weight. With one loop every global quantity is that loop's, and this
  * is the door as it always ran, check for check.
  */
-export function weightsAtTheDoorForLoops(
+function weightsAtTheDoorForLoops(
     unitLoops: readonly (readonly Vector2[])[],
     callerLoops: readonly CallerLoop[],
     perceptualFloor: number,
@@ -331,7 +326,7 @@ export function weightsAtTheDoorForLoops(
  * UNIT WEIGHTS PIN NOTHING: with every weight equal this returns an empty list, canonicalisation
  * behaves exactly as it did before pins existed, and the digest cannot move.
  */
-export function weightChangeVertexIndices(weights: readonly number[]): number[] {
+function weightChangeVertexIndices(weights: readonly number[]): number[] {
     const pinned: number[] = [];
     for (let index = 0; index < weights.length; index++) {
         if (weights[(index - 1 + weights.length) % weights.length] !== weights[index]) {
@@ -349,7 +344,7 @@ export function weightChangeVertexIndices(weights: readonly number[]): number[] 
  * of ALL of them, because {@link weightChangeVertexIndices} pinned every vertex where two weights
  * met. There is no merge rule to choose here: under W-spec W44 the choice cannot arise.
  */
-export function remapWeightsThroughCanonicalisation(
+function remapWeightsThroughCanonicalisation(
     weights: readonly number[],
     indexRemap: readonly number[],
     survivorCount: number,
@@ -371,7 +366,7 @@ export function remapWeightsThroughCanonicalisation(
  * to `v_{n−2−j}` — which is original edge `n−2−j`, traversed backwards. A weight is a speed and is
  * indifferent to which way its edge is traversed, so the value is carried unchanged to that index.
  */
-export function reverseWeights(weights: readonly number[]): number[] {
+function reverseWeights(weights: readonly number[]): number[] {
     const count = weights.length;
     return weights.map((_unused, index) => weights[(count - 2 - index + count) % count]);
 }
@@ -388,7 +383,7 @@ export function reverseWeights(weights: readonly number[]): number[] {
  */
 
 /** One loop as the caller gave it: its vertices, its weights, and the prefix its refusals carry. */
-export interface CallerLoop {
+interface CallerLoop {
     vertices: readonly Vector2[];
     weights: readonly number[] | undefined;
     /** `''` for the outline, whose messages stay word for word; `Hole k: ` for the caller's hole `k`. */
@@ -396,7 +391,7 @@ export interface CallerLoop {
 }
 
 /** One loop after the boundary stage: the ring the solver is given, its weights, and how it got there. */
-export interface SolvedLoop {
+interface SolvedLoop {
     vertices: Vector2[];
     weights: number[];
     /** Canonicalisation's map, caller vertex to canonical vertex, before any reversal. */
@@ -425,11 +420,8 @@ function refuseInLoop<T>(prefix: string, check: () => T): T {
 }
 
 /** Decision 16: a loop's vertex count and finiteness, before normalisation, by a throw. */
-export function assertLoopIsSolvable(loop: CallerLoop): void {
-    if (loop.vertices.length < 3) {
-        throw new Error(`${loop.prefix}Must have at least three nodes to perform algorithm`);
-    }
-    const complaint = nonFiniteVertexComplaint(loop.vertices);
+function assertLoopIsSolvable(loop: CallerLoop): void {
+    const complaint = loopSolvabilityComplaint(loop.vertices);
     if (complaint !== undefined) {
         throw new Error(`${loop.prefix}${complaint}`);
     }
@@ -442,7 +434,7 @@ export function assertLoopIsSolvable(loop: CallerLoop): void {
  * surviving vertex before it. Reversal sends local vertex `c` of an `m`-loop to `m - 1 - c` and local edge `c` to
  * `m - 2 - c` (mod `m`), the map {@link reverseWeights} uses.
  */
-export function buildLoopMap(loop: SolvedLoop, start: number): SkeletonLoopMap {
+function buildLoopMap(loop: SolvedLoop, start: number): SkeletonLoopMap {
     const m = loop.vertices.length;
     const solvedVertex = (canonical: number) => loop.reversed ? m - 1 - canonical : canonical;
     const solvedEdge = (canonical: number) => loop.reversed ? (m - 2 - canonical + m) % m : canonical;
@@ -460,6 +452,186 @@ export function buildLoopMap(loop: SolvedLoop, start: number): SkeletonLoopMap {
         return start + solvedEdge(carrier);
     });
     return {vertexToNode, edgeToEdge, reversed: loop.reversed};
+}
+
+/** What the boundary stage is asked to do with one input. Every value is resolved; nothing is read from options here. */
+export interface BoundaryRequest {
+    /** Loop 0: the outline, in the caller's coordinates. */
+    vertices: readonly Vector2[];
+    /** The outline's weights, one per vertex; omitted or empty is all ones. */
+    weights: readonly number[] | undefined;
+    /** Loops 1 onwards, in the order given. Empty for a single-loop input. */
+    holes: readonly SkeletonHole[];
+    /** δ: the coincidence bar, the weight door's bounds and the loop relations read it, in unit space. */
+    perceptualFloor: number;
+    /** The canonicalisation bar, in unit space: `perceptualFloor` unless the recursion driver restates the root's. */
+    noiseFloor: number;
+    /** Wind every loop (the outline clockwise, each hole counter-clockwise), or leave the caller's winding. */
+    normaliseWinding: boolean;
+}
+
+/** The boundary stage's answer: the loops the solver is given, in unit space, and how each caller loop got there. */
+export interface PreparedBoundary {
+    /** The one transform of every loop to unit extent (decision 17), to be undone on everything handed back. */
+    normalisation: SkeletonNormalisation;
+    /** The loop table (decisions 6 and 7): the outline's exterior ids first, then each hole's. */
+    loops: SkeletonLoop[];
+    /** Each caller loop mapped onto the solved graph (decision 24), index 0 the outline. */
+    loopMaps: SkeletonLoopMap[];
+    /** Every loop's solved vertices, concatenated in exterior id order: the ring the solver is given. */
+    vertices: Vector2[];
+    /** Every loop's normalised and remapped weights, concatenated in exterior id order (decision 34). */
+    weights: number[];
+}
+
+/**
+ * THE BOUNDARY STAGE OF EVERY SOLVE ENTRY, in its fixed order: each loop's vertex count and finiteness, the global
+ * normalisation, the weight door, then per loop canonicalisation and winding, then the loop table, the loop maps and,
+ * with holes, the loop relations. Throws on input that cannot be solved at all; pushes what it did to the input onto
+ * `diagnostics`, per loop, the canonicalisation before the winding.
+ *
+ * ONE BOUNDARY PIPELINE, AND A SINGLE LOOP IS ITS ONE-LOOP CASE (skeleton loops-input spec, decision 39). The legacy
+ * entries ask it for one loop, no holes, their caller's winding and the perceptual floor as the noise floor, and
+ * discard its diagnostics: with one loop and `normaliseWinding: false` the winding test decides nothing, so that is
+ * the sequence they always ran.
+ */
+export function prepareBoundary(request: BoundaryRequest, diagnostics: SkeletonDiagnostic[]): PreparedBoundary {
+    const {holes, perceptualFloor, noiseFloor, normaliseWinding} = request;
+    const callerLoops: CallerLoop[] = [
+        {vertices: request.vertices, weights: request.weights, prefix: ''},
+        ...holes.map((hole, k) => ({vertices: hole.vertices, weights: hole.weights, prefix: `Hole ${k}: `})),
+    ];
+    // THROWN, NOT DIAGNOSED, PER LOOP, BEFORE NORMALISATION (decision 16). `diagnostics` reports a solve that
+    // ran and came back degraded; too few vertices or a non-finite one is input this entry point cannot solve
+    // at all. The outline's messages are today's word for word; a hole's carry its name.
+    callerLoops.forEach(assertLoopIsSolvable);
+
+    // NORMALISED ONCE, HERE, BEFORE ANYTHING ELSE LOOKS AT THE POLYGON. See `normalisation.ts`. The
+    // winding test and the decomposition both run in unit space along with the solve, because both
+    // carry the same absolute tolerances and both would otherwise change meaning with the caller's
+    // coordinates. Everything on the returned result is carried back before it is handed over.
+    // GLOBAL (decision 17): one transform from the bounding box of every loop together, so one solve has one
+    // unit space and the result's `normalisation` describes every loop.
+    const normalisation = makeSkeletonNormalisation(callerLoops.flatMap(loop => [...loop.vertices]));
+    const unitLoops = callerLoops.map(loop => normalisePolygon(loop.vertices, normalisation));
+
+    // THE WEIGHT DOOR, BEFORE CANONICALISATION (W-spec W1–W4, W49; arc decision 124(b)). All three
+    // refusals throw here, naming the caller's own index, because nothing has renumbered anything
+    // yet. With no weights this resolves to all ones and refuses nothing. Per loop and global as
+    // decisions 18 and 19 fix them (see `weightsAtTheDoorForLoops`).
+    const doorWeights = weightsAtTheDoorForLoops(unitLoops, callerLoops, perceptualFloor);
+
+    const solvedLoops = unitLoops.map((unitLoop, k): SolvedLoop => {
+        const prefix = callerLoops[k].prefix;
+
+        // CANONICALISED IMMEDIATELY AFTER, AND STILL IN UNIT SPACE. The floor is a unit-space constant,
+        // which is what makes it relative by construction rather than a second tolerance system living
+        // alongside the first. See `canonicalisation.ts` for what the stage removes and why removing the
+        // input beats handling it. Every weight-change vertex is PINNED (W-spec W44, arc decision 120):
+        // under weights such a vertex is structural whatever its deviation from the chord.
+        // PER LOOP, AT THE ONE FLOOR (decision 20): a loop's pins are its own, no loop goes below three
+        // vertices, and each loop that loses vertices is reported on its own.
+        const canonical = canonicalisePolygon(
+            unitLoop, noiseFloor, weightChangeVertexIndices(doorWeights[k]));
+        let workingVertices = canonical.vertices;
+        let workingWeights = remapWeightsThroughCanonicalisation(
+            doorWeights[k], canonical.indexRemap, workingVertices.length);
+
+        if (canonical.removedCount > 0) {
+            diagnostics.push({
+                kind: 'vertices-canonicalised',
+                detail: `${prefix}${canonical.removedCount} vertex(es) removed before solving as invisible at the `
+                    + `${noiseFloor} unit-space noise floor; largest discarded deviation `
+                    + `${canonical.maxDeviation}. ${workingVertices.length} vertices remain.`,
+            });
+        }
+
+        // WINDING, PER LOOP (decision 21): the outline clockwise and each hole counter-clockwise, by
+        // `isClockwise`, so the building lies on the same side of every exterior edge (BSA.D282).
+        const wantsClockwise = k === 0;
+        let reversed = false;
+        if (isClockwise(workingVertices) !== wantsClockwise) {
+            if (normaliseWinding) {
+                workingVertices = [...workingVertices].reverse();
+                // W-spec W45: the weights are remapped through the reversal with the ring.
+                workingWeights = reverseWeights(workingWeights);
+                reversed = true;
+                diagnostics.push({
+                    kind: 'winding-normalised',
+                    detail: k === 0
+                        ? `Input was counter-clockwise; ${workingVertices.length} vertices reversed to clockwise winding before solving.`
+                        : `${prefix}input was clockwise; ${workingVertices.length} vertices reversed to counter-clockwise `
+                            + `winding before solving, opposite to the outline.`,
+                });
+            } else if (holes.length > 0) {
+                // DECISION 50: A SLIVER HOLE IS DEGENERATE BEFORE IT IS MIS-WOUND. Its signed area has no sign
+                // the solver can trust (decision 28), so that sign may not refuse it; it is refused as what it is.
+                // Under `normaliseWinding: true` the sign only reverses it, and the loop relations below refuse it
+                // in decision 27's order.
+                if (k > 0 && isDegenerateHole(workingVertices, perceptualFloor)) {
+                    throw new Error(describeLoopConflict({kind: 'degenerate-hole', loops: [k], edges: []},
+                        [], () => REMOVED_VERTEX_INDEX));
+                }
+                // DECISION 22: the option says the caller's winding is already right, and a holed solve has no
+                // meaning on the wrong side of a wall. A single loop is left to solve as it always did.
+                throw new Error(k === 0
+                    ? `The outline is wound counter-clockwise, and with normaliseWinding: false a holed input must `
+                        + `give its outline clockwise and its holes counter-clockwise.`
+                    : `Hole ${k - 1} is wound clockwise, and with normaliseWinding: false a holed input must give `
+                        + `its outline clockwise and its holes counter-clockwise.`);
+            }
+        }
+        return {vertices: workingVertices, weights: workingWeights, indexRemap: canonical.indexRemap, reversed};
+    });
+
+    // THE LOOP TABLE (decisions 6 and 7): the outline's exterior ids first, then each hole's in the order given,
+    // each loop in its solved vertex order. The outline's ids are therefore exactly the ids it always had.
+    const loops: SkeletonLoop[] = [];
+    solvedLoops.forEach(loop => {
+        const start = loops.length === 0 ? 0 : loops[loops.length - 1].start + loops[loops.length - 1].count;
+        loops.push({start, count: loop.vertices.length});
+    });
+    const loopMaps = solvedLoops.map((loop, k) => buildLoopMap(loop, loops[k].start));
+
+    // THE LOOP RELATIONS (decisions 23, 26 to 32): after canonicalisation and winding, in unit space, at δ, on
+    // the loops the solver will be given, and refused by a throw naming the caller's own vertices.
+    // `decomposePolygon` never sees a holed input, because it discards a counter-clockwise ring as an exterior
+    // island (BSA.F93): a self-crossing loop decomposes without holes and is refused with them (decision 39).
+    if (holes.length > 0) {
+        const conflict = findLoopConflict(solvedLoops.map(loop => loop.vertices), perceptualFloor);
+        if (conflict !== null) {
+            throw new Error(describeLoopConflict(conflict, loops.map(loop => loop.count),
+                (loop, local) => loopMaps[loop].vertexToNode.indexOf(loops[loop].start + local)));
+        }
+    }
+
+    return {
+        normalisation,
+        loops,
+        loopMaps,
+        vertices: solvedLoops.flatMap(loop => loop.vertices),
+        weights: solvedLoops.flatMap(loop => loop.weights),
+    };
+}
+
+/**
+ * THE LEGACY ENTRIES' BOUNDARY (`runAlgorithmV5` and `runAlgorithmV5Stepped`): {@link prepareBoundary} on one loop,
+ * no holes, the caller's winding, canonicalised at the perceptual floor, its diagnostics discarded. Both entries
+ * must hand the solver the same polygon for the stepped snapshots to describe the solve `runAlgorithmV5` performs.
+ * Neither has a diagnostics channel, so a removal is SILENT in both, which is what makes them legacy.
+ *
+ * THE PERCEPTUAL FLOOR IS THE ONE OPTION THESE TWO DO HONOUR (journal decision 106), because the
+ * dashboard explorer drives them and the whole point of the option is that a client's renderer, not
+ * this module, decides what can be seen. It is a single scale-free value, not a region pass-down.
+ */
+export function prepareLegacyBoundary(
+    nodes: readonly Vector2[],
+    weights: readonly number[] | undefined,
+    perceptualFloor: number,
+): PreparedBoundary {
+    return prepareBoundary(
+        {vertices: nodes, weights, holes: [], perceptualFloor, noiseFloor: perceptualFloor, normaliseWinding: false},
+        []);
 }
 
 /**
