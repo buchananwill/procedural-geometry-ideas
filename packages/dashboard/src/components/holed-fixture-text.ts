@@ -1,4 +1,4 @@
-import type { SkeletonDiagnosticKind } from '@proc-geo/core';
+import type { BlockingDiagnosticKind } from '@proc-geo/core';
 
 /*
  * ============================================================================
@@ -48,37 +48,18 @@ export const HOLED_REFUSED_STALE_CANVAS_TEXT =
 export const SKELETON_INCOMPLETE_TITLE = 'Skeleton incomplete';
 
 /**
- * The diagnostic kinds that do NOT make a result incomplete, as `SkeletonDiagnosticKind`'s doc comment in core and
- * `SkeletonSolveResult.complete` state them: the boundary stage's three reports, the coaxial completion, the causality
- * oracles and the holed guard's self-loop (BSA.D318). Listed inside the collapse (decision 38), never as a heading.
+ * WHICH KINDS BLOCK IS CORE'S (`diagnostic-kinds.ts`), re-exported here for the panels and the boundary:
+ *  - `INFORMATIONAL_DIAGNOSTIC_KINDS`: the kinds that do NOT make a result incomplete, listed inside the collapse
+ *    (decision 38), never as a heading.
+ *  - `BlockingDiagnosticKind`: every kind not listed as informational, so a kind core adds gets no heading below until
+ *    one is written, and the `Record` then fails to compile: a blocking kind is never shown without its heading
+ *    (decision 50).
+ *  - `STEP_REFUSAL_KINDS`: the two kinds core refuses a step of several rings with. `refuseStep` pushes the refusal
+ *    AND throws the same text, which `stepAlgorithm` records again as a `step-failure` with the identical detail; the
+ *    alert shows such a pair once, as the refusal (BSA.D323).
  */
-export const INFORMATIONAL_DIAGNOSTIC_KINDS = [
-    'winding-normalised',
-    'vertices-canonicalised',
-    'self-intersecting',
-    'coaxial-completion',
-    'causality-violation',
-    'holed-unculled-self-loop',
-] as const satisfies readonly SkeletonDiagnosticKind[];
-
-export type InformationalDiagnosticKind = typeof INFORMATIONAL_DIAGNOSTIC_KINDS[number];
-
-/**
- * Every kind core blocks on. EVERY KIND NOT LISTED AS INFORMATIONAL IS TREATED AS BLOCKING, so a kind core adds gets
- * no heading below until one is written, and the `Record` then fails to compile: a blocking kind is never shown
- * without its heading (decision 50).
- */
-export type BlockingDiagnosticKind = Exclude<SkeletonDiagnosticKind, InformationalDiagnosticKind>;
-
-/**
- * The two kinds core refuses a step of several rings with (`StepRefusalKind` in core's `step-scope.ts`). `refuseStep`
- * pushes the refusal AND throws the same text, which `stepAlgorithm` records again as a `step-failure` with the
- * identical detail; the alert shows such a pair once, as the refusal (BSA.D323).
- */
-export const STEP_REFUSAL_KINDS = [
-    'simultaneous-across-rings',
-    'multi-ring-step-refused',
-] as const satisfies readonly SkeletonDiagnosticKind[];
+export { INFORMATIONAL_DIAGNOSTIC_KINDS, isBlockingDiagnosticKind, STEP_REFUSAL_KINDS } from '@proc-geo/core';
+export type { BlockingDiagnosticKind, InformationalDiagnosticKind } from '@proc-geo/core';
 
 /**
  * The heading of each blocking kind in the `Skeleton incomplete` alert (decision 37's table as amended by decision
@@ -109,8 +90,3 @@ export const BLOCKING_DIAGNOSTIC_HEADINGS: Record<BlockingDiagnosticKind, string
     'holed-planarity-violation': 'Two arcs of the skeleton cross inside both, or two collinear arcs overlap. The '
         + 'solver distrusts the skeleton and marks it incomplete.',
 };
-
-/** Whether a diagnostic kind is one core blocks on: every kind but the informational ones. */
-export function isBlockingDiagnosticKind(kind: SkeletonDiagnosticKind): kind is BlockingDiagnosticKind {
-    return !(INFORMATIONAL_DIAGNOSTIC_KINDS as readonly SkeletonDiagnosticKind[]).includes(kind);
-}
