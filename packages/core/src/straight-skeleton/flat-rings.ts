@@ -32,7 +32,6 @@ export type FlatRingClause =
     | 'stretch-same-way'
     | 'stretch-walls-not-antiparallel'
     | 'stretches-meet'
-    | 'node-off-stretches'
     | 'not-a-tree'
     | 'not-one-line'
     | 'stretch-under-bar'
@@ -233,10 +232,9 @@ function stretchShapeFailure(
             }
         }
     }
-    const onStretch = new Set(stretches.flatMap(stretch => [stretch.from, stretch.to]));
-    if (onStretch.size !== nodes.length) {
-        return fail('node-off-stretches', `${nodes.length - onStretch.size} of ${nodes.length} nodes lie on no stretch`);
-    }
+    // EVERY NODE ENDS A STRETCH BY CONSTRUCTION, so decision 17 tests no clause for it (BSA.F117): a node holds a
+    // member, its block of members is entered by a segment ending there, and every piece's pair of nodes is a stretch or
+    // was refused under `stretch-cover-count`. The ring's walk joins every node, so the count alone decides the tree.
     if (stretches.length !== nodes.length - 1) {
         return fail('not-a-tree', `${stretches.length} stretches join ${nodes.length} nodes`);
     }

@@ -46,7 +46,7 @@ that a mis-paired ring cannot pass the flatness test.
 
 | | Surface | File |
 |---|---|---|
-| + | `type FlatRingClause = 'segment-against-wall' \| 'segment-off-front' \| 'stretch-cover-count' \| 'stretch-same-way' \| 'stretch-walls-not-antiparallel' \| 'stretches-meet' \| 'node-off-stretches' \| 'not-a-tree' \| 'not-one-line' \| 'stretch-under-bar' \| 'level-not-newborn' \| 'level-off-stretch' \| 'level-doubled'` | `flat-rings.ts` (new) |
+| + | `type FlatRingClause = 'segment-against-wall' \| 'segment-off-front' \| 'stretch-cover-count' \| 'stretch-same-way' \| 'stretch-walls-not-antiparallel' \| 'stretches-meet' \| 'not-a-tree' \| 'not-one-line' \| 'stretch-under-bar' \| 'level-not-newborn' \| 'level-off-stretch' \| 'level-doubled'` | `flat-rings.ts` (new) |
 | + | `interface FlatStretch { from: number; to: number; clockwiseWall: number; widdershinsWall: number; forward?: number; backward?: number }` (node indices; the level member running from→to, and to→from) | `flat-rings.ts` |
 | + | `interface FlatRingPlan { ring: number[]; nodes: Vector2[]; nodeOf: number[]; stretches: FlatStretch[] }` | `flat-rings.ts` |
 | + | `type FlatRingVerdict = {flat: true; plan: FlatRingPlan} \| {flat: false; clause: FlatRingClause; detail: string}` | `flat-rings.ts` |
@@ -121,9 +121,14 @@ basis `b_W`, inward normal `n_W = rotateCw90(b_W)`, source position `A_W` and we
     piece running from `from` to `to`.
 16. **`stretches-meet`.** No two stretches cross, or overlap by more than δ along a common line, except at a node they
     share.
-17. **`node-off-stretches`, `not-a-tree`, `not-one-line`.** Every node lies on a stretch; the stretches number one fewer
-    than the nodes; and every stretch's walls satisfy `sineIsBelow` against the first stretch's walls at
-    `angularResolution` and every node lies within δ of the first stretch's line.
+17. **`not-a-tree`, `not-one-line`.** The stretches number one fewer than the nodes; and every stretch's walls satisfy
+    `sineIsBelow` against the first stretch's walls at `angularResolution` and every node lies within δ of the first
+    stretch's line. **Every node lies on a stretch by construction, and no clause tests it** (amended by BSA.D351, on
+    BSA.F117's argument): every node holds a member; on a ring of more than one node, every node's block of members in
+    ring order is entered by a segment ending there; and every pair of nodes a piece joins becomes a stretch or is refused
+    under `stretch-cover-count` first. The clause the build carried for it, `node-off-stretches`, could not fail, and its
+    mutation gate left every test green (BSA.F116), so it is removed. The same walk joins every node, so `not-a-tree`'s
+    count enforces the tree alone.
 18. **`stretch-under-bar`.** Every stretch is longer than `FLAT_STRETCH_BAR_FLOORS · δ`. A stretch at or under the bar is
     refused, never closed: its failure without the bar is a silent direction violation (two jittered single-loop
     fixtures, BSA.F113), and the refusal is signalled.
@@ -230,9 +235,15 @@ front.
 
 ### Weights
 
-46. **Weighted input is supported, not refused.** Decision 13 reads `w · t` and decision 35 the kernel. E′w and
-    `2h-int-1w` (decision 50) are its proof; on rectilinear input a gap's facing sign does not depend on the weights,
-    so decision 35's weight terms are convicted only by a non-rectilinear weighted specimen (§6 item 2).
+46. **Weighted input is supported, not refused.** Decision 13 reads `w · t` and decision 35 the kernel. E′w,
+    `2h-int-1w` and the facing-band specimen of BSA.F118 with its asymmetric variant (decision 50) are its proof.
+    **The sign of `n_wall · v` does not depend on the weights, on any input** (restated by BSA.D353 on BSA.F118): on a
+    legal input `n_wall` or `−n_wall` lies in the cone of the gap's two inward normals, `±n_wall = λ n_cw + μ n_ws` with
+    λ, μ ≥ 0, so `n_wall · v = ±(λ w_cw + μ w_ws)` keeps its sign at every positive weight. Decision 35's weight terms
+    set the direction of `v`, and so the grazing margin of decision 36; they decide no facing verdict. Decision 36 reads
+    the sign and never compares `n_wall · v` with `w_wall`: a clear gap can have `0 < n_wall · v < w_wall` at unequal
+    weights, as the specimen's does, and it is born, because after the cut no inner vertex is adjacent to the struck
+    wall's front.
 
 ### Diagnostics and instruments
 
@@ -259,9 +270,22 @@ BSA.D336).
     - **`2h-int-1`:** the issue note's input, sound, one node at (5.5, 10).
     - **`2h-int-1w`:** outline [0,9]×[0,12], holes [6,7]×[8,9] and [3,5]×[8,9], both hole tops of weight 2: sound, one
       node at (5.5, 11) at t = 1. Hand-derived and unmeasured.
+    - **`2h-int-1` and `2h-int-1w` moved** by E′'s translation and turn (BSA.D351): their flat rings' area is exactly 0
+      in place. Measured by the sign mutants of decision 55, three of the four moved cells give a candidate of positive
+      area and none one of negative area; the negative sign is held by the unit test of decision 51.
+    - **The facing-band specimen of BSA.F118 (BSA.D353):** outline [−300,300]×[0,300] with its bottom wall at weight 2,
+      holes the triangle (70,60), (190,110), (190,150) and its mirror. Ten interior nodes: P (0,20) at t = 10 of degree
+      5, where the hole-top gap is born though `n_wall · v = 1.25 < 2`; Q (±231.25, 82.5) at 41.25; S (±240, 250) at 50;
+      U (±245, 110) and V (±245, 245) at 55, joined by a ridge of two half-edges; Z (0, 170) at 130. 20 nodes, 23
+      interior edges. **Its asymmetric variant,** hole 2 the triangle (−26,38), (−146,198), (−146,73): the same right
+      side, S2 (−171.5, 274.5) at 25.5, Q2 (−1898/11, 584/11) at 292/11, U2 (−223, 154) and V2 (−223, 223) at 77, Z
+      (22.5, 177.5) at 122.5. Hand-derived.
     - **`2h-int-86`, `2h-int-144`, `2h-int-371`:** sound, or red with their issue note if the rules do not cure them.
 51. **Unit tests of the pure functions:** `flatRingVerdict` on hand-built rings, one failing each clause of decisions
-    12 to 19; and `wallFacingGap` on synthetic gaps for one facing, none, two, and a grazing gap.
+    12 to 19; `closeFlatRings` closing one flat ring perturbed within the floor to an area of each sign (BSA.D351); and
+    `wallFacingGap` on synthetic gaps for one facing, none, two, and a grazing gap, and on gaps at many weights whose
+    verdict does not move (decision 46). Every non-antiparallel gap of these tests is on walls a legal input can pair:
+    `n_wall` or `−n_wall` in the cone of the gap's two normals (BSA.D353).
 52. **The cured building-shell layouts** (the ten of `HOLED_REFUSALS`, and the user's layout, read today from the
     scratch `lower_case_b.json` as `CourtL-draft`, as a committed input) **join `HOLED_FIXTURES`** and the `CASES` of `holed-fixtures.test.ts`: `invariantViolations` with genus 1
     (2 for `TwoHolesProbe` and `TwoCourtyardsDraft`) and no Cheek, no conflict, no Gable, tiling to 1e-9,
@@ -276,10 +300,13 @@ BSA.D336).
     complete draw fails `roofViolations` or the oracle; every draw on which a rule fires is complete and sound; no draw
     is refused under decisions 28 or 44. Grid 2 at seed 2: every draw is complete and sound.
 55. **Mutation gates, each turning a named test red:** recording one successor only in `linkMergeGapOnWall` (grid
-    fuzz); choosing the clear gap (E′); reading the area's sign in place of the test (`2h-int-1`, `JutAlignedS`); each
-    clause of decisions 12 to 19 dropped (its unit test); dropping `w` from decision 13 (`2h-int-1w`); refusing before
-    the layer instead of resolving (the cured layouts); removing the `multiRing` guard on the flat rule (`Offset Cross
-    Junction`'s digest, BSA.F113).
+    fuzz); choosing the clear gap (E′); a `closeFlatRings` that refuses candidates of positive area, and one that
+    refuses candidates of negative area, each a mutant refusing on one strict sign (restated by BSA.D351: the unit test
+    of decision 51 at that sign; the positive mutant also `2h-int-1` turned and `2h-int-1w` translated and turned);
+    comparing `n_wall · v` with `w_wall` in place of decision 36's sign test on gaps whose walls are not antiparallel
+    (the facing-band specimen, BSA.D353); each clause of decisions 12 to 19 dropped (its unit test); dropping `w` from
+    decision 13 (`2h-int-1w`); refusing before the layer instead of resolving (the cured layouts); removing the
+    `multiRing` guard on the flat rule (`Offset Cross Junction`'s digest, BSA.F113).
 56. **Every suite of core, test-fixtures, dashboard and building-shell is run,** and reported as a count passed plus a
     named list of red tests, each with its document.
 
@@ -341,11 +368,14 @@ Measured on the built tree (commits `8e14378` to `add41b8`).
    stretch at or under the bar is not established: the only short stretches measured are BSA.F113's, on one-ring steps,
    which this build does not reach. Building-shell's own suite was not traced (its console was not captured); its holed
    fixtures are the layouts traced directly.
-2. **No non-rectilinear weighted specimen was built.** The bounded search was analytic: in E′'s family both gaps' kernel
-   duals lie on one side of the struck wall's normal, so no positive weights flip either verdict. Decision 35's weight
-   terms are convicted at the function instead: a gap between walls of inward normals (1, 0) and (0.6, −0.8) faces the
-   bottom wall at equal weights and is clear of it at weights (2, 1), and dropping the weights turns that test red.
-   E′w and `2h-int-1w` are sound.
+2. **The build built no non-rectilinear weighted specimen; BSA.F118 did, and it joins the closed forms** (decision 50,
+   BSA.D353). The build's claim that decision 35's weight terms decide a facing verdict is **withdrawn** (BSA.D353): the
+   function test it rested on, walls of inward normals (1, 0) and (0.6, −0.8) against the bottom wall, pairs walls no
+   legal input pairs as a gap, since neither `n_wall` nor `−n_wall` lies in the cone of their normals. On every legal
+   input the sign of `n_wall · v` is independent of the weights (decision 46, restated); the weight terms set `v`'s
+   direction and move only the grazing margin. The facing-band specimen and its asymmetric variant, the bottom wall at
+   weight 2, put a clear gap in the band `0 < n_wall · v < w_wall`, and the built code solves both in their closed
+   forms. E′w and `2h-int-1w` are sound.
 3. As ruled. The goldens gained 33 files and the manifest 319 lines; no existing golden byte moved.
 4. **No measured cure was lost.** Grid 1: 79 more draws complete and sound, the other three unchanged. Grid 2: 1,000 of
    1,000 sound. The ten layouts and `CourtL-draft` sound (oracle worst 2.27e-13 cm). E′ and `2h-int-1` in their closed
@@ -365,8 +395,9 @@ Measured on the built tree (commits `8e14378` to `add41b8`).
 8. **`uniform-1-129`** ends on a ring of two straight bisectors between the collinear outline walls either side of its
    wing, K3 of the collinear-walls umbrella note: a red test in `holed-grid-fuzz.test.ts` and
    [ISSUE-skeleton-grid-draw-straight-bisector-pair](./ISSUE-skeleton-grid-draw-straight-bisector-pair.md).
-9. **One clause cannot fail.** `node-off-stretches` holds by construction, since every node is an end of some piece;
-   its mutation gate leaves every test green.
+9. **One clause could not fail, and is removed.** `node-off-stretches` held by construction, since every node is an end
+   of some piece; its mutation gate left every test green. Decision 17 is amended and the clause is gone from the code
+   (BSA.D351).
 
 ## 7. Deferred
 

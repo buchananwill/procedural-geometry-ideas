@@ -4,18 +4,26 @@
  * step (decisions 7 to 29); a vertex event whose node lies on a third front is resolved as one whole event, the gap that
  * faces the struck wall not born and the wall cut at the node instead (decisions 30 to 45).
  *
- *  - the closed forms of decision 50, each under the battery and to 1e-9 of the extent: E′ (and moved), E′w, `2h-int-1`,
- *    `2h-int-1w`, and the issue note's other three fuzz cases;
- *  - the pure functions of decision 51: `flatRingVerdict` on hand-built rings, one failing each clause, and
- *    `wallFacingGap` on synthetic gaps.
+ *  - the closed forms of decision 50, each under the battery and to 1e-9 of the extent: E′ (and moved), E′w, `2h-int-1`
+ *    and `2h-int-1w` (and moved), the weighted facing-band specimen of BSA.F118 and its asymmetric variant, and the
+ *    issue note's other three fuzz cases;
+ *  - the pure functions of decision 51: `flatRingVerdict` on hand-built rings, one failing each clause; `closeFlatRings`
+ *    on a flat ring of each sign of area; and `wallFacingGap` on synthetic gaps of walls a legal input can pair.
  *
  * For an axis-aligned region a node's time is its weighted L-infinity distance to the nearest wall.
  */
 import type {StraightSkeletonSolverContext, Vector2} from '@proc-geo/core';
-import {makeStraightSkeletonSolverContext, setSkeletonLogLevel, SKELETON_NOISE_FLOOR, solveSkeleton} from '@proc-geo/core';
+import {
+    angularResolution,
+    makeStraightSkeletonSolverContext,
+    setSkeletonLogLevel,
+    signedArea,
+    SKELETON_NOISE_FLOOR,
+    solveSkeleton,
+} from '@proc-geo/core';
 import {MergeGap, wallFacingGap} from '@proc-geo/core/straight-skeleton/coincident-events';
-import {flatRingVerdict, FlatRingVerdict} from '@proc-geo/core/straight-skeleton/flat-rings';
-import {setWavefrontProbe} from '@proc-geo/core/straight-skeleton/wavefront';
+import {closeFlatRings, flatRingVerdict, FlatRingVerdict} from '@proc-geo/core/straight-skeleton/flat-rings';
+import {linkInitialRing, setWavefrontProbe} from '@proc-geo/core/straight-skeleton/wavefront';
 import {HOLED_TEST_POLYGONS, holedSolveOptions} from '@proc-geo/test-fixtures';
 import type {HoledTestPolygon} from '@proc-geo/test-fixtures';
 import {jitterEveryLoop} from '../sweep-harness/sweep';
@@ -148,13 +156,140 @@ describe('the third-front rule: E′ against its closed form (decision 50)', () 
     });
 });
 
+/*
+ * THE WEIGHTED THIRD-FRONT SPECIMEN OF BSA.F118 (BSA.D353; decisions 35, 36 and 46), non-rectilinear, hand-worked.
+ * Outline [−300, 300] × [0, 300], its bottom wall W of weight 2 and every other wall 1. Hole 1 is the triangle
+ * L1 (70, 60), B1 (190, 110), A1 (190, 150): its lower wall X1 along (12, 5), inward normal (5, −12)/13; its side R1 on
+ * x = 190, normal (1, 0); its top Y1 along (4, 3), normal (−3, 4)/5. Hole 2 is its mirror in x = 0.
+ *
+ *  - P (0, 20), t = 10. X1, Y1, X2, Y2 each lie 10 from P and W lies 20 at weight 2. L1 moves at v·n_X1 = v·n_Y1 = 1,
+ *    v = (−7, −4), and reaches P at t = 10 with L2 and W's front: a vertex event on a third front. Of its two gaps the
+ *    hole bottoms {X1, X2} have v = (0, −13/12), n_W·v < 0: facing, not born. The hole tops {Y1, Y2} have
+ *    v = (0, 5/4), n_W·v = 1.25: clear, though under W's weight 2, and born. W is cut at P, bearing {X1, W} east along
+ *    v = (37/5, 2) and {W, X2} west along (−37/5, 2). P has degree 5.
+ *  - Q1 (231.25, 82.5), t = 41.25. B1 moves at (1, −2/3) from (190, 110), and {X1, W} reaches it on W's front: X1
+ *    closes, bearing {R1, W} along (1, 2).
+ *  - S1 (240, 250), t = 50. A1 moves at (1, 2) from (190, 150) and strikes the top front y = 300 − t: {R1, top} leaves
+ *    along (1, −1) and {Y1, top} along (−3, −1).
+ *  - U1 (245, 110) and V1 (245, 245), t = 55: the corners (300, 0) at (−1, 2) and (300, 300) at (−1, −1) meet {R1, W}
+ *    and {R1, top} as R1's front and the outline's right front, antiparallel, meet along x = 245: a ridge of two
+ *    half-edges.
+ *  - Z (0, 170), t = 130: {Y1, Y2} up x = 0 at 5/4 from P, {Y1, top} and its mirror close the last triangle.
+ *
+ * Ten interior nodes (P, Z and four a side), so 20 nodes. Interior edges: 10 corner bisectors, 3 departures from P,
+ * Q–U, S–V and S–Z a side, and the two ridges U–V of two half-edges each: 23.
+ */
+const BAND_OUTLINE_WEIGHTS = [1, 1, 1, 2];
+const BAND_HOLE_1: Vector2[] = [{x: 70, y: 60}, {x: 190, y: 110}, {x: 190, y: 150}];
+const FACING_BAND: HoledTestPolygon = {
+    name: 'the facing-band specimen: two triangles over a bottom of weight 2',
+    outline: outlineRect(-300, 0, 300, 300),
+    weights: BAND_OUTLINE_WEIGHTS,
+    holes: [{vertices: BAND_HOLE_1}, {vertices: [{x: -70, y: 60}, {x: -190, y: 150}, {x: -190, y: 110}]}],
+};
+const FACING_BAND_FORM: ClosedForm = {
+    nodes: [
+        {name: 'P', at: {x: 0, y: 20}, t: 10},
+        {name: 'Q1', at: {x: 231.25, y: 82.5}, t: 41.25},
+        {name: 'Q2', at: {x: -231.25, y: 82.5}, t: 41.25},
+        {name: 'S1', at: {x: 240, y: 250}, t: 50},
+        {name: 'S2', at: {x: -240, y: 250}, t: 50},
+        {name: 'U1', at: {x: 245, y: 110}, t: 55},
+        {name: 'V1', at: {x: 245, y: 245}, t: 55},
+        {name: 'U2', at: {x: -245, y: 110}, t: 55},
+        {name: 'V2', at: {x: -245, y: 245}, t: 55},
+        {name: 'Z', at: {x: 0, y: 170}, t: 130},
+    ],
+    totalNodes: 20,
+    interiorEdges: 23,
+    ridges: [['U1', 'V1'], ['U2', 'V2']],
+};
+
+/*
+ * ITS ASYMMETRIC VARIANT (BSA.F118): hole 1 as above; hole 2 the triangle L2 (−26, 38), A2 (−146, 198), B2 (−146, 73),
+ * its top Y2 along (−3, 4), inward normal (4, 3)/5, its lower wall X2 along (24, −7) from B2, normal (−7, −24)/25, its
+ * side R2 on x = −146, normal (−1, 0). Both lie 10 from P, so L2, at v = (13/5, −9/5), meets L1 and W's front at P at
+ * t = 10 again. The gaps: {Y1, Y2} has v = (1/5, 7/5), n_W·v = 1.4 < 2, clear and born; {X1, X2} has v = (1/17, −18/17),
+ * facing. W is cut at P: {X1, W} east as above, {W, X2} west along (−73/7, 2).
+ *
+ *  - Hole 1's side is unchanged: Q1, S1, U1 and V1 as above.
+ *  - S2 (−171.5, 274.5), t = 25.5: A2 moves at (−1, 3) from (−146, 198) and strikes the top front; {R2, top} leaves
+ *    along (−1, −1) and {top, Y2} along (2, −1).
+ *  - Q2 (−1898/11, 584/11), t = 292/11: B2 moves at (−1, −3/4) and {W, X2} reaches it on W's front; {R2, W} leaves along
+ *    (−1, 2).
+ *  - U2 (−223, 154) and V2 (−223, 223), t = 77: R2's front and the outline's left front meet along x = −223.
+ *  - Z (22.5, 177.5), t = 122.5: {Y1, Y2} at (1/5, 7/5) from P, {Y1, top} from S1 and {top, Y2} from S2.
+ *
+ * The same counts as the symmetric specimen.
+ */
+const FACING_BAND_ASYMMETRIC: HoledTestPolygon = {
+    name: 'the facing-band specimen, asymmetric',
+    outline: outlineRect(-300, 0, 300, 300),
+    weights: BAND_OUTLINE_WEIGHTS,
+    holes: [{vertices: BAND_HOLE_1}, {vertices: [{x: -26, y: 38}, {x: -146, y: 198}, {x: -146, y: 73}]}],
+};
+const FACING_BAND_ASYMMETRIC_FORM: ClosedForm = {
+    nodes: [
+        {name: 'P', at: {x: 0, y: 20}, t: 10},
+        {name: 'Q1', at: {x: 231.25, y: 82.5}, t: 41.25},
+        {name: 'S1', at: {x: 240, y: 250}, t: 50},
+        {name: 'U1', at: {x: 245, y: 110}, t: 55},
+        {name: 'V1', at: {x: 245, y: 245}, t: 55},
+        {name: 'S2', at: {x: -171.5, y: 274.5}, t: 25.5},
+        {name: 'Q2', at: {x: -1898 / 11, y: 584 / 11}, t: 292 / 11},
+        {name: 'U2', at: {x: -223, y: 154}, t: 77},
+        {name: 'V2', at: {x: -223, y: 223}, t: 77},
+        {name: 'Z', at: {x: 22.5, y: 177.5}, t: 122.5},
+    ],
+    totalNodes: 20,
+    interiorEdges: 23,
+    ridges: [['U1', 'V1'], ['U2', 'V2']],
+};
+
+describe('the third-front rule on a weighted non-rectilinear specimen (BSA.F118, BSA.D353)', () => {
+    it('the facing-band specimen, its clear gap in the band 0 < n_W·v < w_W', () => {
+        expectClosedForm(FACING_BAND, FACING_BAND_FORM);
+    });
+
+    it('the facing-band specimen, asymmetric', () => {
+        expectClosedForm(FACING_BAND_ASYMMETRIC, FACING_BAND_ASYMMETRIC_FORM);
+    });
+});
+
+/*
+ * THE AREA'S SIGN DECIDES NOTHING (decisions 7 and 55; BSA.F117, BSA.D351). Still, the flat rings of `2h-int-1` and
+ * `2h-int-1w` have area exactly 0; translated and turned as E′ is, their area moves off 0 at about 1e-15 (BSA.F117), and
+ * a `closeFlatRings` that refused candidates of positive area refuses three of the four moved cells (measured). The
+ * negative sign is held by the unit test of `closeFlatRings` below.
+ */
+const TRANSLATION: Vector2 = {x: 1 / 3, y: 1 / 7};
+const translate: Motion = v => ({x: v.x + TRANSLATION.x, y: v.y + TRANSLATION.y});
+
 describe('flat-ring termination: the issue note\'s fuzz cases (decision 50)', () => {
     it('2h-int-1 is sound, with one node at (5.5, 10)', () => {
         expect(interiorNodesAt(TWO_H_INT_1, {x: 5.5, y: 10})).toBe(1);
     });
 
+    it('2h-int-1 translated by (1/3, 1/7): one node at (5.5, 10) moved', () => {
+        expect(interiorNodesAt(translated(TWO_H_INT_1, TRANSLATION), translate({x: 5.5, y: 10}))).toBe(1);
+    });
+
+    it('2h-int-1 turned by √2 rad and moved: one node at (5.5, 10) moved', () => {
+        expect(interiorNodesAt(moved(TWO_H_INT_1, turnAndMove, 'turned by √2 rad and moved'),
+            turnAndMove({x: 5.5, y: 10}))).toBe(1);
+    });
+
     it('2h-int-1w is sound, with one node at (5.5, 11)', () => {
         expect(interiorNodesAt(TWO_H_INT_1W, {x: 5.5, y: 11})).toBe(1);
+    });
+
+    it('2h-int-1w translated by (1/3, 1/7): one node at (5.5, 11) moved', () => {
+        expect(interiorNodesAt(translated(TWO_H_INT_1W, TRANSLATION), translate({x: 5.5, y: 11}))).toBe(1);
+    });
+
+    it('2h-int-1w turned by √2 rad and moved: one node at (5.5, 11) moved', () => {
+        expect(interiorNodesAt(moved(TWO_H_INT_1W, turnAndMove, 'turned by √2 rad and moved'),
+            turnAndMove({x: 5.5, y: 11}))).toBe(1);
     });
 
     it.each(ISSUE_FUZZ.map(fixture => [fixture.name, fixture] as const))('%s is sound', (_name, fixture) => {
@@ -189,6 +324,11 @@ describe('the probe (decisions 4, 47 and 53)', () => {
 
     it('fires twice on E′, at (10.5, 1.5) and (10.5, 8.5), both third fronts', () => {
         expect(firingsOf(E_PRIME)).toEqual({flat: 0, thirdFront: 2});
+    });
+
+    it('fires once on the facing-band specimen and once on its asymmetric variant, each a third front at P', () => {
+        expect([FACING_BAND, FACING_BAND_ASYMMETRIC].map(firingsOf))
+            .toEqual([{flat: 0, thirdFront: 1}, {flat: 0, thirdFront: 1}]);
     });
 
     it('fires once on 2h-int-1, its one flat ring', () => {
@@ -438,24 +578,76 @@ describe('flatRingVerdict on hand-built rings (decision 51)', () => {
 });
 
 /*
+ * THE AREA'S SIGN IS READ FOR NO CANDIDATE (decisions 7 and 55; BSA.D351). The base line ring, linked as one ring, with
+ * its straight vertex m lifted or dropped by a quarter floor off y = 2: within the floor of every front, and Q half a
+ * floor off the line P–M, so still flat, and of area ∓0.75 floors, either sign, under the degenerate-area bar of 6
+ * floors. `closeFlatRings` closes it at both signs: a and b end at m's node, and m ends where it stands and is culled.
+ */
+describe('closeFlatRings closes a flat ring of either sign (decisions 7 and 55)', () => {
+    const lift = SKELETON_NOISE_FLOOR / 4;
+    it.each([['negative', lift], ['positive', -lift]] as const)('area %s', (sign, dy) => {
+        const positions = {a: {x: 2, y: 2}, m: {x: 5, y: 2 + dy}, b: {x: 8, y: 2}};
+        const {context, a, m, b} = baseLine(positions);
+        const area = signedArea([positions.a, positions.m, positions.b]);
+        expect(Math.sign(area)).toBe(sign === 'negative' ? -1 : 1);
+        linkInitialRing(context, [a, m, b]);
+        const closed = closeFlatRings(context, [a, m, b], 1, new Set([a, m, b]));
+        expect([...closed].sort((first, second) => first - second)).toEqual([a, m, b]);
+        const {edges} = context.graph;
+        expect([edges[a].target, edges[m].target, edges[b].target]).toEqual([edges[m].source, edges[m].source, edges[m].source]);
+        expect(context.getInteriorWithId(m).culled).toBe(true);
+    });
+});
+
+/*
  * WALL-FACING GAPS ON E′'S WALLS (decisions 35 and 36). The struck wall is the outline's bottom, basis (−1, 0), inward
  * normal (0, 1). X, between hole 1's right wall (0, 1) and hole 2's left (0, −1), is antiparallel, so its direction is
  * hole 1 right's basis, (0, 1): clear. Y, between the two hole bottoms, (1, 0) each, is same-facing, so its direction is
- * their inward normal, (0, −1): facing. G grazes: walls of inward normals (1, 1)/√2 and (1, −1)/√2 give (√2, 0), along
- * the struck wall.
+ * their inward normal, (0, −1): facing. G grazes, on walls a legal input can pair (below).
+ *
+ * WALLS A LEGAL INPUT CAN PAIR AS A GAP (BSA.F118, BSA.D353): `n_wall` or `−n_wall` lies in the cone of the gap's two
+ * inward normals, `±n_wall = λ n_cw + μ n_ws` with λ, μ ≥ 0. Then `n_wall · v = ±(λ w_cw + μ w_ws)`, whose sign no
+ * positive weights change (decision 46). Every non-antiparallel gap these tests classify is checked to be such a pair.
  */
+const BOTTOM_NORMAL: Vector2 = {x: 0, y: 1};
+const inwardNormal = (context: StraightSkeletonSolverContext, wall: number): Vector2 => {
+    const basis = context.getEdgeWithId(wall).basisVector;
+    return {x: basis.y, y: -basis.x};
+};
+/** Does `normal` lie in the closed cone of the gap's two inward normals? */
+function inConeOfGap(context: StraightSkeletonSolverContext, normal: Vector2, gap: MergeGap): boolean {
+    const [a, b] = [inwardNormal(context, gap.clockwiseWall), inwardNormal(context, gap.widdershinsWall)];
+    const cross = (p: Vector2, q: Vector2) => p.x * q.y - p.y * q.x;
+    const determinant = cross(a, b);
+    return cross(normal, b) / determinant >= 0 && cross(a, normal) / determinant >= 0;
+}
+/** Can a legal input pair this gap against a wall of inward normal `normal`: is `normal` or its negation in its cone? */
+const legalAgainst = (context: StraightSkeletonSolverContext, normal: Vector2, gap: MergeGap) =>
+    inConeOfGap(context, normal, gap) || inConeOfGap(context, {x: -normal.x, y: -normal.y}, gap);
+
+/** A wall of inward normal at `angle` from the x axis: its basis is the normal turned a quarter anticlockwise. */
+const basisOfNormalAt = (angle: number): Vector2 => ({x: -Math.sin(angle), y: Math.cos(angle)});
+
+const gap = (clockwiseWall: number, widdershinsWall: number): MergeGap =>
+    ({lastArrival: -1, firstDeparture: -1, clockwiseWall, widdershinsWall});
+
 describe('wallFacingGap on synthetic gaps (decision 51)', () => {
+    /*
+     * G GRAZES ON WALLS A LEGAL INPUT CAN PAIR. Inward normals at ψ ± (π/2 − γ), with ρ the angular resolution, γ = 0.7 ρ
+     * and ψ = 0.85 ρ: their cone, of half-angle π/2 − γ about ψ, holds the bottom wall's normal at π/2 because ψ > γ.
+     * The walls are 2γ = 1.4 ρ from antiparallel, so the antiparallel exemption does not take them, and v runs along ψ,
+     * so v̂ · n_wall = sin ψ ≈ 0.85 ρ: inside the grazing band of decision 36, on its clear side.
+     */
+    const RESOLUTION = angularResolution(SKELETON_NOISE_FLOOR);
+    const [GAMMA, PSI] = [0.7 * RESOLUTION, 0.85 * RESOLUTION];
     const BOTTOM = 0, H1_RIGHT = 1, H2_LEFT = 2, H1_BOTTOM = 3, H2_BOTTOM = 4, G_CW = 5, G_WS = 6, H2_HEAVY = 7;
     const context = handBuilt([
         {from: {x: 21, y: 0}, basis: WEST}, {from: {x: 9, y: 3}, basis: NORTH}, {from: {x: 12, y: 7}, basis: SOUTH},
         {from: {x: 3, y: 3}, basis: EAST}, {from: {x: 12, y: 3}, basis: EAST},
-        {from: {x: 0, y: 0}, basis: {x: -1, y: 1}}, {from: {x: 0, y: 0}, basis: {x: 1, y: 1}},
+        {from: {x: 0, y: 0}, basis: basisOfNormalAt(PSI + Math.PI / 2 - GAMMA)},
+        {from: {x: 0, y: 0}, basis: basisOfNormalAt(PSI - Math.PI / 2 + GAMMA)},
         {from: {x: 12, y: 3}, basis: EAST, weight: 2},
-        {from: {x: 0, y: 0}, basis: NORTH}, {from: {x: 0, y: 0}, basis: {x: 0.8, y: 0.6}},
-        {from: {x: 0, y: 0}, basis: NORTH, weight: 2},
     ]);
-    const gap = (clockwiseWall: number, widdershinsWall: number): MergeGap =>
-        ({lastArrival: -1, firstDeparture: -1, clockwiseWall, widdershinsWall});
     const X = gap(H1_RIGHT, H2_LEFT);
     const Y = gap(H2_BOTTOM, H1_BOTTOM);
     const G = gap(G_CW, G_WS);
@@ -472,24 +664,52 @@ describe('wallFacingGap on synthetic gaps (decision 51)', () => {
         expect(wallFacingGap([Y, Y], BOTTOM, context)).toBe('2 of its 2 gaps face wall 0, not one');
     });
 
-    it('a grazing gap: G, whose direction runs along the wall', () => {
+    it('a grazing gap: G, on walls a legal input can pair, whose direction is within the resolution of the wall', () => {
+        expect(context.angularResolution).toBe(RESOLUTION);
+        expect(inConeOfGap(context, BOTTOM_NORMAL, G)).toBe(true);
         expect(wallFacingGap([X, Y, G], BOTTOM, context)).toBe('the gap {cw: 5, ws: 6} grazes wall 0');
-    });
-
-    /*
-     * THE KERNEL'S WEIGHT TERMS DECIDE THE VERDICT (decision 35; §6 item 2, convicted here at the function, not by a
-     * solved specimen). Walls of inward normals (1, 0) and (0.6, −0.8): v · (1, 0) = w1 and v · (0.6, −0.8) = w2 give
-     * v = (w1, (0.6 w1 − w2) / 0.8). At equal weights v = (1, −0.5), which faces the bottom wall; with the first wall at
-     * weight 2, v = (2, 0.25), which is clear of it.
-     */
-    it('the weights decide whether a gap between non-parallel walls faces the wall', () => {
-        const W1 = 8, W2 = 9, W1_HEAVY = 10;
-        expect(wallFacingGap([gap(W1, W2)], BOTTOM, context)).toBe(0);
-        expect(wallFacingGap([gap(W1_HEAVY, W2)], BOTTOM, context)).toBe('0 of its 1 gaps face wall 0, not one');
     });
 
     it('a gap between same-facing parallel walls of unequal weight has no direction (decision 44 (d))', () => {
         expect(wallFacingGap([X, gap(H2_HEAVY, H1_BOTTOM)], BOTTOM, context))
             .toBe('the gap {cw: 7, ws: 3} lies between same-facing parallel walls of unequal weight (2, 1)');
+    });
+});
+
+/*
+ * THE WEIGHTS DECIDE NO FACING VERDICT (decision 46, restated by BSA.D353 on BSA.F118). The gaps of the facing-band
+ * specimen: C between the hole tops, inward normals (−3, 4)/5 and (3, 4)/5, whose cone holds the bottom wall's normal
+ * (0, 1); F between the hole bottoms, (5, −12)/13 and (−5, −12)/13, whose cone holds (0, −1). At every positive weight of
+ * either wall, and against a struck wall of weight 1 or 2, C is clear and F faces, though C's `n_wall · v` falls below
+ * the struck wall's weight at some of them (5/4 < 2 at equal weights): the verdict reads the sign of `n_wall · v` and
+ * never compares it with `w_wall`.
+ */
+describe('wallFacingGap: the weights decide no verdict on walls a legal input can pair (decision 46)', () => {
+    const WEIGHTS = [0.5, 1, 2, 10];
+    const BASES: Vector2[] = [{x: -0.8, y: -0.6}, {x: -0.8, y: 0.6}, {x: 12 / 13, y: 5 / 13}, {x: 12 / 13, y: -5 / 13}];
+    const [Y1, Y2, X1, X2] = [0, 1, 2, 3];
+    const STRUCK = [0, 1];
+    const context = handBuilt([
+        {from: {x: 300, y: 0}, basis: WEST}, {from: {x: 300, y: 0}, basis: WEST, weight: 2},
+        ...WEIGHTS.flatMap(weight => BASES.map(basis => ({from: {x: 0, y: 0}, basis, weight}))),
+    ]);
+    const wallAt = (kind: number, weight: number) => STRUCK.length + BASES.length * WEIGHTS.indexOf(weight) + kind;
+    const pairs = WEIGHTS.flatMap(first => WEIGHTS.map(second => [first, second] as const));
+
+    it('every gap classified is one a legal input can pair against the bottom wall', () => {
+        const gaps = pairs.flatMap(([first, second]) => [gap(wallAt(Y1, first), wallAt(Y2, second)),
+            gap(wallAt(X1, first), wallAt(X2, second))]);
+        expect(gaps.filter(candidate => !legalAgainst(context, BOTTOM_NORMAL, candidate))).toEqual([]);
+    });
+
+    it('C is clear and F faces at every weight of their walls, against a struck wall of weight 1 or 2', () => {
+        const verdicts = STRUCK.flatMap(wall => pairs.map(([first, second]) => {
+            const clear = gap(wallAt(Y1, first), wallAt(Y2, second));
+            const facing = gap(wallAt(X1, first), wallAt(X2, second));
+            return `wall of weight ${context.weightOf(wall)}, gap walls (${first}, ${second}): `
+                + `${wallFacingGap([clear, facing], wall, context)}`;
+        }));
+        expect(verdicts).toEqual(STRUCK.flatMap(wall => pairs.map(([first, second]) =>
+            `wall of weight ${context.weightOf(wall)}, gap walls (${first}, ${second}): 1`)));
     });
 });
