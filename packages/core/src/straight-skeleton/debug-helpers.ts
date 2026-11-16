@@ -7,7 +7,7 @@ import type {
     Vector2,
 } from './types';
 import {collideEdges} from './collision-helpers';
-import {birthArrivalOf, timeOf} from './collision-helpers';
+import {nodeBirthArrival, timeOf} from './collision-helpers';
 import {addVectors, makeBasis, makeWeightedBisectedBasis, scaleVector} from "./core-functions";
 import {intersectRays} from "./intersection-edges";
 
@@ -56,8 +56,8 @@ export function generateCollisionSweep(
 /**
  * Compute the wavefront TIME of each interior node (W-spec W5, W40).
  *
- * For each node with id >= numExteriorNodes, picks any outgoing interior edge and returns that
- * edge's BIRTH ARRIVAL as a time — the source's perpendicular distance from its clockwise parent's
+ * For each node with id >= numExteriorNodes, takes its first outgoing interior edge and returns that
+ * edge's BIRTH ARRIVAL as a time ({@link nodeBirthArrival}) — the source's perpendicular distance from its clockwise parent's
  * supporting line, divided by that parent's weight. The distance half is `sourceOffsetDistance`,
  * unchanged (W-spec W6); the division is by exactly `1.0` at unit weights, so the readout the
  * dashboard has always drawn is untouched.
@@ -74,14 +74,9 @@ export function computeNodeOffsetDistances(
     const {graph} = context;
 
     for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
-        const node = graph.nodes[i];
-        // Find an outgoing interior edge
-        for (const edgeId of node.outEdges) {
-            if (context.edgeRank(edgeId) !== 'exterior') {
-                const edge = context.getInteriorWithId(edgeId);
-                result.set(i, timeOf(birthArrivalOf(edge, context)));
-                break;
-            }
+        const arrival = nodeBirthArrival(context, graph.nodes[i]);
+        if (arrival !== undefined) {
+            result.set(i, timeOf(arrival));
         }
     }
 

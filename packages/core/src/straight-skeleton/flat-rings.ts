@@ -10,7 +10,7 @@ import {
     sizeOfVector,
     subtractVectors,
 } from "./core-functions";
-import {ringPerimeter, segmentSegmentIntersection, signedArea} from "../random-polygon/geometry-helpers";
+import {ringPerimeter, segmentSegmentIntersection, signedArea} from "./planar-geometry";
 import {isEndpointTouch} from "./polygon-decomposition";
 import {bisectWithParams} from "./algorithm-helpers";
 import {activeWavefrontProbe, refuseStep, retireBisectors, ringPolygonAt, ringsOfWavefront} from "./wavefront";

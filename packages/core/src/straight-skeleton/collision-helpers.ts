@@ -5,6 +5,7 @@ import {
     IntersectionType,
     PairEvent,
     PolygonEdge,
+    PolygonNode,
     SplitEvent,
     RayProjection,
     SkeletonDirection,
@@ -229,6 +230,30 @@ export function birthArrivalOf(edge: InteriorEdge, context: StraightSkeletonSolv
         weight: context.weightOf(context.clockwiseParent(edge).id),
         uncertainty,
     };
+}
+
+/**
+ * The ARRIVAL at which a node was created, derived the same way the solver derives it everywhere else (W-spec W30).
+ * Exterior nodes sit on the boundary, so their arrival is zero distance against any weight; an interior node is born at
+ * the birth arrival ({@link birthArrivalOf}) of its first outgoing interior edge.
+ *
+ * Returns `undefined` for a terminal interior node, which emits nothing and therefore has no arrival recorded anywhere
+ * to read.
+ */
+export function nodeBirthArrival(context: StraightSkeletonSolverContext, node: PolygonNode): Arrival | undefined {
+    if (node.id < context.graph.numExteriorNodes) {
+        // Zero distance is time zero against every positive weight, so the weight here is a formality; `1` keeps the
+        // pair's arithmetic exact. A boundary vertex is a STORED input position, so its pricing error budget is 0 (C8
+        // spec T12 as amended).
+        return {distance: 0, weight: 1, uncertainty: 0};
+    }
+
+    const outInterior = node.outEdges.find(id => context.edgeRank(id) !== 'exterior');
+    if (outInterior === undefined) {
+        return undefined;
+    }
+
+    return birthArrivalOf(context.getInteriorWithId(outInterior), context);
 }
 
 /**

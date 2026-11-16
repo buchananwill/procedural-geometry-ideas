@@ -2,6 +2,7 @@ import type {InteriorEdge, SkeletonSolveResult, StraightSkeletonSolverContext, V
 import {addVectors, dotProduct, projectFromPerpendicular, scaleVector, vectorsAreEqual} from './core-functions';
 import {ARITHMETIC_SAME_POINT_BOX, ARRIVAL_MOMENT_ULPS} from './constants';
 import {skeletonHoleCount} from './graph-helpers';
+import {clockwiseParentsOf, datingWallOf, distanceToWallLine} from './wall-time';
 
 /**
  * Projection of a solved straight skeleton back into wavefront positions.
@@ -294,17 +295,6 @@ export function requireSingleLoopResult(result: SkeletonSolveResult, caller: str
     return context;
 }
 
-/** Perpendicular distance from p to the infinite line through a and b. */
-function distanceToSupportingLine(p: Vector2, a: Vector2, b: Vector2): number {
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const length = Math.hypot(dx, dy);
-    if (length === 0) {
-        return Math.hypot(p.x - a.x, p.y - a.y);
-    }
-    return Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) / length;
-}
-
 /**
  * How far apart two re-derived TIMES of one simultaneous event may lie, as a fraction of the
  * skeleton's own maximum time.
@@ -409,52 +399,23 @@ function rederiveInteriorNodeOffsets(result: SkeletonSolveResult): Map<number, n
     const {graph} = result;
     const exteriorEdgeCount = graph.numExteriorNodes;
 
-    const parentEdgeOf = new Map<number, number>();
-    for (const interiorEdge of graph.interiorEdges) {
-        parentEdgeOf.set(interiorEdge.id, interiorEdge.clockwiseExteriorEdgeIndex);
-    }
+    const clockwiseParents = clockwiseParentsOf(graph);
 
     const offsets = new Map<number, number>();
     for (let nodeId = exteriorEdgeCount; nodeId < graph.nodes.length; nodeId++) {
         const node = graph.nodes[nodeId];
-        const parentEdgeId = firstIncidentParentEdge(node.inEdges, node.outEdges, parentEdgeOf);
+        // The dating wall (`datingWallOf`): absent when the node has no incident interior edge, which is why such a
+        // node is absent from the table rather than guessed at.
+        const parentEdgeId = datingWallOf(node, clockwiseParents);
         if (parentEdgeId === undefined) {
             continue;
         }
         // THE PARENT'S OWN LINE, through its own source and target nodes (skeleton loop-consumers spec, decisions 2
-        // and 5): on one loop edge `e`'s target is node `(e + 1) % n`, which is what this read as arithmetic, so the
-        // table is unchanged to the bit; on a holed graph a loop's last edge ends at that loop's own first node.
-        const parentEdge = graph.edges[parentEdgeId];
-        offsets.set(
-            nodeId,
-            distanceToSupportingLine(
-                node.position,
-                graph.nodes[parentEdge.source].position,
-                graph.nodes[parentEdge.target!].position,
-            ) / graph.exteriorWeights[parentEdgeId],
-        );
+        // and 5; `distanceToWallLine`).
+        offsets.set(nodeId, distanceToWallLine(graph, node.position, parentEdgeId) / graph.exteriorWeights[parentEdgeId]);
     }
 
     return offsets;
-}
-
-/**
- * The exterior edge that dates a node: the clockwise parent of the first bisector incident to it
- * that has one. `undefined` when the node has no incident interior edge, which is why such a node is
- * absent from the table rather than guessed at.
- */
-function firstIncidentParentEdge(
-    inEdges: number[],
-    outEdges: number[],
-    parentEdgeOf: Map<number, number>,
-): number | undefined {
-    for (const edgeId of new Set([...inEdges, ...outEdges])) {
-        const parentEdgeId = parentEdgeOf.get(edgeId);
-        if (parentEdgeId !== undefined) {
-            return parentEdgeId;
-        }
-    }
-    return undefined;
 }
 
 /**

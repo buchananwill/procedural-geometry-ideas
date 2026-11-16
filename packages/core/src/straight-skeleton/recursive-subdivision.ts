@@ -12,7 +12,7 @@ import {computeMaxOffset, computeOffsetRings} from './offset-projection';
 import {computeStrips} from './strip-decomposition';
 import type {Strip, StripOptions} from './strip-decomposition';
 import {ensureClockwise} from './polygon-decomposition';
-import {ringPerimeter, signedArea} from '../random-polygon/geometry-helpers';
+import {ringPerimeter, signedArea} from './planar-geometry';
 
 /**
  * Recursive segment subdivision: solve a region, cut it into segments, solve each segment again —

@@ -1,5 +1,8 @@
-import type {CausalityViolationDiagnostic, StraightSkeletonGraph, Vector2} from './types';
+import type {CausalityViolationDiagnostic, StraightSkeletonGraph} from './types';
 import {angularResolution} from './constants';
+import {distanceToSegment} from './planar-geometry';
+import {clockwiseParentsOf, datingWallOf, distanceToWallLine} from './wall-time';
+import type {WallReading} from './wall-time';
 
 /*
  * ============================================================================
@@ -35,8 +38,9 @@ import {angularResolution} from './constants';
  * solver's own sense (W-spec W7), and its time is the distance over the weight (W5). A node with no
  * incident interior edge has no arrival and is skipped by both the offset and clearance oracles. This
  * is a deliberately separate copy from the test suites' `deriveNodeArrivals` — the test side is kept
- * as the independent conviction (decision 148(e)) — and from `computeNodeOffsets`, which
- * canonicalises and so could not see what it overwrote.
+ * as the independent conviction (decision 148(e)) — and does not read `computeNodeOffsets`, which
+ * canonicalises and so could not see what it overwrote; the two share only the dating primitives of
+ * `wall-time.ts`.
  *
  * EVERY COMPARISON IS OF TIMES, CROSS-MULTIPLIED (BSA.D309; W-spec W22, W26; `compareArrivals`). The check used
  * to compare a node's DISTANCE from one parent with its distance to the nearest wall, and so reported correct
@@ -70,60 +74,21 @@ import {angularResolution} from './constants';
  * only where that difference changes no verdict, and the suites pin both counts.
  */
 
-/** Perpendicular distance from `p` to the infinite line through `a` and `b`; to `a` itself when `a = b`. */
-function distanceToSupportingLine(p: Vector2, a: Vector2, b: Vector2): number {
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const length = Math.hypot(dx, dy);
-    if (length === 0) {
-        return Math.hypot(p.x - a.x, p.y - a.y);
-    }
-    return Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) / length;
-}
+/** Every node's derived arrival: its distance from its dating wall's line, in the graph's units, and that wall's weight. */
+function deriveArrivals(graph: StraightSkeletonGraph): Map<number, WallReading> {
+    const clockwiseParents = clockwiseParentsOf(graph);
 
-/** Euclidean distance from `p` to the segment `ab`. */
-function distanceToSegment(p: Vector2, a: Vector2, b: Vector2): number {
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const lengthSquared = dx * dx + dy * dy;
-    const raw = lengthSquared === 0 ? 0 : ((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSquared;
-    const t = Math.max(0, Math.min(1, raw));
-    return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
-}
-
-/** A node's derived arrival: its distance from its dating wall's line, in the graph's units, and that wall's weight. */
-interface DerivedArrival {
-    distance: number;
-    weight: number;
-}
-
-/** Every node's derived arrival. See the module header for the definition. */
-function deriveArrivals(graph: StraightSkeletonGraph): Map<number, DerivedArrival> {
-    const clockwiseParentOf = new Map<number, number>();
-    for (const interiorEdge of graph.interiorEdges) {
-        clockwiseParentOf.set(interiorEdge.id, interiorEdge.clockwiseExteriorEdgeIndex);
-    }
-
-    const arrivalOf = new Map<number, DerivedArrival>();
+    const arrivalOf = new Map<number, WallReading>();
     for (let i = 0; i < graph.numExteriorNodes; i++) {
         // At time 0 on the wall leaving it: any positive weight dates it at 0.
         arrivalOf.set(i, {distance: 0, weight: graph.exteriorWeights[i] ?? 1});
     }
     for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
         const node = graph.nodes[i];
-        const incident = [...new Set([...node.inEdges, ...node.outEdges])]
-            .filter(id => clockwiseParentOf.has(id));
-        if (incident.length === 0) continue;
-        // THE PARENT'S OWN LINE, through its own source and target nodes (skeleton join-and-divide spec, decision
-        // 32): on one loop edge `i`'s target is node `i + 1 mod n`, which is what this read as arithmetic; on a holed
-        // graph a loop's last edge ends at that loop's first node, not the next loop's.
-        const parent = clockwiseParentOf.get(incident[0])!;
-        const parentEdge = graph.edges[parent];
+        const parent = datingWallOf(node, clockwiseParents);
+        if (parent === undefined) continue;
         arrivalOf.set(i, {
-            distance: distanceToSupportingLine(
-                node.position,
-                graph.nodes[parentEdge.source].position,
-                graph.nodes[parentEdge.target!].position),
+            distance: distanceToWallLine(graph, node.position, parent),
             weight: graph.exteriorWeights[parent] ?? 1,
         });
     }

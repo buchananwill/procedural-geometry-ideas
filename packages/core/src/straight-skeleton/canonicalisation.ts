@@ -1,4 +1,4 @@
-import {distanceToSupportingLine} from '../stroke-spline/vertex-budget';
+import {distanceToSupportingLine} from './planar-geometry';
 import {Vector2} from './types';
 
 /**

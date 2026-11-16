@@ -2,6 +2,7 @@ import type {SkeletonLoop, SkeletonSolveResult, StraightSkeletonGraph, Vector2} 
 import {SkeletonDirection} from './types';
 import {computeNodeOffsets, requireProjectableResult} from './offset-projection';
 import {adjacentExteriorEdge, loopOfExteriorEdge} from './graph-helpers';
+import {signedArea} from './planar-geometry';
 
 /**
  * Decomposition of a solved block into street-facing strips.
@@ -300,30 +301,6 @@ function positionKey(point: Vector2): string {
 
 function samePoint(a: Vector2, b: Vector2): boolean {
     return a.x === b.x && a.y === b.y;
-}
-
-/**
- * Signed area, positive counter-clockwise, negative clockwise.
- *
- * Terms are taken relative to the ring's own first vertex. The shoelace sum is invariant
- * under translation, so this is mathematically identical to summing over absolute
- * coordinates, but it does not lose the answer to cancellation for a ring far from the
- * origin: absolute terms are of order D^2 for a ring at distance D, so they carry an error
- * of about D^2 * 2^-52 against a true area of only A, and the sign is lost once
- * D > sqrt(A) * 6.7e7.
- */
-function signedArea(ring: Vector2[]): number {
-    if (ring.length === 0) {
-        return 0;
-    }
-    const origin = ring[0];
-    let total = 0;
-    for (let i = 0; i < ring.length; i++) {
-        const a = ring[i];
-        const b = ring[(i + 1) % ring.length];
-        total += (a.x - origin.x) * (b.y - origin.y) - (b.x - origin.x) * (a.y - origin.y);
-    }
-    return total / 2;
 }
 
 function dropRepeatedVertices(ring: Vector2[]): Vector2[] {

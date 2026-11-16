@@ -11,9 +11,7 @@ import type {
 import {SkeletonDirection} from "./types";
 import {adjacentExteriorEdge, loopOfExteriorEdge} from "./graph-helpers";
 import {degenerateAreaBar} from "./constants";
-import {ringPerimeter, signedArea} from "../random-polygon/geometry-helpers";
-import {distanceToSegment} from "../stroke-spline/vertex-budget";
-import {isPointInPolygon} from "../terrain/polygon-slope";
+import {distanceToSegment, isPointInPolygon, ringPerimeter, signedArea} from "./planar-geometry";
 import {findFirstCrossing} from "./polygon-decomposition";
 
 /**

@@ -30,6 +30,7 @@ import {
     birthArrivalOf,
     collideInteriorEdges,
     compareArrivals,
+    nodeBirthArrival,
     nodePositionUncertainty,
     priceHeadOnPair,
     separationUncertainty,
@@ -55,7 +56,7 @@ import {decomposePolygon} from "./polygon-decomposition";
 import {checkWavefrontCausality} from "./causality-check";
 import {HOLED_UNCULLED_SELF_LOOP, holedSkeletonViolations} from "./holed-guard";
 import {mergeSkeletonGraphs, makeMergedSolverContext} from "./graph-merge";
-import {isClockwise} from "../random-polygon/geometry-helpers";
+import {isClockwise} from "./planar-geometry";
 import {
     SkeletonNormalisation,
     denormaliseCollisionCache,
@@ -76,31 +77,6 @@ import {
 
 function stringifyFinalData(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): string {
     return `{"polygonEdges" :${JSON.stringify(context.getEdges(input.interiorEdges))}, "interiorEdges": ${JSON.stringify(context.getInteriorEdges(input.interiorEdges))}, "sourceNodes": ${JSON.stringify(input.interiorEdges.map(e => context.graph.nodes[context.getEdgeWithId(e).source]))}}`
-}
-
-/**
- * The ARRIVAL at which a node was created, derived the same way the solver derives it
- * everywhere else (W-spec W30). Exterior nodes sit on the boundary, so their arrival is zero
- * distance against any weight; an interior node is born at the birth arrival of any bisector
- * emitted from it.
- *
- * Returns `undefined` for a terminal interior node, which emits nothing and therefore has no
- * arrival recorded anywhere for us to read.
- */
-function nodeOffset(context: StraightSkeletonSolverContext, node: PolygonNode): Arrival | undefined {
-    if (node.id < context.graph.numExteriorNodes) {
-        // Zero distance is time zero against every positive weight, so the weight here is a
-        // formality; `1` keeps the pair's arithmetic exactly today's. A boundary vertex is a STORED
-        // input position, so its pricing error budget is 0 (C8 spec T12 as amended).
-        return {distance: 0, weight: 1, uncertainty: 0};
-    }
-
-    const outInterior = node.outEdges.find(id => context.edgeRank(id) !== 'exterior');
-    if (outInterior === undefined) {
-        return undefined;
-    }
-
-    return birthArrivalOf(context.getInteriorWithId(outInterior), context);
 }
 
 /**
@@ -236,7 +212,7 @@ function tryAttachEdgeToNode(context: StraightSkeletonSolverContext, edgeId: num
         // their targets, leaving nodes 31 and 35 holding exactly such phantom in-edges.
         // S24 (C8 spec T14): the snap's equal-time check; its window is held with the other six at
         // `HELD_SIMULTANEITY_WINDOW` (T37 STOP; register C12, see constants.ts).
-        const candidateArrival = nodeOffset(context, candidate);
+        const candidateArrival = nodeBirthArrival(context, candidate);
         if (candidateArrival !== undefined
             && !arrivalsAreEqual(candidateArrival, snapArrival, HELD_SIMULTANEITY_WINDOW)) {
             stepLog.debug(

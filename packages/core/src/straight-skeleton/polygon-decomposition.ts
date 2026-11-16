@@ -1,5 +1,5 @@
 import {Vector2} from "./types";
-import {ringPerimeter, segmentSegmentIntersection, signedArea, isClockwise} from "../random-polygon/geometry-helpers";
+import {ringPerimeter, segmentSegmentIntersection, signedArea, isClockwise} from "./planar-geometry";
 import {degenerateAreaBar} from "./constants";
 
 /**

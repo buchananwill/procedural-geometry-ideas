@@ -1,8 +1,12 @@
 import {Vector2} from "./types";
 import {findFirstCrossing, isEndpointTouch} from "./polygon-decomposition";
-import {ringPerimeter, segmentSegmentIntersection, signedArea} from "../random-polygon/geometry-helpers";
-import {distanceToSegment} from "../stroke-spline/vertex-budget";
-import {isPointInPolygon} from "../terrain/polygon-slope";
+import {
+    distanceToSegment,
+    isPointInPolygon,
+    ringPerimeter,
+    segmentSegmentIntersection,
+    signedArea,
+} from "./planar-geometry";
 import {degenerateAreaBar} from "./constants";
 import {makeSkeletonNormalisation, normalisePolygon} from "./normalisation";
 import {PerceptualFloorOptions, resolvePerceptualFloor} from "./canonicalisation";

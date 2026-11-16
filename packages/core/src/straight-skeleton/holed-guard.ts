@@ -1,4 +1,6 @@
 import type {GeneralSkeletonDiagnostic, InteriorEdge, StraightSkeletonGraph, Vector2} from './types';
+import {distanceToWallLine, gapOnFasterWall} from './wall-time';
+import type {WallReading} from './wall-time';
 
 /*
  * ============================================================================
@@ -42,17 +44,6 @@ import type {GeneralSkeletonDiagnostic, InteriorEdge, StraightSkeletonGraph, Vec
 
 /** The informational kind: the one kind this guard pushes that does not make a result incomplete. */
 export const HOLED_UNCULLED_SELF_LOOP = 'holed-unculled-self-loop' as const;
-
-/** Perpendicular distance from `p` to the infinite line through `a` and `b`; to `a` itself when `a = b`. */
-function distanceToSupportingLine(p: Vector2, a: Vector2, b: Vector2): number {
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const length = Math.hypot(dx, dy);
-    if (length === 0) {
-        return Math.hypot(p.x - a.x, p.y - a.y);
-    }
-    return Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) / length;
-}
 
 /** One arc: a node pair, `a < b`, and the wall pairs its records name. */
 interface Arc {
@@ -156,10 +147,8 @@ function topologyViolations(
 }
 
 /** A wall's arrival at a point, in unit space: the distance from its supporting line, and its weight. */
-interface WallArrival {
+interface WallArrival extends WallReading {
     wall: number;
-    distance: number;
-    weight: number;
 }
 
 /** Every interior node's walls: the parents of the non-culled interior edges incident to it. */
@@ -187,18 +176,11 @@ function wallsAtNodes(graph: StraightSkeletonGraph): Map<number, Set<number>> {
 }
 
 function arrivalAt(graph: StraightSkeletonGraph, node: number, wall: number, toUnitScale: number): WallArrival {
-    const edge = graph.edges[wall];
     return {
         wall,
-        distance: toUnitScale * distanceToSupportingLine(
-            graph.nodes[node].position, graph.nodes[edge.source].position, graph.nodes[edge.target!].position),
+        distance: toUnitScale * distanceToWallLine(graph, graph.nodes[node].position, wall),
         weight: graph.exteriorWeights[wall] ?? 1,
     };
-}
-
-/** How much later `later` is than `earlier`, cross-multiplied and stated on the faster wall, as a unit-space length. */
-function lateness(later: WallArrival, earlier: WallArrival): number {
-    return (later.distance * earlier.weight - earlier.distance * later.weight) / Math.min(later.weight, earlier.weight);
 }
 
 /** The equal-time check: every interior node at one time from every wall that meets there, at the floor. */
@@ -215,7 +197,7 @@ function equalTimeViolations(
         let worst: {later: WallArrival; earlier: WallArrival; gap: number} | undefined;
         for (const later of arrivals) {
             for (const earlier of arrivals) {
-                const gap = lateness(later, earlier);
+                const gap = gapOnFasterWall(later, earlier);
                 if (gap > perceptualFloor && (worst === undefined || gap > worst.gap)) {
                     worst = {later, earlier, gap};
                 }
@@ -260,7 +242,7 @@ function timeOrderViolations(
         }
         const from = timeOf(edge.source);
         const to = timeOf(edge.target);
-        const backwards = lateness(from, to);
+        const backwards = gapOnFasterWall(from, to);
         if (backwards > perceptualFloor) {
             found.push({
                 kind: 'holed-time-order-violation',

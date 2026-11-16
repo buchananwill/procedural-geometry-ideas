@@ -1,6 +1,7 @@
 import type { Vector2 } from '../shared/types';
 import { bearingDegrees, slopeDegrees } from './slope';
 import { boundsOfPoints } from './placement';
+import { isPointInPolygon } from '../straight-skeleton/planar-geometry';
 import type { TerrainSample, TerrainSampler } from './types';
 
 /**
@@ -102,19 +103,8 @@ export function polygonSamplePositions(
     return positions;
 }
 
-/** Standard crossing-number test. Points exactly on an edge may fall either way; nothing here cares. */
-export function isPointInPolygon(point: Vector2, polygon: readonly Vector2[]): boolean {
-    let inside = false;
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-        const a = polygon[i];
-        const b = polygon[j];
-        const straddles = a.y > point.y !== b.y > point.y;
-        if (straddles && point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x) {
-            inside = !inside;
-        }
-    }
-    return inside;
-}
+/** The crossing-number test is the solver's planar geometry, re-exported here for this module's callers. */
+export { isPointInPolygon };
 
 /**
  * Evaluates every polygon against the terrain in a single batched sample.
