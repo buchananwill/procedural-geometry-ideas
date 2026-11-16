@@ -21,13 +21,12 @@ import {
 } from '@proc-geo/core';
 import {
     birthsClosedAtOneNode,
-    exteriorFaceIsClosed,
     LayerLinks,
     linkBirth,
     linkPairCollapse,
-    NOT_LIVE,
     settleLayerLinks,
-} from '@proc-geo/core/straight-skeleton/wavefront';
+} from '@proc-geo/core/straight-skeleton/layer-links';
+import {exteriorFaceIsClosed, NOT_LIVE} from '@proc-geo/core/straight-skeleton/wavefront-links';
 
 setSkeletonLogLevel('silent');
 

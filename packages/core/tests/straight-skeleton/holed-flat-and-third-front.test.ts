@@ -23,7 +23,8 @@ import {
 } from '@proc-geo/core';
 import {MergeGap, wallFacingGap} from '@proc-geo/core/straight-skeleton/vertex-event';
 import {closeFlatRings, flatRingVerdict, FlatRingVerdict} from '@proc-geo/core/straight-skeleton/flat-rings';
-import {linkInitialRing, setWavefrontProbe} from '@proc-geo/core/straight-skeleton/wavefront';
+import {linkInitialRing} from '@proc-geo/core/straight-skeleton/wavefront-links';
+import {setWavefrontProbe} from '@proc-geo/core/straight-skeleton/wavefront-check';
 import {ringsAmong} from '@proc-geo/core/straight-skeleton/wavefront-links';
 import {HOLED_TEST_POLYGONS, holedSolveOptions} from '@proc-geo/test-fixtures';
 import type {HoledTestPolygon} from '@proc-geo/test-fixtures';

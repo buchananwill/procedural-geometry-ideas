@@ -19,14 +19,9 @@ import {
 } from '@proc-geo/core';
 import {selectPartitionEvents} from '@proc-geo/core/straight-skeleton/algorithm-complex-cases';
 import {priceHeadOnPair} from '@proc-geo/core/straight-skeleton/collision-helpers';
-import {
-    activeWavefrontProbe,
-    linkBirth,
-    linkInitialRing,
-    linkPairCollapse,
-    retireBisectors,
-    settleLayerLinks,
-} from '@proc-geo/core/straight-skeleton/wavefront';
+import {activeWavefrontProbe} from '@proc-geo/core/straight-skeleton/wavefront-check';
+import {linkBirth, linkPairCollapse, settleLayerLinks} from '@proc-geo/core/straight-skeleton/layer-links';
+import {linkInitialRing, retireBisectors} from '@proc-geo/core/straight-skeleton/wavefront-links';
 import {CROSS, FULL_CORPUS, initContext, T_SHAPE, WEIGHTED_TEST_POLYGONS} from '@proc-geo/test-fixtures';
 import {
     corpusRoster,

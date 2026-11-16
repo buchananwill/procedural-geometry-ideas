@@ -16,7 +16,7 @@
  */
 import type {AlgorithmStepInput, StraightSkeletonSolverContext} from '@proc-geo/core';
 import {checkWavefront, setSkeletonLogLevel, solveSkeleton} from '@proc-geo/core';
-import {setWavefrontProbe} from '@proc-geo/core/straight-skeleton/wavefront';
+import {setWavefrontProbe} from '@proc-geo/core/straight-skeleton/wavefront-check';
 import {allCells} from '../sweep-harness/sweep';
 import {
     CENSUS_DEPTH_FRACTIONS,

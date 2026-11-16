@@ -30,7 +30,7 @@ import {
     SKELETON_NOISE_FLOOR,
     solveSkeleton,
 } from '@proc-geo/core';
-import {setWavefrontProbe} from '@proc-geo/core/straight-skeleton/wavefront';
+import {setWavefrontProbe} from '@proc-geo/core/straight-skeleton/wavefront-check';
 import {HoledTestPolygon, holedSolveOptions} from '@proc-geo/test-fixtures';
 import {escapedNodesOf} from './containment-helpers';
 import {holedTilingError, oracleViolationsOf, rateViolations} from './wavefront-measurement-helpers';

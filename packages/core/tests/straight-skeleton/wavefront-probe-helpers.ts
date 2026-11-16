@@ -30,7 +30,7 @@ import {
     subdivideRecursively,
     uniformLevelSpecs,
 } from '@proc-geo/core';
-import {setWavefrontProbe, WavefrontProbe} from '@proc-geo/core/straight-skeleton/wavefront';
+import {setWavefrontProbe, WavefrontProbe} from '@proc-geo/core/straight-skeleton/wavefront-check';
 import {FULL_CORPUS, WEIGHTED_TEST_POLYGONS} from '@proc-geo/test-fixtures';
 import {allCells} from '../sweep-harness/sweep';
 

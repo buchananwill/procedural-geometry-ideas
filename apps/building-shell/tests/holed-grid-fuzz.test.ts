@@ -24,7 +24,7 @@ import {ShellBuild, buildShellDetailed} from '../src/shell.ts';
 import {storeyForms} from '../src/storey.ts';
 import {ring, storeyRings} from '../src/fixture.ts';
 import {solveSkeleton} from '@proc-geo/core';
-import {setWavefrontProbe} from '../../../packages/core/src/straight-skeleton/wavefront.ts';
+import {setWavefrontProbe} from '../../../packages/core/src/straight-skeleton/wavefront-check.ts';
 import {roofViolations} from './roof-coverage.ts';
 import {invariantViolations, planHolds} from './shell-invariants.ts';
 import {shellFixture} from './test-builds.ts';

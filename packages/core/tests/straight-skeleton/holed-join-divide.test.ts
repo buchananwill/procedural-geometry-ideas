@@ -30,18 +30,16 @@ import {
 } from '@proc-geo/core';
 import {generateSplitEvent} from '@proc-geo/core/straight-skeleton/generate-split-event';
 import {signedArea} from '@proc-geo/core/random-polygon/geometry-helpers';
+import {beginStep, endStep} from '@proc-geo/core/straight-skeleton/step-scope';
+import {componentsOfRings} from '@proc-geo/core/straight-skeleton/ring-components';
 import {
-    beginStep,
-    componentsOfRings,
-    endStep,
     LayerLinks,
-    linkInitialRing,
     linkMergeGap,
     linkPairCollapse,
     linkSplit,
     partitionArc,
-    retireBisectors,
-} from '@proc-geo/core/straight-skeleton/wavefront';
+} from '@proc-geo/core/straight-skeleton/layer-links';
+import {linkInitialRing, retireBisectors} from '@proc-geo/core/straight-skeleton/wavefront-links';
 import {
     HOLED_F1 as F1,
     HOLED_F1_HOLE as F1_HOLE,

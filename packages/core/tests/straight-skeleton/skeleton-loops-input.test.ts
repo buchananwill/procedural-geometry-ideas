@@ -27,7 +27,7 @@ import {
     solveSkeleton,
 } from '@proc-geo/core';
 import {FULL_CORPUS} from '@proc-geo/test-fixtures';
-import {setWavefrontProbe} from '@proc-geo/core/straight-skeleton/wavefront';
+import {setWavefrontProbe} from '@proc-geo/core/straight-skeleton/wavefront-check';
 import {expectSoundHoledSolve} from './holed-test-helpers';
 
 setSkeletonLogLevel('silent');
