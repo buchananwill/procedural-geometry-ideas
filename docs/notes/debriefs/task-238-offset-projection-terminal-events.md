@@ -1,8 +1,11 @@
 ---
 title: "Task 238 — Offset projection at terminal many-way events"
-type: debrief
-spec: docs/notes/offset-projection-terminal-events-decisions.md
-outcome: hypothesis refuted by measurement; decisions 3–8 not implemented, per decision 1
+type: workflow
+area: straight-skeleton
+status: archived
+date: 2026-08-16
+# spec: docs/notes/offset-projection-terminal-events-decisions.md
+# outcome: hypothesis refuted by measurement; decisions 3–8 not implemented, per decision 1
 ---
 
 # Task 238 debrief — the hypothesis is refuted

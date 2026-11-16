@@ -1,3 +1,11 @@
+---
+title: "Debrief 0001 — Spine extraction: the core module"
+type: workflow
+area: subdivision
+status: archived
+date: 2026-08-17
+---
+
 # Debrief 0001 — Spine extraction: the core module
 
 ## Task Summary

@@ -1,7 +1,9 @@
-import {CLEAN_TEST_POLYGONS, RECTANGLE, SQUARE} from '@proc-geo/test-fixtures';
+import {CLEAN_TEST_POLYGONS, HOLED_F1, HOLED_F2, holedSolveOptions, RECTANGLE, SQUARE} from '@proc-geo/test-fixtures';
 import {
     buildSkeletonTree,
     computeNodeOffsets,
+    requireSingleLoopResult,
+    skeletonHoleCount,
     InteriorEdge,
     PolygonEdge,
     SkeletonSolveResult,
@@ -650,5 +652,45 @@ describe('preconditions', () => {
     it('refuses a merged graph with no solver context', () => {
         const result = solved(SQUARE);
         expect(() => buildSkeletonTree({...result, context: null})).toThrow(/solver context/);
+    });
+});
+
+/*
+ * THE TREE-BASED CONSUMERS REFUSE A HOLED RESULT (skeleton loop-consumers spec, decisions 19 to 22 and 42). A skeleton
+ * of a region with holes has a cycle round each hole and is not a tree; `isTree` false would report a correct
+ * skeleton as broken, so `buildSkeletonTree` throws instead, and the spine, built on a tree, refuses through it.
+ */
+describe('a holed result is refused by the tree-based consumers', () => {
+    const MESSAGE = 'buildSkeletonTree requires a skeleton of one loop, but this result has 1 hole(s): the skeleton '
+        + 'of a region with holes has a cycle round each hole and is not a tree. computeStrips and computeOffsetRings '
+        + 'read every loop.';
+
+    it('skeletonHoleCount reads 1 on F1, 2 on F2 and 0 on Square, and 0 on a merged graph', () => {
+        expect(skeletonHoleCount(solveSkeleton(HOLED_F1.outline, holedSolveOptions(HOLED_F1)).graph)).toBe(1);
+        expect(skeletonHoleCount(solveSkeleton(HOLED_F2.outline, holedSolveOptions(HOLED_F2)).graph)).toBe(2);
+        expect(skeletonHoleCount(solved(SQUARE).graph)).toBe(0);
+        expect(skeletonHoleCount({...solved(SQUARE).graph, loops: []})).toBe(0);
+    });
+
+    it('buildSkeletonTree throws on F1 with the message of decision 20', () => {
+        const result = solveSkeleton(HOLED_F1.outline, holedSolveOptions(HOLED_F1));
+        expect(result.complete).toBe(true);
+        expect(() => buildSkeletonTree(result)).toThrow(MESSAGE);
+    });
+
+    it('buildSkeletonTree names the hole count: 2 on F2', () => {
+        const result = solveSkeleton(HOLED_F2.outline, holedSolveOptions(HOLED_F2));
+        expect(() => buildSkeletonTree(result)).toThrow(/has 2 hole\(s\)/);
+    });
+
+    it('requireSingleLoopResult names its caller, and passes a single loop through to its context', () => {
+        const holed = solveSkeleton(HOLED_F1.outline, holedSolveOptions(HOLED_F1));
+        expect(() => requireSingleLoopResult(holed, 'someConsumer'))
+            .toThrow(/^someConsumer requires a skeleton of one loop, but this result has 1 hole\(s\)/);
+        const single = solved(SQUARE);
+        expect(requireSingleLoopResult(single, 'someConsumer')).toBe(single.context);
+        // The projection's own refusals still come first.
+        expect(() => requireSingleLoopResult({...holed, complete: false}, 'someConsumer'))
+            .toThrow(/requires a complete skeleton solve/);
     });
 });

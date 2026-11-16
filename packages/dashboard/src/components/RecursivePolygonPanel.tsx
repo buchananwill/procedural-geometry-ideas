@@ -4,7 +4,8 @@ import { notifications } from '@mantine/notifications';
 import { makeVertexRun, serialiseGeometryPayload } from '@proc-geo/core';
 import type { Vector2 } from '@proc-geo/core';
 import CollapseChevron from './CollapseChevron';
-import { FIXTURE_OPTION_GROUPS } from './fixture-options';
+import { RECURSIVE_FIXTURE_OPTION_GROUPS } from './fixture-options';
+import { HOLED_BRIDGE_DISABLED_TEXT } from './holed-fixture-text';
 import { interpretGeometryPaste } from './geometry-clipboard';
 import { usePolygonStore } from '../stores/usePolygonStore';
 import { useRecursiveSubdivisionStore } from '../stores/useRecursiveSubdivisionStore';
@@ -42,6 +43,8 @@ export default function RecursivePolygonPanel() {
     const clearCustomVertices = useRecursiveSubdivisionStore((s) => s.clearCustomVertices);
 
     const editorVertices = usePolygonStore((s) => s.vertices);
+    // The editor may hold a holed fixture, which recursive subdivision refuses (decision 34).
+    const editorHoled = usePolygonStore((s) => s.holes.length > 0);
 
     function flash(outcome: 'ok' | 'fail') {
         setPasted(outcome);
@@ -103,7 +106,7 @@ export default function RecursivePolygonPanel() {
                         <Select
                             size="xs"
                             label="Fixture"
-                            data={FIXTURE_OPTION_GROUPS}
+                            data={RECURSIVE_FIXTURE_OPTION_GROUPS}
                             value={customVertices === null ? fixtureName : null}
                             placeholder="A pasted polygon is in front of the fixtures"
                             searchable
@@ -138,10 +141,15 @@ export default function RecursivePolygonPanel() {
                             variant="light"
                             fullWidth
                             onClick={() => setCustomVertices(editorVertices)}
-                            disabled={editorVertices.length < 3}
+                            disabled={editorVertices.length < 3 || editorHoled}
                         >
                             Take polygon from the Straight Skeleton editor ({editorVertices.length})
                         </Button>
+                        {editorHoled && (
+                            <Text size="xs" c="dimmed">
+                                {HOLED_BRIDGE_DISABLED_TEXT}
+                            </Text>
+                        )}
 
                         <Button
                             size="xs"

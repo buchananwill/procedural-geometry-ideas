@@ -104,6 +104,9 @@ interface PolygonCanvasProps {
 /**
  * @deprecated Use SceneCanvas + skeletonToScene + SkeletonInteractionOverlay instead.
  * This component will be removed in a future release.
+ *
+ * It draws the outline only: a holed fixture's holes are drawn by `skeletonToScene` and never here (dashboard
+ * holed-fixtures spec, decision 32).
  */
 export default function PolygonCanvas({
   skeleton,

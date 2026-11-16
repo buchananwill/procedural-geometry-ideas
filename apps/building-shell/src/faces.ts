@@ -189,10 +189,12 @@ function setLoops(face: ShellFace, loops: number[][], positions: Float32Array): 
 
 /**
  * Keeps only the loop vertices that end a ShellEdge, dropping collinear mesh vertices inside a run, and recomputes
- * each face's loops and area from what is kept. `isEndpoint` reads a mesh vertex index.
+ * each face's loops and area from what is kept. `isEndpoint` reads a mesh vertex index. A Tuck face is left as it is.
  */
 export function reduceFaceLoops(asm: FaceAssembly, positions: Float32Array, isEndpoint: (v: number) => boolean): void {
   for (const face of asm.faces) {
+    // Journal decision 272: a Tuck face's fold carries no ShellEdge, so its loops keep every mesh vertex.
+    if (face.tag.kind === 'Tuck') continue;
     const where = `face ${face.id} (${asm.identities[face.id]})`;
     const full = asm.loopVerts[face.id];
     const kept = full.map(l => l.filter(isEndpoint));

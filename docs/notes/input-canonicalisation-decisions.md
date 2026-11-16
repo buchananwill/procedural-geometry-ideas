@@ -1,7 +1,11 @@
 ---
 title: "Input Canonicalisation: Fixed Design Decisions"
 type: decision-spec
-status: implementer-handoff
+area: straight-skeleton
+status: completed
+date: 2026-08-16
+part_of: [recursive-skeleton-subdivision.md]
+verified_by: [packages/core/tests/straight-skeleton/canonicalisation.test.ts, packages/core/tests/straight-skeleton/silhouette-invariance.test.ts, packages/core/tests/straight-skeleton/reflex-subdivision.test.ts]
 ---
 
 # Input canonicalisation
@@ -53,12 +57,12 @@ export function canonicalisePolygon(
 **Changed**
 
 - `SkeletonDiagnosticKind` ([types.ts](../../packages/core/src/straight-skeleton/types.ts)) — gains `'vertices-canonicalised'`.
-- `SolveSkeletonOptions` ([algorithm-termination-cases.ts](../../packages/core/src/straight-skeleton/algorithm-termination-cases.ts)) — gains an optional override of the noise floor, defaulting to `SKELETON_NOISE_FLOOR`.
+- `SolveSkeletonOptions` ([types.ts](../../packages/core/src/straight-skeleton/types.ts)) — gains an optional override of the noise floor, defaulting to `SKELETON_NOISE_FLOOR`.
 - `solveSkeleton`, `runAlgorithmV5`, `runAlgorithmV5Stepped` — canonicalise after normalising.
 
 **Reused, not reimplemented**
 
-- `distanceToSegment` ([vertex-budget.ts](../../packages/core/src/stroke-spline/vertex-budget.ts)) — the deviation predicate already exists and is already the one RDP uses.
+- `distanceToSegment` ([planar-geometry.ts](../../packages/core/src/straight-skeleton/planar-geometry.ts), re-exported by [vertex-budget.ts](../../packages/core/src/stroke-spline/vertex-budget.ts)) — the deviation predicate already exists and is already the one RDP uses.
 
 ## 2. Decisions / Specification
 
@@ -243,3 +247,32 @@ Nothing is deleted. `dropRepeatedVertices`
 coincident vertices on offset contours and **stays exactly where it is** — it is a different predicate
 at a different pipeline stage, and folding the two together would apply a render-scale floor to
 machine-generated contour geometry that has not been measured for it.
+
+---
+
+## Measurement record
+
+The measurements behind rules the code states, moved here from the code's comments by the entropy pass (P8a, BSA.D356) so that each site states its rule and its reason and points here. Each subsection is named exactly as its site's pointer names it (`Measured: <spec>, "Measurement record", "<subsection>"`). The text is the record as the comment held it, with its dates, dispatches and the state of the tree it was measured on; it is history, and the code's comment is the current rule.
+
+### SKELETON_NOISE_FLOOR: the usable band
+
+*Moved from canonicalisation.ts, `SKELETON_NOISE_FLOOR` doc comment.*
+
+IT CLEARED THE RETIRED SCRATCH `FLOATING_POINT_EPSILON` (1e-8, deleted by C8 spec T1) BY TWO ORDERS OF MAGNITUDE, AND
+THAT GAP WAS THE ENTIRE POINT OF THE STAGE. (The site comment now states the gap against the held 1e-8 bars that
+remain in constants.ts.)
+
+MEASURED, AND THE BAND AROUND THIS VALUE IS NARROW RATHER THAN A PLATEAU — the distinction matters because the plateau
+is real for the wrong population. Swept across the fixture corpus, the corpus is insensitive: the only vertex removed
+anywhere below `1e-3` is one exactly-collinear vertex in a hand-authored fixture, at deviation `7.85e-17`, which any
+non-zero floor removes. So the corpus alone would suggest four decades of freedom. IT IS NOT THE CORPUS THAT BINDS. The
+recursive subdivision arc's per-level tiling identity holds at `1e-6`, `2e-6` and `3e-6` and fails at `5e-6` by
+`1.03e-6` against a `1e-6` tolerance, so the usable band is `[1e-6, 3e-6]` — a factor of three.
+
+That narrowness is an artefact of the root-relative floor not yet being wired through the recursion driver:
+sub-regions still canonicalise against their own extent, so a thin sliver scales up and its floor shrinks in world
+terms. Once the driver passes the root region's floor down, the arc's upper bound relaxes and the band widens. Until
+then, `1e-6` sits at the bottom of a narrow band by deliberate choice, not on a plateau.
+
+(Note on moving this: the recursion driver now passes the root's floor down as `noiseFloor`, so the last paragraph's
+premise no longer holds; whether the band was re-measured after that wiring is not recorded at the site.)

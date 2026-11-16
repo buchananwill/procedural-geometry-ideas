@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
-import { Stage, Layer, Line, Circle, Text, Arrow } from "react-konva";
+import { Stage, Layer, Line, Circle, Text, Arrow, Shape } from "react-konva";
 import { KonvaEventObject } from "konva/lib/Node";
 import type { ScenePrimitive } from "./types";
 import { zoomIn, zoomOut } from "./zoom";
@@ -113,6 +113,30 @@ function renderPrimitive(p: ScenePrimitive, invScale: number): ReactNode {
                     fontSize={p.style.fontSize * invScale}
                     fill={p.style.color}
                     fontStyle={p.style.bold ? "bold" : undefined}
+                    listening={false}
+                />
+            );
+        }
+        case 'region': {
+            // EVERY RING A CLOSED SUBPATH OF ONE PATH, FILLED BY THE EVEN-ODD RULE (decision 24; Konva 10.2's
+            // `fillRule`), so a hole is empty however the caller wound it.
+            const rings = p.rings;
+            return (
+                <Shape
+                    sceneFunc={(context, shape) => {
+                        context.beginPath();
+                        for (const ring of rings) {
+                            if (ring.length < 6) continue;
+                            context.moveTo(ring[0], ring[1]);
+                            for (let i = 2; i < ring.length; i += 2) {
+                                context.lineTo(ring[i], ring[i + 1]);
+                            }
+                            context.closePath();
+                        }
+                        context.fillStrokeShape(shape);
+                    }}
+                    fill={applyOpacity(p.fill.color, p.fill.opacity)}
+                    fillRule="evenodd"
                     listening={false}
                 />
             );

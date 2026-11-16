@@ -1,22 +1,21 @@
 import {
     Arrival,
-    CollisionEvent,
     InteriorEdge, IntersectionResult, PolygonEdge,
     RayProjection,
     SkeletonDirection,
+    SplitEvent,
     SplitOffsetResult,
     StraightSkeletonSolverContext,
-    Vector2
+    WavefrontSegment
 } from "./types";
 import {complexLog, splitLog} from "./logger";
 import {
-    crossProduct, dotProduct,
+    crossProduct,
     findPositionAlongRay,
-    makeRay,
     negateVector,
-    rotateCw90,
     subtractVectors,
 } from "./core-functions";
+import {inwardDistanceFromWall} from "./wall-time";
 import {
     arrivalUncertainty,
     BASIS_LENGTH_ERROR,
@@ -28,6 +27,7 @@ import {
     weightedRateSumRoundingBound,
 } from "./constants";
 import {intersectRays} from "./intersection-edges";
+import {linkGuardRefuses} from "./wavefront-links";
 import {
     exteriorRayTerms,
     interiorDirectionError,
@@ -39,36 +39,115 @@ import {
 } from "./collision-helpers";
 
 /**
- * The perpendicular distance of `point` from the supporting LINE of `edge`, measured on the inward
- * side — `dot(rotateCw90(basis), point − A)` for any `A` on the line.
- *
- * The same reading as `makeOffsetDistance`'s rate: for a point travelling along a unit direction `d`
- * this distance changes at `cross(d, basis)` per unit travelled, which is exactly the quantity the
- * offset machinery already prices with.
+ * THE PRICING BOTH SPLIT OFFSETS SHARE (W-spec W20, W21, W26): the clockwise parent's and the struck edge's weights,
+ * the instigator's rate against its clockwise parent `r = cross(d, c)` and its rate of approach to the struck edge `q`,
+ * each scaled by the other wall's weight and summed into the divisor, and the error terms charged on them (journal-5
+ * decisions 162(a), 167): the instigator source's budget, its direction error, both rates' forward errors and the
+ * divisor's.
  */
-function distanceFromEdgeLine(
-    point: Vector2,
-    edge: PolygonEdge,
+interface SplitPricing {
+    clockwiseWeight: number;
+    splitWeight: number;
+    rateAgainstParent: number;
+    rateTowardsSplit: number;
+    divisor: number;
+    sourceBudget: number;
+    directionError: number;
+    rateError: number;
+    towardsSplitError: number;
+    divisorBudget: number;
+}
+
+/**
+ * {@link SplitPricing} for `instigatorData` against `edgeToSplit`, or `null` inside the divisor's guard.
+ *
+ * `rateTowardsSplit` is the caller's own spelling of `q`: `−cross(d, e)` and `cross(−d, e)` are equal but for the sign
+ * of an exact zero, and each split offset keeps the spelling it has.
+ *
+ * A DIVISION GUARD (C8 spec T19, census S33 and S34): two rates, each a unit cross product off by `k·u`, each scaled by
+ * a weight, summed — `meetHeadOn`'s structure exactly, so its bound.
+ */
+function splitPricing(
     context: StraightSkeletonSolverContext,
-): number {
-    const normal = rotateCw90(edge.basisVector);
-    const fromEdge = subtractVectors(point, context.sourcePosition(edge.id));
-    return normal.x * fromEdge.x + normal.y * fromEdge.y;
+    instigatorData: InteriorEdge,
+    instigatorRay: RayProjection,
+    edgeToSplit: PolygonEdge,
+    rateTowardsSplit: number,
+): SplitPricing | null {
+    const clockwiseParent = context.clockwiseParent(instigatorData);
+    const clockwiseWeight = context.weightOf(clockwiseParent.id);
+    const splitWeight = context.weightOf(edgeToSplit.id);
+    const rateAgainstParent = crossProduct(instigatorRay.basisVector, clockwiseParent.basisVector);
+
+    const termAgainstParent = rateAgainstParent * splitWeight;
+    const termTowardsSplit = rateTowardsSplit * clockwiseWeight;
+    const divisor = termAgainstParent + termTowardsSplit;
+    const divisorBound = weightedRateSumRoundingBound(termAgainstParent, termTowardsSplit, clockwiseWeight, splitWeight);
+    if (Math.abs(divisor) <= divisorBound) {
+        return null;
+    }
+
+    const directionError = interiorDirectionError(instigatorData, context);
+    const rateError = offsetRateForwardError(directionError, WALL_DIRECTION_ERROR, rateAgainstParent);
+    const towardsSplitError = offsetRateForwardError(directionError, WALL_DIRECTION_ERROR, rateTowardsSplit);
+    return {
+        clockwiseWeight,
+        splitWeight,
+        rateAgainstParent,
+        rateTowardsSplit,
+        divisor,
+        sourceBudget: nodePositionUncertainty(context, context.getEdgeWithId(instigatorData.id).source),
+        directionError,
+        rateError,
+        towardsSplitError,
+        divisorBudget: weightedRateSumForwardBound(
+            termAgainstParent, termTowardsSplit, clockwiseWeight, splitWeight, rateError, towardsSplitError),
+    };
+}
+
+/**
+ * A split offset's result, `along` units along the instigator's ray at `distance` from its clockwise parent's line: the
+ * arrival on the instigator's own clock ({@link arrivalUncertainty}'s budget, from `sourceOffsetBudget` and the travel's
+ * `alongBudget`), the event point `P + a·b̂` ({@link pointAlongRayUncertainty}'s budget), and `intersectionData`.
+ */
+function splitOffsetResult(
+    pricing: SplitPricing,
+    instigatorRay: RayProjection,
+    along: number,
+    alongBudget: number,
+    distance: number,
+    sourceOffsetBudget: number,
+    intersectionData: IntersectionResult,
+): SplitOffsetResult {
+    const arrival: Arrival = {
+        distance,
+        weight: pricing.clockwiseWeight,
+        uncertainty: arrivalUncertainty(
+            sourceOffsetBudget, pricing.rateAgainstParent, pricing.rateError, along, alongBudget, distance, false),
+    };
+    const position = findPositionAlongRay(instigatorRay, along);
+    return {
+        offsetDistance: timeOf(arrival),
+        arrival,
+        position,
+        positionUncertainty: pointAlongRayUncertainty(
+            pricing.sourceBudget, along, alongBudget, pricing.directionError, position),
+        intersectionData,
+    };
 }
 
 /**
  * Where along the instigator's ray its own wavefront clock reads the same as the split edge's — the
  * split event, solved in closed form (W-spec W21, arc journal decision 115).
  *
- * THE ONE SITE WHERE UNIT-WEIGHT BIT-IDENTITY IS NOT ACHIEVABLE, and it is named as such. This
- * replaced a construction that built a temporary node on whichever parent was more perpendicular to
- * the split edge, bisected there with `makeBisectedBasis`, and intersected two rays. That
- * construction reaches THE SAME POINT by different arithmetic, so its unit-weight bits are not
- * these bits; arc decision 115 amends 112(d) to make this the single named exception, with the
- * movement measured and attributed pin by pin. Movement is bounded by ulps BY CONSTRUCTION — same
- * point, different route — so a pin that moves by more than a few ulps is a defect in this form and
- * not an attribution. Keeping the old construction "when both weights are one" was rejected: that is
- * a branch on unit weights, which W-spec W36 forbids on journal decision 105's ground.
+ * THE ONE SITE WHERE UNIT-WEIGHT BIT-IDENTITY IS NOT ACHIEVABLE, and it is named as such (arc decision
+ * 115 amends 112(d) to make this the single named exception). The unweighted construction — a
+ * temporary node on whichever parent is more perpendicular to the split edge, bisected there with
+ * `makeBisectedBasis`, and two rays intersected — reaches THE SAME POINT by different arithmetic, so
+ * its unit-weight bits are not these bits. The difference is bounded by ulps BY CONSTRUCTION — same
+ * point, different route — so a unit-weight answer that differs from the unweighted one by more than
+ * a few ulps is a defect in this form. There is no unit-weight branch back to that construction: W-spec
+ * W36 forbids a branch on unit weights, on journal decision 105's ground.
  *
  * THE FORM. With `D₀` the instigator's source distance from its own clockwise parent's line, `E₀`
  * its source distance from the split edge's line, `r = cross(d, c)` the rate against the clockwise
@@ -89,36 +168,25 @@ function findOffsetViaIncenter(
     context: StraightSkeletonSolverContext
 ): SplitOffsetResult | null {
     const instigatorRay = context.projectRayInterior(instigatorData);
-    const clockwiseParent = context.clockwiseParent(instigatorData);
-
-    const clockwiseWeight = context.weightOf(clockwiseParent.id);
-    const splitWeight = context.weightOf(edgeToSplit.id);
-
-    const rateAgainstParent = crossProduct(instigatorRay.basisVector, clockwiseParent.basisVector);
-    const rateTowardsSplit = -crossProduct(instigatorRay.basisVector, edgeToSplit.basisVector);
-
-    // A DIVISION GUARD (C8 spec T19, census S33): two rates, each a unit cross product off by `k·u`,
-    // each scaled by a weight, summed — `meetHeadOn`'s structure exactly, so its bound. It was
-    // `FLOATING_POINT_EPSILON · w_e · w_cw`, seven to eight orders wider.
-    const termAgainstParent = rateAgainstParent * splitWeight;
-    const termTowardsSplit = rateTowardsSplit * clockwiseWeight;
-    const divisor = termAgainstParent + termTowardsSplit;
-    const divisorBound = weightedRateSumRoundingBound(termAgainstParent, termTowardsSplit, clockwiseWeight, splitWeight);
-    if (Math.abs(divisor) <= divisorBound) {
+    // S33's division guard ({@link splitPricing}).
+    const pricing = splitPricing(context, instigatorData, instigatorRay, edgeToSplit,
+        -crossProduct(instigatorRay.basisVector, edgeToSplit.basisVector));
+    if (pricing === null) {
         return null;
     }
+    const {clockwiseWeight, splitWeight, rateAgainstParent, divisor} = pricing;
 
     const [sourceFromParent, sourceFromParentBudget] = sourceOffsetWithBudget(instigatorData, context);
-    const sourceFromSplit = distanceFromEdgeLine(instigatorRay.sourceVector, edgeToSplit, context);
+    const sourceFromSplit = inwardDistanceFromWall(context, edgeToSplit.id, instigatorRay.sourceVector);
 
     const alongInstigator =
         (sourceFromSplit * clockwiseWeight - sourceFromParent * splitWeight) / divisor;
     const travelledOffset = alongInstigator * rateAgainstParent;
     const distance = sourceFromParent + travelledOffset;
 
-    // THE SPLIT'S ERROR BUDGET, COMPLETE TO FIRST ORDER (journal-5 decisions 162(a), 167). C8 dispatch 2
-    // charged only the divisor's backward rounding; the travel `a = N/Δ` also carries its numerator's
-    // inputs and the two rates' FORWARD errors:
+    // THE SPLIT'S ERROR BUDGET, COMPLETE TO FIRST ORDER (journal-5 decisions 162(a), 167). The travel
+    // `a = N/Δ` carries its numerator's inputs and the two rates' FORWARD errors, not only the divisor's
+    // backward rounding:
     //
     //     E_E₀ = e_P + |P − A|·(η_e + 3u) + λ·|E₀|  the source's distance from the split line (the line's
     //                                              turn about its stored source A, the subtraction and
@@ -129,54 +197,32 @@ function findOffsetViaIncenter(
     //
     // and the arrival `D₀ + a·r` is then `arrivalUncertainty`'s form, the event point `P + a·b̂`
     // `pointAlongRayUncertainty`'s.
-    const sourceBudget = nodePositionUncertainty(context, context.getEdgeWithId(instigatorData.id).source);
-    const directionError = interiorDirectionError(instigatorData, context);
-    const rateError = offsetRateForwardError(directionError, WALL_DIRECTION_ERROR, rateAgainstParent);
-    const towardsSplitError = offsetRateForwardError(directionError, WALL_DIRECTION_ERROR, rateTowardsSplit);
     const fromSplitSource = subtractVectors(instigatorRay.sourceVector, context.sourcePosition(edgeToSplit.id));
-    const sourceFromSplitBudget = sourceBudget
+    const sourceFromSplitBudget = pricing.sourceBudget
         + Math.hypot(fromSplitSource.x, fromSplitSource.y) * (WALL_DIRECTION_ERROR + 3 * UNIT_ROUNDOFF)
         + BASIS_LENGTH_ERROR * Math.abs(sourceFromSplit);
-    const divisorBudget = weightedRateSumForwardBound(
-        termAgainstParent, termTowardsSplit, clockwiseWeight, splitWeight, rateError, towardsSplitError);
     const numeratorBudget = clockwiseWeight * sourceFromSplitBudget + splitWeight * sourceFromParentBudget
         + 3 * UNIT_ROUNDOFF * (Math.abs(sourceFromSplit * clockwiseWeight) + Math.abs(sourceFromParent * splitWeight));
     const alongBudget = numeratorBudget / Math.abs(divisor)
-        + Math.abs(alongInstigator) * divisorBudget / Math.abs(divisor)
+        + Math.abs(alongInstigator) * pricing.divisorBudget / Math.abs(divisor)
         + UNIT_ROUNDOFF * Math.abs(alongInstigator);
 
-    const arrival: Arrival = {
-        distance,
-        weight: clockwiseWeight,
-        uncertainty: arrivalUncertainty(
-            sourceFromParentBudget, rateAgainstParent, rateError, alongInstigator, alongBudget, distance, false),
-    };
-
     // Discard negative arrivals. The weight is positive, so the sign is the distance's.
-    if (arrival.distance < 0) {
-        splitLog.warn(`Offset distance was < 0: ${arrival.distance}, instigator: ${instigatorData}, edgeToSplit: ${edgeToSplit}`)
+    if (distance < 0) {
+        splitLog.warn(`Offset distance was < 0: ${distance}, instigator: ${instigatorData}, edgeToSplit: ${edgeToSplit}`)
         return null;
     }
 
-    const position = findPositionAlongRay(instigatorRay, alongInstigator);
-
-    // INTERPRETATION (recorded in the delegate's report): the closed form has no second ray to
-    // classify, and `SplitOffsetResult.intersectionData` is consumed only as a classification of the
-    // two PARTICIPANTS. It is therefore the instigator against the split edge's own ray — the same
-    // pair `findOffsetByDirectStrike` reports, so both split paths now describe their event the same
-    // way.
+    // The closed form has no second ray to classify, and `SplitOffsetResult.intersectionData` is
+    // consumed only as a classification of the two PARTICIPANTS. It is therefore the instigator against
+    // the split edge's own ray — the same pair `findOffsetByDirectStrike` reports, so both split paths
+    // describe their event the same way.
     const intersectionData = intersectRays(
         instigatorRay, context.projectRay(edgeToSplit), context.coaxialityFloor,
         context.angularResolution);
 
-    return {
-        offsetDistance: timeOf(arrival),
-        arrival,
-        position,
-        positionUncertainty: pointAlongRayUncertainty(
-            sourceBudget, alongInstigator, alongBudget, directionError, position),
-        intersectionData,
-    };
+    return splitOffsetResult(
+        pricing, instigatorRay, alongInstigator, alongBudget, distance, sourceFromParentBudget, intersectionData);
 }
 
 /**
@@ -190,8 +236,8 @@ function findOffsetViaIncenter(
  * by their own edges' weights before the split of `rayLength1` is taken, which is the same
  * clearing-of-denominators as `meetHeadOn`. At unit weights every product is by `1.0` and this is
  * `rayLength1 · negT / (crossCw + negT)` in the same operation order — measured 0 mismatches in
- * 100 000 random operands. The formula keeps today's primary-only assumption (the instigator's
- * source lies on its parent's line, so there is no source term); that is not new.
+ * 100 000 random operands. The formula assumes a primary instigator (its source lies on its
+ * parent's line, so there is no source term).
  */
 function findOffsetByDirectStrike(
     instigatorData: InteriorEdge,
@@ -201,72 +247,117 @@ function findOffsetByDirectStrike(
 ): SplitOffsetResult | null {
     const instigatorRay = context.projectRayInterior(instigatorData);
     const [rayLength1] = initialIntersection;
-    const clockwiseInstigatorParent = context.clockwiseParent(instigatorData);
-    const clockwiseWeight = context.weightOf(clockwiseInstigatorParent.id);
-    const splitWeight = context.weightOf(edgeToSplit.id);
-    const crossClockwiseParent = crossProduct(instigatorRay.basisVector, clockwiseInstigatorParent.basisVector);
-    const negativeInstigatorCrossTarget = crossProduct(negateVector(instigatorRay.basisVector), edgeToSplit.basisVector);
-    const termClockwiseParent = crossClockwiseParent * splitWeight;
-    const termTarget = negativeInstigatorCrossTarget * clockwiseWeight;
-    const crossSumDivisor = termClockwiseParent + termTarget;
-
-    // A DIVISION GUARD (C8 spec T19, census S34): the same structure and the same bound as S33.
-    const divisorBound = weightedRateSumRoundingBound(termClockwiseParent, termTarget, clockwiseWeight, splitWeight);
-    if (Math.abs(crossSumDivisor) <= divisorBound) {
+    // S34's division guard, the same structure and the same bound as S33 ({@link splitPricing}).
+    const pricing = splitPricing(context, instigatorData, instigatorRay, edgeToSplit,
+        crossProduct(negateVector(instigatorRay.basisVector), edgeToSplit.basisVector));
+    if (pricing === null) {
         return null;
     }
+    const {
+        clockwiseWeight,
+        rateAgainstParent: crossClockwiseParent,
+        rateTowardsSplit: negativeInstigatorCrossTarget,
+        divisor: crossSumDivisor,
+    } = pricing;
 
     const distanceToSplitAlongInstigator =
         rayLength1 * negativeInstigatorCrossTarget * clockwiseWeight / crossSumDivisor;
     const distance = distanceToSplitAlongInstigator * crossClockwiseParent;
 
-    // THE SPLIT'S ERROR BUDGET, COMPLETE TO FIRST ORDER (journal-5 decisions 162(a), 167). C8 dispatch 2
-    // charged only S34's divisor rounding, and — dispatch 2's interpretation 2 — NOT the intersection
-    // behind `rayLength1`, which is `intersectRays`' travel of the instigator to the split edge's line and
-    // carries that intersection's whole budget. With `a = L₁·n·w_cw/Δ`, `n = cross(−b̂, ê)`:
+    // THE SPLIT'S ERROR BUDGET, COMPLETE TO FIRST ORDER (journal-5 decisions 162(a), 167). Besides S34's
+    // divisor rounding it charges the intersection behind `rayLength1`, which is `intersectRays`' travel of
+    // the instigator to the split edge's line and carries that intersection's whole budget. With
+    // `a = L₁·n·w_cw/Δ`, `n = cross(−b̂, ê)`:
     //
     //     E_L₁ = rayIntersectionUncertainty(instigator, split edge)       (bases, sources, division)
     //     E_n  = η_b + η_e + k·u                                          (a rate's forward error)
     //     E_Δ  = w_e·E_r + w_cw·E_n + 2u·(|r·w_e| + |n·w_cw|)
     //     E_a  = (E_L₁·|n| + |L₁|·E_n)·w_cw/|Δ| + |a|·E_Δ/|Δ| + 3u·|a|
     //
-    // The arrival `a·r` has no source term — the primary-only assumption this form has always made (a
-    // primary instigator's source lies on its clockwise parent's line, `s = 0` exactly).
+    // The arrival `a·r` has no source term — this form's primary-only assumption (a primary instigator's
+    // source lies on its clockwise parent's line, `s = 0` exactly).
     const [, rayLength2] = initialIntersection;
-    const sourceBudget = nodePositionUncertainty(context, context.getEdgeWithId(instigatorData.id).source);
-    const directionError = interiorDirectionError(instigatorData, context);
-    const rateError = offsetRateForwardError(directionError, WALL_DIRECTION_ERROR, crossClockwiseParent);
-    const targetRateError = offsetRateForwardError(directionError, WALL_DIRECTION_ERROR, negativeInstigatorCrossTarget);
     const rayLength1Budget = rayIntersectionUncertainty(
         instigatorRay, context.projectRay(edgeToSplit),
         interiorRayTerms(instigatorData, context, rayLength1), exteriorRayTerms(rayLength2));
-    const divisorBudget = weightedRateSumForwardBound(
-        termClockwiseParent, termTarget, clockwiseWeight, splitWeight, rateError, targetRateError);
     const alongBudget = (rayLength1Budget * Math.abs(negativeInstigatorCrossTarget)
-            + Math.abs(rayLength1) * targetRateError) * clockwiseWeight / Math.abs(crossSumDivisor)
-        + Math.abs(distanceToSplitAlongInstigator) * divisorBudget / Math.abs(crossSumDivisor)
+            + Math.abs(rayLength1) * pricing.towardsSplitError) * clockwiseWeight / Math.abs(crossSumDivisor)
+        + Math.abs(distanceToSplitAlongInstigator) * pricing.divisorBudget / Math.abs(crossSumDivisor)
         + 3 * UNIT_ROUNDOFF * Math.abs(distanceToSplitAlongInstigator);
 
-    const arrival: Arrival = {
-        distance,
-        weight: clockwiseWeight,
-        uncertainty: arrivalUncertainty(
-            0, crossClockwiseParent, rateError, distanceToSplitAlongInstigator, alongBudget, distance, false),
-    };
+    return splitOffsetResult(
+        pricing, instigatorRay, distanceToSplitAlongInstigator, alongBudget, distance, 0, initialIntersection);
+}
 
-    const position = findPositionAlongRay(instigatorRay, distanceToSplitAlongInstigator);
+/**
+ * The first of these validating segments the neighbour guard does not refuse (skeleton join-and-divide spec,
+ * decision 5), or `undefined` when it refuses them all. On one loop no split validates on more than one segment
+ * (BSA.F95), so there this is the guard asked of the one segment.
+ */
+function firstUnrefused(
+    context: StraightSkeletonSolverContext,
+    instigatorId: number,
+    validating: readonly WavefrontSegment[],
+): WavefrontSegment | undefined {
+    return validating.find(segment => !linkGuardRefuses(context, instigatorId, segment));
+}
 
+/** Would the instigator split `edge` from behind: does its own basis turn clockwise of the edge's? */
+function isBehindEdge(context: StraightSkeletonSolverContext, instigatorData: InteriorEdge, edge: PolygonEdge): boolean {
+    return crossProduct(context.getEdgeWithInterior(instigatorData).basisVector, edge.basisVector) > 0;
+}
+
+/** The split event of a priced offset, striking `struckSegment` of edge `targetId`. */
+function splitEventOf(
+    result: SplitOffsetResult,
+    instigatorId: number,
+    targetId: number,
+    struckSegment: WavefrontSegment,
+): SplitEvent {
     return {
-        offsetDistance: timeOf(arrival),
-        arrival,
-        position,
-        positionUncertainty: pointAlongRayUncertainty(
-            sourceBudget, distanceToSplitAlongInstigator, alongBudget, directionError, position),
-        intersectionData: initialIntersection,
+        position: result.position,
+        positionUncertainty: result.positionUncertainty,
+        intersectionData: result.intersectionData,
+        collidingEdges: [instigatorId, targetId],
+        offsetDistance: result.offsetDistance,
+        arrival: result.arrival,
+        eventType: 'interiorAgainstExterior',
+        struckSegment,
     };
 }
 
-export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: PolygonEdge, context: StraightSkeletonSolverContext): CollisionEvent | null {
+/**
+ * The split by the incenter form ({@link findOffsetViaIncenter}), validated against the edge's live segments, on the
+ * first validating segment the neighbour guard does not refuse (wavefront-order spec, decision 19: the guard reads the
+ * links; join-and-divide spec, decision 5), or
+ * `null`. Each caller asks its own guards first.
+ */
+function incenterSplit(
+    instigatorData: InteriorEdge,
+    edgeToSplit: PolygonEdge,
+    context: StraightSkeletonSolverContext,
+): SplitEvent | null {
+    const result = findOffsetViaIncenter(instigatorData, edgeToSplit, context);
+    if (result === null) {
+        return null;
+    }
+
+    const validating = context.validateSplitReachesEdge(instigatorData.id, edgeToSplit.id, result.arrival);
+    if (validating.length === 0) {
+        splitLog.info('Split event validation failed:', instigatorData, edgeToSplit);
+        return null;
+    }
+
+    // Can't split your neighbour (wavefront-order spec, decision 19): asked of the segment the split strikes, in the links, and of
+    // every validating segment in turn — the first it does not refuse is struck (join-and-divide spec, decision 5).
+    const struckSegment = firstUnrefused(context, instigatorData.id, validating);
+    if (struckSegment === undefined) {
+        return null;
+    }
+    return splitEventOf(result, instigatorData.id, edgeToSplit.id, struckSegment);
+}
+
+export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: PolygonEdge, context: StraightSkeletonSolverContext): SplitEvent | null {
 
     const {
         clockwise: instigatorClockwiseParent,
@@ -274,8 +365,7 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
     } = context.parentEdges(instigatorData.id);
 
     // Can't split an edge that is already finished, or split from behind a finished one. An
-    // accepted exterior edge has no wavefront left to cut, and its span is not measurable —
-    // `clockwiseSpanExcludingAccepted` throws rather than answer for one.
+    // accepted exterior edge has no wavefront left to cut.
     if (context.isAccepted(edgeToSplit.id)
         || context.isAccepted(instigatorClockwiseParent.id)
         || context.isAccepted(instigatorWiddershinsParent.id)) {
@@ -283,45 +373,20 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
     }
 
     // Can't split an edge from behind!
-    const isBehindEdge = crossProduct(context.getEdgeWithInterior(instigatorData).basisVector, edgeToSplit.basisVector) > 0;
-    if (isBehindEdge) {
+    if (isBehindEdge(context, instigatorData, edgeToSplit)) {
         return null;
     }
 
-    // Can't split your neighbour
-    const clockwiseSpan = context.clockwiseSpanExcludingAccepted(instigatorClockwiseParent, edgeToSplit);
-    const widdershinsSpan = context.clockwiseSpanExcludingAccepted(edgeToSplit, instigatorWiddershinsParent)
-    if (Math.min(clockwiseSpan, widdershinsSpan) < 2) {
-        return null;
-    }
-
-    const result = findOffsetViaIncenter(instigatorData, edgeToSplit, context);
-    if (result === null) {
-        return null;
-    }
-
-    if (!context.validateSplitReachesEdge(instigatorData.id, edgeToSplit.id, result.arrival)) {
-        splitLog.info('Split event validation failed:', instigatorData, edgeToSplit);
-        return null;
-    }
-
-    return {
-        position: result.position,
-        positionUncertainty: result.positionUncertainty,
-        intersectionData: result.intersectionData,
-        collidingEdges: [instigatorData.id, edgeToSplit.id],
-        offsetDistance: result.offsetDistance,
-        arrival: result.arrival,
-        eventType: 'interiorAgainstExterior'
-    }
+    return incenterSplit(instigatorData, edgeToSplit, context);
 }
+
 
 export function generateSplitEventViaBisector(
     instigatorId: number,
     targetId: number,
     direction: SkeletonDirection,
     context: StraightSkeletonSolverContext,
-): CollisionEvent | null {
+): SplitEvent | null {
     if (context.edgeRank(instigatorId) !== 'primary' || context.edgeRank(targetId) === 'exterior') {
         return null;
     }
@@ -354,11 +419,11 @@ export function generateSplitEventViaBisector(
  * `generateSplitEventFromTheEdgeItself` row, journal decisions 144 and 146). "Does this strike land
  * at the split edge's own end?" is a distance-to-zero question along the edge's unit ray, so it is
  * asked in the floor's category: a strike within the client's floor of the vertex IS a strike at the
- * vertex. Was `areEqual(alongEdge, 0)`, the scratch epsilon, which decision 144 retires. STRICTLY
- * BELOW the floor (C8 spec T7): "the same point, before any node exists" is one inequality across the
- * package, the one canonicalisation and the coincidence clustering use; this was `≤` until C8, a
- * boundary of measure zero (no lateral on the corpus, the fine translations or the jitter sweeps equals
- * the floor exactly — 0 of 10.5 million evaluations measured).
+ * vertex, not the scratch epsilon decision 144 retires. STRICTLY BELOW the floor (C8 spec T7): "the
+ * same point, before any node exists" is one inequality across the package, the one canonicalisation
+ * and the coincidence clustering use. Strict and non-strict differ on a boundary of measure zero: no
+ * lateral on the corpus, the fine translations or the jitter sweeps equals the floor exactly (0 of
+ * 10.5 million evaluations measured).
  *
  * EXPORTED FOR ITS OWN TEST, not for other callers — see `slightly-deformed-peanut.test.ts`.
  */
@@ -370,7 +435,7 @@ export function reachesSupportingLine(
         || (alongInstigator > 0 && Math.abs(alongEdge) < coaxialityFloor);
 }
 
-export function generateSplitEventFromTheEdgeItself(instigatorId: number, targetId: number, context: StraightSkeletonSolverContext): CollisionEvent | null {
+export function generateSplitEventFromTheEdgeItself(instigatorId: number, targetId: number, context: StraightSkeletonSolverContext): SplitEvent | null {
     const edgeToSplit = context.getEdgeWithId(targetId);
     const instigatorData = context.getInteriorWithId(instigatorId);
 
@@ -384,38 +449,29 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
         instigatorRay, backwardsEdgeSplitRay, context.coaxialityFloor, context.angularResolution);
     if (!reachesSupportingLine(initialIntersectionTest, context.coaxialityFloor)
         && !reachesSupportingLine(initialIntersectionTest2, context.coaxialityFloor)) {
-        // We expect now to handle the "near miss" scenarios via the intersections of the bisectors themselves.
+        // A near miss is handled by the intersections of the bisectors themselves.
         return null;
     }
 
     // Cannot split from behind
-    const isBehindEdge = crossProduct(context.getEdgeWithInterior(instigatorData).basisVector, edgeToSplit.basisVector) > 0;
-    if (isBehindEdge) {
+    if (isBehindEdge(context, instigatorData, edgeToSplit)) {
         return null;
     }
 
     // --- Path 1: Direct-strike offset ---
     const directResult = findOffsetByDirectStrike(instigatorData, edgeToSplit, initialIntersectionTest, context);
     if (directResult !== null) {
-        if (!context.validateSplitReachesEdge(instigatorId, targetId, directResult.arrival)) {
+        // THE FIRST VALIDATING SEGMENT, UNGUARDED (join-and-divide spec, decision 5): asking the neighbour guard
+        // here moves seven complete sweep cells (BSA.F98).
+        const [struckSegment] = context.validateSplitReachesEdge(instigatorId, targetId, directResult.arrival);
+        if (struckSegment === undefined) {
             complexLog.debug('Collide creates invalid split', directResult, instigatorId, targetId, context)
         } else {
-            return {
-                intersectionData: directResult.intersectionData,
-                offsetDistance: directResult.offsetDistance,
-                arrival: directResult.arrival,
-                collidingEdges: [instigatorId, targetId],
-                eventType: 'interiorAgainstExterior',
-                position: directResult.position,
-                positionUncertainty: directResult.positionUncertainty,
-            };
+            return splitEventOf(directResult, instigatorId, targetId, struckSegment);
         }
     }
 
     // --- Path 2: Incenter fallback ---
-
-
-
     const {
         clockwise: instigatorClockwiseParent,
         widdershins: instigatorWiddershinsParent
@@ -427,29 +483,15 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
         return null;
     }
 
-    const clockwiseSpan = context.clockwiseSpanIncludingAccepted(instigatorClockwiseParent, edgeToSplit);
-    const widdershinsSpan = context.clockwiseSpanIncludingAccepted(edgeToSplit, instigatorWiddershinsParent);
-
-    if (Math.min(clockwiseSpan, widdershinsSpan) < 2) {
-        return null;
+    // AN ACCEPTED INSTIGATOR PARENT OR STRUCK EDGE IS A STEP FAILURE, by a direct throw (wavefront-order spec,
+    // decision 21's reasoning, applied to this site). An edge is accepted only when no live bisector names it
+    // (skeleton edge-acceptance spec), so this cannot fire; it is the guard. The thrown text speaks of a span;
+    // the test is the rule.
+    if (context.isAccepted(edgeToSplit.id)
+        || context.isAccepted(instigatorClockwiseParent.id)
+        || context.isAccepted(instigatorWiddershinsParent.id)) {
+        throw new Error('Cannot compute span with accepted edges.');
     }
 
-    const incenterResult = findOffsetViaIncenter(instigatorData, edgeToSplit, context);
-    if (incenterResult === null) {
-        return null;
-    }
-
-    if (!context.validateSplitReachesEdge(instigatorId, targetId, incenterResult.arrival)) {
-        return null;
-    }
-
-    return {
-        position: incenterResult.position,
-        positionUncertainty: incenterResult.positionUncertainty,
-        intersectionData: incenterResult.intersectionData,
-        collidingEdges: [instigatorId, targetId],
-        offsetDistance: incenterResult.offsetDistance,
-        arrival: incenterResult.arrival,
-        eventType: 'interiorAgainstExterior'
-    };
+    return incenterSplit(instigatorData, edgeToSplit, context);
 }

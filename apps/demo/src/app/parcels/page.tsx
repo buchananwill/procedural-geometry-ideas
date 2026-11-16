@@ -30,13 +30,16 @@ const RandomPolygonPanel = dynamic(
 
 export default function ParcelsPage() {
     const vertices = usePolygonStore((s) => s.vertices);
+    // A holed fixture's holes, passed without weights: the page draws its skeleton, offset rings and strips, and
+    // stops at slicing (dashboard holed-fixtures spec, decision 35).
+    const holes = usePolygonStore((s) => s.holes);
     const layers = useParcelStore((s) => s.layers);
 
     const [stageScale, setStageScale] = useState(1);
     const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
     const [instructionsOpen, setInstructionsOpen] = useState(false);
 
-    const result = useParcelPipeline(vertices);
+    const result = useParcelPipeline(vertices, holes);
     const colourBySlope = useTerrainStore((s) => s.colourBySlope);
     // The parcels are judged against the terrain the same batch they are drawn from, so the colours
     // and the verdicts can never be one render apart.
@@ -46,6 +49,7 @@ export default function ParcelsPage() {
     // solve the strips did — not a second one run for display.
     const scene = parcelsToScene({
         vertices,
+        holes,
         skeleton: result.solve?.graph ?? null,
         offsetRings: result.offsetRings,
         strips: result.strips,

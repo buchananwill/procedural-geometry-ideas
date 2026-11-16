@@ -1,16 +1,16 @@
 // Algorithm B, projected intersection: the default hip over the footprint, plus one added piece per promoted line,
 // the two end walls' planes clipped to the wall's side and band, composed with the higher surface winning.
+import {IslandRefusal} from '../errors.ts';
 import {Building, Comp, Pt, Wall, dot, sub} from './model.ts';
 import {PlaneFace, Sample, Surface, emptyInfo, evalFaces, makeFace} from './surface.ts';
-import {RawFace, solveFaces} from './skeleton.ts';
+import {RawFace, SolveOk, SolveRefused, solveIsland} from './skeleton.ts';
+import {along, atAlong, endWall, extentOf, farWall, fixedOf, spanOf} from './wall-line.ts';
 
 export type FarEdge = 'plane' | 'none' | 'contact' | 'ridge';
 
 export interface BOptions {
   /** How far inward the piece reaches. 'plane' is the chosen rule; the others exist for the trial table. */
   far: FarEdge;
-  /** Cut sides read their own line's ends, not the shorter of the pair's. For the corner-cut side by side. */
-  literalCut?: boolean;
 }
 
 export interface Piece {
@@ -22,49 +22,9 @@ export interface Piece {
   label: string;
 }
 
-const EPS = 0.01;
 const sameDir = (a: Pt, b: Pt): boolean => dot(a, b) > 0.5;
-const along = (w: Wall, p: Pt): number => (Math.abs(w.dir.x) > 0.5 ? p.x : p.y);
-const fixedOf = (w: Wall): number => (Math.abs(w.dir.x) > 0.5 ? w.a.y : w.a.x);
-const atAlong = (w: Wall, s: number, d: number): Pt => (Math.abs(w.dir.x) > 0.5
-  ? {x: s, y: w.a.y + w.n.y * d}
-  : {x: w.a.x + w.n.x * d, y: s});
-const spanOf = (w: Wall): [number, number] => {
-  const a = along(w, w.a), b = along(w, w.b);
-  return [Math.min(a, b), Math.max(a, b)];
-};
 
-/** The wall's straight line, walked along its inward side until it leaves the footprint. */
-function extentOf(b: Building, comp: Comp, w: Wall): [number, number] {
-  const breaks = [...new Set(comp.ring.map(p => along(w, p)))].sort((p, q) => p - q);
-  let [lo, hi] = spanOf(w);
-  for (;;) {
-    const prev = breaks.filter(s => s < lo).pop();
-    if (prev === undefined || !b.inside(atAlong(w, (prev + lo) / 2, EPS))) break;
-    lo = prev;
-  }
-  for (;;) {
-    const next = breaks.find(s => s > hi);
-    if (next === undefined || !b.inside(atAlong(w, (next + hi) / 2, EPS))) break;
-    hi = next;
-  }
-  return [lo, hi];
-}
-
-/** The wall standing across the line's end at coordinate `s`, its inward normal pointing back along the line. */
-function endWall(comp: Comp, w: Wall, s: number, intoLine: number): Wall | undefined {
-  const point = atAlong(w, s, EPS);
-  const axis: Pt = Math.abs(w.dir.x) > 0.5 ? {x: 1, y: 0} : {x: 0, y: 1};
-  return comp.walls.find(o => {
-    if (Math.abs(dot(o.n, axis)) < 0.5) return false;
-    if (dot(o.n, axis) * intoLine < 0) return false;
-    if (Math.abs(along(w, o.a) - s) > 1e-6) return false;
-    const t = dot(sub(point, o.a), o.dir);
-    return t >= -1e-6 && t <= o.len + 1e-6;
-  });
-}
-
-const planeUsable = (o: Wall | undefined): o is Wall => !!o && !o.dead && o.form !== 'cut';
+const planeUsable = (o: Wall | undefined): o is Wall => !!o && !o.dead;
 
 function endPlanes(comp: Comp, w: Wall, ext: [number, number]): number[] {
   const out: number[] = [];
@@ -78,21 +38,6 @@ function endPlanes(comp: Comp, w: Wall, ext: [number, number]): number[] {
   if (planeUsable(a)) out.push(a.plane);
   if (planeUsable(b)) out.push(b.plane);
   return out;
-}
-
-/** The nearest wall facing back at this one across the band. */
-function farWall(comp: Comp, w: Wall, lo: number, hi: number): Wall | undefined {
-  let best: Wall | undefined;
-  let bestD = Infinity;
-  for (const o of comp.walls) {
-    if (dot(o.n, w.n) > -0.5) continue;
-    const d = dot(sub(o.a, w.a), w.n);
-    if (d <= EPS) continue;
-    const [p, q] = spanOf(o);
-    if (Math.min(q, hi) - Math.max(p, lo) <= EPS) continue;
-    if (d < bestD) { bestD = d; best = o; }
-  }
-  return best;
 }
 
 function buildPieces(b: Building, comp: Comp, opt: BOptions, notes: string[]): Piece[] {
@@ -140,42 +85,48 @@ function buildPieces(b: Building, comp: Comp, opt: BOptions, notes: string[]): P
     const sorted = promoted.map(spanOf).sort((p, q) => p[0] - q[0]);
     for (const [lo, hi] of sorted) addPiece(w, lo, hi, planes, `segment [${lo},${hi}] of line ${w.a.x === w.b.x ? `x=${w.a.x}` : `y=${w.a.y}`}`);
   }
-
-  // The two sides of a cut stand one rake, read from whichever side's line actually ends at walls either side of the cut.
-  const cuts = comp.walls.filter(w => w.form === 'cut');
-  if (cuts.length === 2) {
-    const exts = cuts.map(w => extentOf(b, comp, w));
-    const shorter = exts[0][1] - exts[0][0] <= exts[1][1] - exts[1][0] ? 0 : 1;
-    cuts.forEach((w, i) => {
-      const source = opt.literalCut ? i : shorter;
-      const planes = endPlanes(comp, cuts[source], exts[source]);
-      const [lo, hi] = spanOf(w);
-      addPiece(w, lo, hi, planes, `cut side ${i} planes from side ${source}, extent [${exts[source][0]},${exts[source][1]}]`);
-    });
-  }
   return pieces;
 }
 
+/** One island's default hip: the skeleton's solve and its faces as plane faces, or the skeleton's refusal. */
+type IslandFaces = (SolveOk & {defaults: PlaneFace[]}) | SolveRefused;
+
+/** One island solved by the skeleton (`solveIsland`), each face made a plane face on its wall's plane. */
+function solveIslandFaces(b: Building, comp: Comp): IslandFaces {
+  const solved = solveIsland(comp);
+  if (!solved.ok) return solved;
+  return {...solved, defaults: solved.faces.map(f => makeFace(f.poly, b.planes[f.wall.plane]))};
+}
+
+/** Every island's pieces, island by island, each piece `buildPieces` drops noted in `notes`. */
+function piecesOf(b: Building, opt: BOptions, notes: string[]): Piece[] {
+  const pieces: Piece[] = [];
+  for (const comp of b.comps) pieces.push(...buildPieces(b, comp, opt, notes));
+  return pieces;
+}
+
+/**
+ * Algorithm B's surface, as roof-gable's research runs measure it. An island the skeleton refuses is noted and passed
+ * over, its default hip missing; the surface is blocked where an island is refused and no piece stands. The building
+ * shell's policy is `solveRoofParts`', below.
+ */
 export function runB(b: Building, opt: BOptions): Surface {
   const info = emptyInfo();
   const defaults: PlaneFace[] = [];
   let defaultRefused = false;
   for (const comp of b.comps) {
-    // A cut has no pitch of its own: its side takes the default slope of a collinear neighbour, or 45 degrees.
-    const weights = comp.walls.map(w => 1 / w.tan);
-    const solved = solveFaces(comp, weights);
-    if (!solved.ok) {
+    const island = solveIslandFaces(b, comp);
+    if (!island.ok) {
       defaultRefused = true;
-      info.notes.push(`default hip refused by the skeleton: ${solved.kind}: ${solved.message.slice(0, 200)}`);
+      info.notes.push(`default hip refused by the skeleton: ${island.kind}: ${island.message.slice(0, 200)}`);
       continue;
     }
-    info.diagnostics.push(...solved.diagnostics);
-    info.causality += solved.causality;
-    info.tilingError = Math.max(info.tilingError, solved.tilingError);
-    for (const f of solved.faces) defaults.push(makeFace(f.poly, b.planes[f.wall.plane]));
+    info.diagnostics.push(...island.diagnostics);
+    info.causality += island.causality;
+    info.tilingError = Math.max(info.tilingError, island.tilingError);
+    defaults.push(...island.defaults);
   }
-  const pieces: Piece[] = [];
-  for (const comp of b.comps) pieces.push(...buildPieces(b, comp, opt, info.notes));
+  const pieces = piecesOf(b, opt, info.notes);
   for (const p of pieces) info.notes.push(`piece ${p.label}: planes ${p.planes.map(id => b.planes[id].label).join(' & ')}`);
   if (defaultRefused && !pieces.length) {
     info.blocked = {stage: 'default hip', kind: 'refused', message: info.notes.join(' | ')};
@@ -234,24 +185,28 @@ export interface RoofParts {
 
 /**
  * The parts `runB` composes, for the building shell: the default hip faces (as plane faces and as the skeleton's
- * raw faces, which keep their wall), the pieces, and `buildPieces`' notes. A component the skeleton refuses throws,
- * since a storey with a missing roof is not a shell. Added by the building-shell copy (spec decision 9); `runB` above
- * is unchanged. The caller turns a NoPlane note into a hard error naming its fixture and storey (journal decision 64).
+ * raw faces, which keep their wall), the pieces, and `buildPieces`' notes. An island the skeleton refuses throws, naming
+ * the island, where it stands, its hole count and the cause (holed roof decision 17), since a storey with a missing roof
+ * is not a shell (`IslandRefusal`). Added by the building-shell copy (spec decision 9); it shares `runB`'s island solve
+ * (`solveIslandFaces`) and pieces (`piecesOf`), each keeping its own policy for a refused island. The caller turns a
+ * NoPlane note into a hard error naming its fixture and storey (journal decision 64).
  */
 export function solveRoofParts(b: Building, opt: BOptions): RoofParts {
   const defaults: PlaneFace[] = [];
   const faces: RawFace[] = [];
-  for (const comp of b.comps) {
-    const weights = comp.walls.map(w => 1 / w.tan);
-    const solved = solveFaces(comp, weights);
-    if (!solved.ok) throw new Error(`solveRoofParts: default hip refused by the skeleton: ${solved.kind}: ${solved.message}`);
-    for (const f of solved.faces) {
-      faces.push(f);
-      defaults.push(makeFace(f.poly, b.planes[f.wall.plane]));
+  for (const [ci, comp] of b.comps.entries()) {
+    const island = solveIslandFaces(b, comp);
+    if (!island.ok) {
+      const {x, y} = comp.outer[0];
+      throw new IslandRefusal(
+        `solveRoofParts: island ${ci} at (${x}, ${y}) with ${comp.holes.length} holes cannot be roofed: ${island.cause} [${island.kind}: ${island.message}]`,
+        {island: ci, at: {x, y}, holes: comp.holes.length, kind: island.kind, reason: island.cause, detail: island.message},
+      );
     }
+    faces.push(...island.faces);
+    defaults.push(...island.defaults);
   }
   const notes: string[] = [];
-  const pieces: Piece[] = [];
-  for (const comp of b.comps) pieces.push(...buildPieces(b, comp, opt, notes));
+  const pieces = piecesOf(b, opt, notes);
   return {defaults, faces, pieces, notes};
 }

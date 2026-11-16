@@ -1,7 +1,10 @@
 ---
 title: "Recursive Subdivision Legibility: Fixed Design Decisions"
 type: decision-spec
-status: implementer-handoff
+area: subdivision
+status: completed
+date: 2026-08-17
+verified_by: [packages/dashboard/tests/scene/recursiveSubdivisionToScene.test.ts, packages/dashboard/tests/stores/useRecursiveSubdivisionStore.test.ts]
 ---
 
 # Recursive subdivision legibility

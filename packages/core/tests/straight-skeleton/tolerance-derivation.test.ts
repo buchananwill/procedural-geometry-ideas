@@ -48,7 +48,7 @@ import {FULL_CORPUS, OFF_EDGE_JITTER_PLUS_SEED_7919} from '@proc-geo/test-fixtur
 import * as intersectionEdges from '@proc-geo/core/straight-skeleton/intersection-edges';
 import * as complexCases from '@proc-geo/core/straight-skeleton/algorithm-complex-cases';
 import {offsetRateIsArithmeticZero} from '@proc-geo/core/straight-skeleton/core-functions';
-import {climbTerminalLadder} from '@proc-geo/core/straight-skeleton/algorithm-termination-cases';
+import {climbTerminalLadder} from '@proc-geo/core/straight-skeleton/terminal-ladder';
 import {
     ARITHMETIC_SAME_POINT_BOX,
     arrivalUncertainty,
@@ -788,15 +788,15 @@ describe('decision 167(c): a child with exactly one live interior edge is a LOUD
         const context = makeStraightSkeletonSolverContext(SQUARE, SKELETON_NOISE_FLOOR);
         initInteriorEdges(context);
         const ids = context.graph.interiorEdges.map(edge => edge.id);
-        const spy = jest.spyOn(complexCases, 'handleInteriorNGon').mockReturnValue({
-            childSteps: [{interiorEdges: [ids[2]]}, {interiorEdges: []}, {interiorEdges: [ids[0], ids[1]]}],
-        });
+        const spy = jest.spyOn(complexCases, 'handleInteriorNGon').mockReturnValue(
+            [{interiorEdges: [ids[2]]}, {interiorEdges: []}, {interiorEdges: [ids[0], ids[1]]}],
+        );
         try {
             const output = stepAlgorithm(context, [{interiorEdges: ids}]);
             expect(output.childSteps).toEqual([{interiorEdges: [ids[0], ids[1]]}]);
             expect(output.errors).toHaveLength(1);
-            expect(output.errors![0]).toContain(`e${ids[2]}`);
-            expect(output.errors![0]).toContain(`[${ids.join(', ')}]`);
+            expect(output.errors[0]).toContain(`e${ids[2]}`);
+            expect(output.errors[0]).toContain(`[${ids.join(', ')}]`);
         } finally {
             spy.mockRestore();
         }
@@ -823,6 +823,7 @@ describe('T17 / T18: the fourth oracle is the exact complement of the zero-rate 
             numExteriorNodes: 4,
             interiorEdges: [{id: 4, clockwiseExteriorEdgeIndex: 0, widdershinsExteriorEdgeIndex: 2, length: Number.MAX_VALUE}],
             exteriorWeights: [1, 1, 1, 1],
+            loops: [{start: 0, count: 4}],
         };
     }
 

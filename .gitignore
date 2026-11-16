@@ -35,6 +35,10 @@ apps/*/dist
 # browser automation artifacts
 .playwright-mcp/
 
+# journal tools (scripts/journal.py): bytecode, and the per-worktree default-arc pointer
+__pycache__/
+/.claude/journal-arc.txt
+
 # debug
 npm-debug.log*
 yarn-debug.log*

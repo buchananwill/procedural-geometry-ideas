@@ -44,6 +44,17 @@ export interface SceneLabel {
     style: TextStyle;
 }
 
+/**
+ * A filled region of several closed rings, ring 0 the outline (dashboard holed-fixtures spec, decision 24). Filled by
+ * the EVEN-ODD rule, so a hole inside the outline is empty however its ring is wound. `rings` are flat `[x, y, …]`
+ * point lists, as `SceneLine.points` is. It has no stroke: each ring is stroked by a line of its own.
+ */
+export interface SceneRegion {
+    type: 'region';
+    rings: number[][];
+    fill: FillStyle;
+}
+
 export interface SceneGroup {
     type: 'group';
     id: string;
@@ -51,4 +62,4 @@ export interface SceneGroup {
     visible?: boolean;
 }
 
-export type ScenePrimitive = SceneLine | ScenePoint | SceneLabel | SceneGroup;
+export type ScenePrimitive = SceneLine | ScenePoint | SceneLabel | SceneRegion | SceneGroup;

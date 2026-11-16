@@ -1,8 +1,11 @@
 ---
 title: "Task 238 — Offset projection at terminal events: review cycle three"
-type: debrief
-task: 238
-cycle: 3
+type: workflow
+area: straight-skeleton
+status: archived
+date: 2026-08-16
+# task: 238
+# cycle: 3
 ---
 
 # Task 238, revision cycle 3

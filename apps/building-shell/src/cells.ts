@@ -44,7 +44,8 @@ export interface FaceFrame { s: Axis; t: Axis; r: Axis; sign: 1 | -1 }
 
 /**
  * Spec decision 22 as amended (journal decision 77): Wall, Gable and Cheek faces in `(u, z)`, `u` world x for a
- * normal along ±y and world y for one along ±x; Roof and Underside in plan `(x, y)`; Ground and Internal get none.
+ * normal along ±y and world y for one along ±x; Roof and Underside in plan `(x, y)`; Ground, Internal and Tuck
+ * (journal decision 272) get none.
  * A wall-kind face off the vertical, or a plan face on a vertical plane, has no lattice and is a hard error.
  */
 export function faceFrame(face: ShellFace): FaceFrame | null {
@@ -65,7 +66,7 @@ export function faceFrame(face: ShellFace): FaceFrame | null {
     case 'Roof': case 'Underside':
       if (Math.abs(n[2]) < 1e-3) throw new Error(`${where()}: a ${face.tag.kind} face on a vertical plane has no plan lattice`);
       return make(0, 1, 2);
-    case 'Ground': case 'Internal':
+    case 'Ground': case 'Internal': case 'Tuck':
       return null;
   }
 }
@@ -482,7 +483,7 @@ export function interiorSideKind(face: ShellFace, a: Vec3, b: Vec3): EdgeKind {
     case 'Wall': return level ? 'WallHorizontal' : 'WallVertical';
     case 'Gable': case 'Cheek': return level ? 'GableHorizontal' : 'GableVertical';
     case 'Roof': case 'Underside': return 'RoofInterior';
-    case 'Ground': case 'Internal': throw new Error(`face ${face.id}: a ${face.tag.kind} face has no Cells`);
+    case 'Ground': case 'Internal': case 'Tuck': throw new Error(`face ${face.id}: a ${face.tag.kind} face has no Cells`);
   }
 }
 

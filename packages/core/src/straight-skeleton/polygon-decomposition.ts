@@ -1,5 +1,5 @@
 import {Vector2} from "./types";
-import {ringPerimeter, segmentSegmentIntersection, signedArea, isClockwise} from "../random-polygon/geometry-helpers";
+import {ringPerimeter, segmentSegmentIntersection, signedArea, isClockwise} from "./planar-geometry";
 import {degenerateAreaBar} from "./constants";
 
 /**
@@ -8,11 +8,14 @@ import {degenerateAreaBar} from "./constants";
  *
  * A QUESTION ABOUT INPUT GEOMETRY, SO A LENGTH AT THE FLOOR: the crossing is at the vertex when its
  * distance from the nearer end, `min(t, 1 − t) · |segment|`, is strictly under the perceptual floor δ
- * (T7's one inequality). `solveSkeleton` decomposes in UNIT space, so δ is the solve's own floor. It
- * was a parametric `1e-8` on `t` — the retired scratch epsilon's value, relative to each segment's
- * length, so a different distance on every segment.
+ * (T7's one inequality). `solveSkeleton` decomposes in UNIT space, so δ is the solve's own floor. A
+ * parametric bar on `t` would be relative to each segment's length, so a different distance on every
+ * segment.
+ *
+ * Exported for `skeleton-loops.ts`, whose crossing test between two loops applies this same rule (skeleton
+ * loops-input spec, decision 29) rather than a second copy of it.
  */
-function isEndpointTouch(t: number, length: number, perceptualFloor: number): boolean {
+export function isEndpointTouch(t: number, length: number, perceptualFloor: number): boolean {
     return Math.min(t, 1 - t) * length < perceptualFloor;
 }
 
@@ -37,7 +40,7 @@ export interface DecompositionResult {
      *
      * EVERY PIECE INHERITS ITS ORIGINAL EDGE'S WEIGHT. Splitting at a crossing cuts two edges in
      * two; each half is still that wall, moving at that wall's speed. All ones when the caller
-     * passed no weights, so an unweighted decomposition is unchanged in every other respect.
+     * passed no weights.
      */
     subPolygonWeights: number[][];
     /** The crossing points inserted (these become interior nodes in the merged graph) */
@@ -144,8 +147,8 @@ function splitAtCrossingWeighted(
  * - At least 3 vertices
  * - Non-degenerate area: at or above `degenerateAreaBar(δ, perimeter)`, "no visible width" (C8 spec
  *   T23, O3 form (b)), read in UNIT space with the solve's floor because `solveSkeleton` normalises
- *   before it decomposes. It was the absolute `1e-6`, which in unit space is a square 1e-3 on a side —
- *   1000δ — so a visible lobe could be discarded (spec I3).
+ *   before it decomposes. An absolute area bar such as `1e-6` would be, in unit space, a square 1e-3 on
+ *   a side — 1000δ — and would discard a visible lobe (spec I3).
  * - Clockwise winding (counter-clockwise = exterior island, discard)
  */
 function isValidSubPolygon(vertices: Vector2[], perceptualFloor: number): boolean {

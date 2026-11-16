@@ -2,6 +2,7 @@ import type { Vector2 } from '../straight-skeleton/types';
 import type { StrokePipelineResult, StrokePoint } from './types';
 import { simplifyStroke } from './simplification';
 import { flattenSpline } from './correspondence';
+import { distanceToSegment, distanceToSupportingLine } from '../straight-skeleton/planar-geometry';
 
 /**
  * Vertex budgeting for polygons headed into `solveSkeleton`.
@@ -83,39 +84,11 @@ function copyVertices(vertices: Vector2[]): Vector2[] {
     return vertices.map((v) => ({ x: v.x, y: v.y }));
 }
 
-/**
- * Perpendicular distance from `p` to the infinite LINE through `a` and `b`, with no clamping.
- *
- * THE UNCLAMPED SIBLING OF {@link distanceToSegment}, AND THE TWO ARE NOT INTERCHANGEABLE. They agree
- * exactly while the perpendicular foot lands inside `a`-`b`, and they disagree without bound outside
- * it: where `p` overshoots an endpoint the clamped form returns the distance to that endpoint, which
- * is dominated by how FAR ALONG the chord `p` went rather than by how far OFF it. For a fold — an
- * apex doubling back past the end of the chord between its own neighbours — that difference is the
- * difference between measuring the fold's length and measuring its width. A caller asking "how far
- * off this chord is it" wants this one; a caller asking "how close to this segment is it", such as
- * RDP's error bound, wants the clamped one.
- *
- * A zero-length chord has no line to be perpendicular to, so the distance to the point is returned —
- * the same fallback the clamped form takes, and the alternative is a 0/0 `NaN` that compares false
- * against every threshold and so silently passes any test written as a bound.
+/*
+ * The line and segment distances are the solver's planar geometry (`straight-skeleton/planar-geometry.ts`), re-exported
+ * here for this module's callers.
  */
-export function distanceToSupportingLine(p: Vector2, a: Vector2, b: Vector2): number {
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const length = Math.hypot(dx, dy);
-    if (length === 0) return Math.hypot(p.x - a.x, p.y - a.y);
-    return Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) / length;
-}
-
-/** Distance from `p` to the segment `a`-`b` (the segment, so endpoints cap it). */
-export function distanceToSegment(p: Vector2, a: Vector2, b: Vector2): number {
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const lenSq = dx * dx + dy * dy;
-    if (lenSq === 0) return Math.hypot(p.x - a.x, p.y - a.y);
-    const t = Math.min(1, Math.max(0, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq));
-    return Math.hypot(p.x - (a.x + dx * t), p.y - (a.y + dy * t));
-}
+export { distanceToSupportingLine, distanceToSegment };
 
 /**
  * Largest distance from any vertex of `source` to the polyline `target`. This is

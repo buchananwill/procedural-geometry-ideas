@@ -14,13 +14,13 @@ import {
     StrokePoint,
     Vector2,
 } from '@proc-geo/core';
-import {oracleCausalityCounts, oracleViolationsOf, solverCausalityCounts} from './wavefront-measurement-helpers';
+import {singleLoopSoundness, SOUND_SINGLE_LOOP} from './correct-solve-helpers';
+import {offRoofArcPoints} from './jitter-helpers';
 
 /*
  * ============================================================================
- *  THE EVEN-RESAMPLING DEFECT THIS FILE RECORDED IS FIXED. ONE `known defect`
- *  TEST REMAINS — THE REFLEX L-SHAPE — AND ITS ASSERTION IS NOT A
- *  SPECIFICATION. EVERYTHING ELSE HERE IS.
+ *  THE EVEN-RESAMPLING DEFECT THIS FILE RECORDED IS FIXED, AND SO IS THE
+ *  REFLEX L-SHAPE IT LEFT BEHIND. EVERY TEST HERE IS A SPECIFICATION.
  * ============================================================================
  *
  * WHAT CHANGED
@@ -30,12 +30,14 @@ import {oracleCausalityCounts, oracleViolationsOf, solverCausalityCounts} from '
  * permanent sweep below now solves, where all of them failed before, and equal subdivision of
  * a square or an irregular hexagon now solves at every k from 1 to 10.
  *
- * What survives is the reflex L-shape at k = 4 and k >= 6. Subdividing it makes an entire arm
- * collapse onto its ridge in one offset layer, so the two ridge bisectors turn up in several
- * coincident groups at once — a whole strip closing rather than a set of independent vertex
- * events. `handleInteriorNGon` detects the overlap and falls back to pairwise handling for
- * that layer, which is the behaviour that was always wrong here. It is strictly better than
- * before (k = 2, 3 and 5 were failing too), and it is the remaining work.
+ * What survived that fix was the reflex L-shape at k = 4 and k >= 6. Subdividing it makes an
+ * entire arm collapse onto its ridge in one offset layer, so the two ridge bisectors turn up in
+ * several coincident groups at once — a whole strip closing rather than a set of independent
+ * vertex events — and `handleInteriorNGon` falls back to pairwise handling for that layer. The
+ * pairwise fallback broke the tie between two meetings at one moment on one bisector by edge id,
+ * and could take the far one. Since 2026-11-15 it resolves the nearer along the bisector's ray
+ * first (BSA.D335 stage 1), and the L solves correctly at every k from 1 to 10 with the input
+ * canonicalisation stage off as well as on.
  *
  * The measurements below are as taken BEFORE the fix, and are kept because they are what
  * localised it.
@@ -427,17 +429,19 @@ describe('stroke-derived polygons', () => {
         });
 
         it('now solves the reflex L-shape at every subdivision too', () => {
-            // THIS LIST WAS [4, 6, 7, 8, 9, 10] AND IS NOW EMPTY. The defect underneath is not
-            // fixed; the input that triggered it no longer reaches the solver.
+            // THIS LIST WAS [4, 6, 7, 8, 9, 10] AND IS NOW EMPTY, first because the input that
+            // triggered the defect stopped reaching the solver, and since 2026-11-15 because the
+            // defect itself is cured (the next test, with the stage off).
             //
             // Subdividing the L makes both arms collapse onto their own ridge in a single offset
             // layer: every perpendicular bisector from one long side meets the opposite side's
             // bisector at the same offset, at a different point each. The two ridge bisectors
             // therefore appear in several coincident groups at once, which is a whole strip closing
             // rather than a set of independent vertex events, and `handleInteriorNGon` falls back
-            // to pairwise handling for that layer. That is still true and still unfixed.
+            // to pairwise handling for that layer, which now resolves the nearer of two meetings on
+            // one ray first (BSA.D335 stage 1).
             //
-            // What changed is upstream of it. Subdividing an edge into k equal pieces adds vertices
+            // What changed first is upstream of it. Subdividing an edge into k equal pieces adds vertices
             // that are collinear with their neighbours and nothing else, so they stand around 1e-16
             // off the chord between those neighbours in unit space — far below the 1e-6 noise
             // floor. Input canonicalisation removes them and the solver is handed back the
@@ -455,61 +459,39 @@ describe('stroke-derived polygons', () => {
             expect(failingSubdivisions(L_SHAPE)).toEqual([]);
         });
 
-        it('still loses the reflex L-shape at those subdivisions with canonicalisation off', () => {
-            // The conviction for the empty list above. A zero noise floor is an exact identity in
-            // the stage, so this is the solver as it behaved before it existed. Deleting the
-            // assertions would have emptied the list just as well; this is how the difference is
-            // told.
+        it('solves the reflex L-shape correctly at every subdivision with canonicalisation off as well', () => {
+            // The solver itself, with the stage that removes the subdivided vertices switched off:
+            // a zero noise floor is an exact identity in the stage, so every inserted vertex reaches
+            // the solver.
             //
-            // THE SET IS NO LONGER THE HISTORICAL ONE, AND EVERY MOVE IS ATTRIBUTED. The
-            // parallel-vertex closure in `algorithm-termination-cases.ts` cured k = 4, 6 and 9,
-            // which died in terminal sub-polygons whose wavefront vertices all travelled the same
-            // way and so could never meet.
+            // THIS TEST PINNED THE DEFECT UNTIL 2026-11-15 (BSA.D336). It asserted that k = 4, 7 and
+            // 8 came back incomplete and that k = 10 completed with one direction violation, and so
+            // it was green while the solver was wrong. Subdividing the L makes each arm collapse onto
+            // its ridge in one offset layer, so a ridge bisector meets several others at one moment
+            // at several points along its ray, and the pairwise fallback broke that tie by edge id
+            // and could take the far meeting. Since the nearer along the ray is resolved first
+            // (BSA.D335 stage 1, BSA.F108), every k from 1 to 10 solves correctly. On the parent
+            // commit, k = 4, 7 and 8 are incomplete, k = 2 completes and is not a tree, and k = 3,
+            // 5, 6, 9 and 10 carry direction violations.
             //
-            // K = 4 THEN CAME BACK, 2026-08-28, and it is a loud step failure rather than a wrong
-            // answer. The corridor-midline fix (journal decision 90) makes an L's arm midline point
-            // along its own arm instead of out of it, and at k = 4 the arm's ridge is cut into
-            // several bisectors by the subdivided walls; the sub-polygon they leave has no closure
-            // the pairwise machinery can find, so four interior edges finish without a target and
-            // the solve reports `unresolved-edges`. What it replaced was a graph the same cell used
-            // to report `complete: true` for while carrying a bisector wired to a node BEHIND its
-            // own source and a zero-length self-loop the solver had not culled. Silent to loud is
-            // the direction this arc trades in (journal decision 71a), and the whole regime here is
-            // the stage-off one the canonicalisation stage exists to make unreachable — with the
-            // stage on, the list above is empty.
-            //
-            // K = 10 LEFT THE LIST 2026-09-23 — MOVED AND FLAGGED, NOT CURED; THE DEFECT STANDS AND
-            // IS PINNED BELOW (journal decision 147, per decision 138(b)'s plateau-cell precedent).
-            // The move is journal decision 145's terminal ladder, made independent of edge count: the
-            // cell died in an N-GON sub-polygon that produced no collision at all, which
-            // `handleInteriorNGon` threw on without trying a closure. With the ladder a CLOSURE rung
-            // closes it (no `coaxial-completion` is recorded) and the four stranded edges (85, 86,
-            // 87, 167) get their node. But the solve now reports `complete: true` with EMPTY
-            // diagnostics while its graph still carries the direction violation it had before — e163,
-            // bit-unmoved by the closure — which is the loud-to-silent pattern decisions 72 and 138(a)
-            // treat as a worsening. So the defect is kept loud through the causality oracle instead of
-            // through `complete`. k = 4, 7 and 8 are unmoved: they end with unresolved edges and no
-            // step failure, so no handler's ladder is reached in them at all.
-            const withoutCanonicalisation = subdivisions.filter(
-                k => !solveSkeleton(subdivide(L_SHAPE, k), {noiseFloor: 0}).complete);
+            // Each subdivision is held to the correct result: the sound single-loop battery of
+            // `correct-solve-helpers.ts`, and every live arc on the L's roof, the higher of its two
+            // bars' roofs as in `jitter-helpers.ts` (subdividing a wall moves no part of the roof).
+            const roof = (p: Vector2) => Math.max(
+                Math.min(p.x, 150 - p.x, p.y, 300 - p.y),
+                Math.min(p.x, 320 - p.x, p.y, 140 - p.y));
+            const incorrect = subdivisions.flatMap(k => {
+                const result = solveSkeleton(subdivide(L_SHAPE, k), {noiseFloor: 0});
+                // `noiseFloor: 0` turns canonicalisation off; the perceptual floor is the library's.
+                const report = {
+                    ...singleLoopSoundness(result, SKELETON_NOISE_FLOOR),
+                    offRoof: offRoofArcPoints(result, roof, 1e-6 * 320).length,
+                };
+                return JSON.stringify(report) === JSON.stringify({...SOUND_SINGLE_LOOP, offRoof: 0})
+                    ? [] : [`k = ${k}: ${JSON.stringify(report)}`];
+            });
 
-            expect(withoutCanonicalisation).toEqual([4, 7, 8]);
-
-            // THE FLAGGED CELL'S DEFECT, PINNED: exactly one direction violation, e163, and nothing
-            // else. A change that cures it or adds to it must say so here.
-            //
-            // AND IT IS NO LONGER SILENT (journal-5 decision 148): the solver's own causality check
-            // reports e163 as its one diagnostic, 0.41 in unit space behind its source, while
-            // `complete` stays true. The solver's count and the test oracle's agree.
-            const k10 = solveSkeleton(subdivide(L_SHAPE, 10), {noiseFloor: 0});
-            expect(k10.complete).toBe(true);
-            expect(k10.diagnostics.map(diagnostic => diagnostic.kind)).toEqual(['causality-violation']);
-            expect(k10.diagnostics.flatMap(diagnostic => diagnostic.kind === 'causality-violation'
-                ? [{oracle: diagnostic.oracle, elementId: diagnostic.elementId}] : []))
-                .toEqual([{oracle: 'direction', elementId: 163}]);
-            // `noiseFloor: 0` turns canonicalisation off; the perceptual floor is the library's.
-            expect(oracleViolationsOf(k10, SKELETON_NOISE_FLOOR)).toEqual({offset: [], clearance: [], direction: [163]});
-            expect(solverCausalityCounts(k10)).toEqual(oracleCausalityCounts(k10, SKELETON_NOISE_FLOOR));
+            expect(incorrect).toEqual([]);
         });
 
         it('is not caused by collinearity by itself', () => {

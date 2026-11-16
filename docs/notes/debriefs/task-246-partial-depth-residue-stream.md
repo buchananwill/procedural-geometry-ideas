@@ -1,3 +1,11 @@
+---
+title: "Task 246 — Partial depth and the residue stream"
+type: workflow
+area: subdivision
+status: archived
+date: 2026-08-17
+---
+
 # Task 246 — Partial depth and the residue stream
 
 Spec: [`docs/notes/partial-depth-residue-stream-decisions.md`](../partial-depth-residue-stream-decisions.md)

@@ -1,5 +1,5 @@
 import type {SkeletonSolveResult} from './types';
-import {computeNodeOffsets, requireProjectableResult} from './offset-projection';
+import {computeNodeOffsets, requireSingleLoopResult} from './offset-projection';
 
 /**
  * A solved straight skeleton seen as a weighted undirected graph, with the queries a pruning
@@ -7,9 +7,9 @@ import {computeNodeOffsets, requireProjectableResult} from './offset-projection'
  *
  * ## This is a substrate and nothing else
  *
- * It builds no spine, prunes nothing and makes no policy choice. Three spine-extraction strategies
- * are to be written on top of it — the longest path through the tree, a wavefront-time threshold,
- * and degree-based whisker pruning — and each is a short function *given this*. Writing any of them
+ * It builds no spine, prunes nothing and makes no policy choice. The three spine-extraction
+ * strategies (`spine.ts`) are written on top of it — the longest path through the tree, a
+ * wavefront-time threshold, and degree-based whisker pruning — and each is a short function *given this*. Writing any of them
  * against the raw solver graph instead produces three bespoke traversals of the same structure,
  * which is the outcome this module exists to prevent.
  *
@@ -17,8 +17,7 @@ import {computeNodeOffsets, requireProjectableResult} from './offset-projection'
  *
  * {@link SkeletonTree} carries no methods. It is passed between the dashboard and workers, where
  * values are `structuredClone`d, and methods do not survive that — they become `undefined` silently.
- * `SkeletonNormalisation` diverged from an object-with-methods design for exactly this reason and is
- * the direct precedent. `Map` does survive `structuredClone` and is used freely.
+ * `SkeletonNormalisation` is plain data for the same reason. `Map` does survive `structuredClone` and is used freely.
  *
  * ## The polygon's own vertices are in the tree, and they are its leaves
  *
@@ -33,8 +32,8 @@ import {computeNodeOffsets, requireProjectableResult} from './offset-projection'
  * {@link SkeletonTree.offsets} is a copy of what {@link computeNodeOffsets} returned, entry for
  * entry. The projection module's header records what deriving one quantity by two routes costs: the
  * two disagree in the last bits, and downstream comparisons that assume they agree drop arcs.
- * Nothing here needs bit-equality today, but a second derivation of a quantity that already has a
- * canonical source is how that guarantee is lost later.
+ * Nothing here needs bit-equality, but a second derivation of a quantity that already has a
+ * canonical source would lose that guarantee for every reader that does.
  *
  * ## Structure is checked, not assumed
  *
@@ -52,6 +51,11 @@ import {computeNodeOffsets, requireProjectableResult} from './offset-projection'
  * self-intersecting input yields a merged graph with no solver context and cannot be walked this
  * way. That is a caller error and throws, which is a different thing from the honest report about
  * the geometry that {@link SkeletonTree.isTree} carries.
+ *
+ * A SOLVE WITH HOLES IS REFUSED, BY {@link requireSingleLoopResult} (skeleton loop-consumers spec,
+ * decisions 20 and 21). Its skeleton has a cycle round each hole, `h` more edges than a tree has, so
+ * `isTree` would always be false there — and false means a solver defect, so it would report a
+ * correct skeleton as broken. The spine refuses through this, since it is built on a tree.
  */
 
 /**
@@ -141,10 +145,10 @@ interface FurthestNode {
  * together with every node an edge reaches. Ordering throughout is ascending by node id, so the
  * whole structure is a pure function of the solve.
  *
- * @throws if the solve is incomplete or has no solver context.
+ * @throws if the solve is incomplete, has no solver context, or has a hole.
  */
 export function buildSkeletonTree(result: SkeletonSolveResult): SkeletonTree {
-    requireProjectableResult(result, 'buildSkeletonTree');
+    requireSingleLoopResult(result, 'buildSkeletonTree');
 
     const edges = collectTreeEdges(result);
     const nodeIds = collectNodeIds(result.graph.numExteriorNodes, edges);
@@ -206,8 +210,8 @@ export function skeletonTreeDiameter(tree: SkeletonTree): number[] {
  * it: a rectangle's central ridge comes back as `4 -> 5` and `5 -> 4`, and the pentagon house's
  * does the same. Those are one segment recorded from both ends, not two — two straight arcs sharing
  * both endpoints ARE the same arc, there being no second straight route between two points. So the
- * pair collapses to a single undirected edge, which is decision 5's "an undirected edge has one
- * representation" applied to the case that actually produces two.
+ * pair collapses to a single undirected edge: an undirected edge has one representation (skeleton
+ * tree substrate spec, decision 5), applied to the case that actually produces two.
  *
  * Keeping both would put a two-cycle in every skeleton that ends in a collapse and report `isTree`
  * false for the rectangle, whose skeleton is a tree — a false alarm on the shape the specification

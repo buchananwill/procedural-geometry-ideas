@@ -1,9 +1,19 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
+import type { HoledTestPolygon } from "@proc-geo/test-fixtures";
 
 export interface Vertex {
   x: number;
   y: number;
+}
+
+/**
+ * One hole of a loaded holed fixture, drawn read-only (dashboard holed-fixtures spec, decisions 1 and 5; BSA.D284).
+ * `weights` is parallel to `vertices`, all ones where the fixture gives none.
+ */
+export interface StoredHole {
+  vertices: Vertex[];
+  weights: number[];
 }
 
 interface PolygonState {
@@ -17,6 +27,15 @@ interface PolygonState {
    * change one without the other.
    */
   weights: number[];
+  /**
+   * The holes of the loaded holed fixture, `[]` for a single-loop polygon (decision 1). Beside the outline because
+   * both canvases, the solve and the outline editor read this store, and a second store could hold one fixture's
+   * outline and another's holes. WRITTEN ONLY BY {@link PolygonState.loadHoledFixture} (decision 2); `setVertices`
+   * and `resetPolygon` clear it, and the outline mutators leave it untouched (decisions 3 and 4).
+   */
+  holes: StoredHole[];
+  /** The loaded holed fixture's name; `null` exactly when `holes` is `[]`. */
+  holedFixtureName: string | null;
   selectedVertex: number | null;
   moveVertex: (index: number, x: number, y: number) => void;
   addVertex: (index: number, vertex: Vertex) => void;
@@ -25,6 +44,8 @@ interface PolygonState {
   resetWeights: () => void;
   setSelectedVertex: (index: number | null) => void;
   setVertices: (vertices: Vertex[]) => void;
+  /** Load a holed fixture: its outline, its weights and every hole, copied; the selection cleared (decision 2). */
+  loadHoledFixture: (fixture: HoledTestPolygon) => void;
   resetPolygon: () => void;
 }
 
@@ -41,10 +62,17 @@ function onesFor(count: number): number[] {
   return Array.from({ length: count }, () => 1);
 }
 
+/** A fixture's weights copied, or all ones where it gives none (decision 1). */
+function weightsOrOnes(weights: readonly number[] | undefined, count: number): number[] {
+  return weights !== undefined && weights.length > 0 ? [...weights] : onesFor(count);
+}
+
 export const usePolygonStore = create<PolygonState>()(
   immer((set) => ({
     vertices: DEFAULT_VERTICES.map((v) => ({ ...v })),
     weights: onesFor(DEFAULT_VERTICES.length),
+    holes: [],
+    holedFixtureName: null,
     selectedVertex: null,
 
     moveVertex: (index, x, y) =>
@@ -112,6 +140,23 @@ export const usePolygonStore = create<PolygonState>()(
         state.vertices = vertices.map((v) => ({ x: v.x, y: v.y }));
         state.weights = onesFor(vertices.length);
         state.selectedVertex = null;
+        // A NEW POLYGON IS A SINGLE LOOP (decision 3): a single-loop fixture, a paste and a random generation all
+        // land here, and none of them carries holes.
+        state.holes = [];
+        state.holedFixtureName = null;
+      }),
+
+    loadHoledFixture: (fixture) =>
+      set((state) => {
+        // COPIED, so no array is shared with the roster (decision 2).
+        state.vertices = fixture.outline.map((v) => ({ x: v.x, y: v.y }));
+        state.weights = weightsOrOnes(fixture.weights, fixture.outline.length);
+        state.holes = fixture.holes.map((hole) => ({
+          vertices: hole.vertices.map((v) => ({ x: v.x, y: v.y })),
+          weights: weightsOrOnes(hole.weights, hole.vertices.length),
+        }));
+        state.holedFixtureName = fixture.name;
+        state.selectedVertex = null;
       }),
 
     resetPolygon: () =>
@@ -119,6 +164,8 @@ export const usePolygonStore = create<PolygonState>()(
         state.vertices = DEFAULT_VERTICES.map((v) => ({ ...v }));
         state.weights = onesFor(DEFAULT_VERTICES.length);
         state.selectedVertex = null;
+        state.holes = [];
+        state.holedFixtureName = null;
       }),
   }))
 );

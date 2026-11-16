@@ -1,3 +1,11 @@
+---
+title: "Solver Hardening Backlog"
+type: commentary
+area: straight-skeleton
+status: active
+date: 2026-08-09
+---
+
 # Solver hardening backlog
 
 Work that is understood, measured, and deliberately parked. A line was drawn under

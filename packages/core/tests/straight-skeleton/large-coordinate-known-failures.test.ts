@@ -353,8 +353,18 @@ describe('the defect is a scatter of translations, not the one cell the decade s
         // These are exactly the four fine translations whose clustering formed a component WIDER than
         // the floor (the component-diameter census): 4e10, 5e10 and 6e10 went from one clearance
         // violation to none, and 2e11 from five to three. Every other cell is bit-unmoved.
+        //
+        // 2e11 MOVED AGAIN UNDER THE EDGE-ACCEPTANCE CURE (skeleton edge-acceptance spec, decisions 34 and 37;
+        // BSA.F99, BSA.D300), from '{"offset":0,"clearance":3,"direction":0}, 3 diagnostic(s)'. Edge 11 is no longer
+        // accepted while e126 names it, so the birth (cw 11, ws 42) the old rule refused is born (e127) and the
+        // ring it closes is sound: the strips now tile the polygon to about 1e-8 where they missed 49 to 62
+        // percent of it, and the wavefront's three W2/W4 violations are gone (74 nodes and 127 edges become 75
+        // and 129). The cost is one offset and one direction violation, both on one newly born bisector, e128,
+        // which leaves node 73 (already 2e-6 out of clearance, one of the three below) and runs about 1e-6
+        // backwards against its basis. The three clearance violations are
+        // the same three. Accepted by the lead as the more valid answer.
         expect(flagged).toEqual([
-            '200000000000: {"offset":0,"clearance":3,"direction":0}, 3 diagnostic(s)',
+            '200000000000: {"offset":1,"clearance":3,"direction":1}, 5 diagnostic(s)',
             '5000000000000: {"offset":0,"clearance":12,"direction":0}, 12 diagnostic(s)',
             '6000000000000: {"offset":0,"clearance":12,"direction":0}, 12 diagnostic(s)',
             '7000000000000: {"offset":0,"clearance":12,"direction":0}, 12 diagnostic(s)',

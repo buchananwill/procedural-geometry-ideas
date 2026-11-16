@@ -33,6 +33,7 @@ export default function EdgeWeightsPanel({ solveError = null }: EdgeWeightsPanel
     const weights = usePolygonStore((s) => s.weights);
     const setEdgeWeight = usePolygonStore((s) => s.setEdgeWeight);
     const resetWeights = usePolygonStore((s) => s.resetWeights);
+    const holes = usePolygonStore((s) => s.holes);
 
     const [opened, setOpened] = useState(false);
 
@@ -92,6 +93,17 @@ export default function EdgeWeightsPanel({ solveError = null }: EdgeWeightsPanel
                         >
                             Reset Weights to 1
                         </Button>
+                        {/* A hole's weights are the fixture's, shown as text: holes are read-only (decision 5). */}
+                        {holes.map((hole, k) => (
+                            <Stack key={`hole-${k}`} gap={2}>
+                                <Text size="xs" c="dimmed" fw={600}>Hole {k} (read-only)</Text>
+                                {hole.weights.map((weight, j) => (
+                                    <Text key={j} size="xs" c="dimmed">
+                                        {`Hole ${k}, edge ${j} → ${(j + 1) % hole.weights.length}: ${weight}`}
+                                    </Text>
+                                ))}
+                            </Stack>
+                        ))}
                     </Stack>
                 </Collapse>
             </Stack>

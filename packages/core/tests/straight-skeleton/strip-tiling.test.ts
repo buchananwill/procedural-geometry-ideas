@@ -1,8 +1,12 @@
-import {CLEAN_TEST_POLYGONS, FULL_CORPUS, KNOWN_DEFECT_POLYGONS} from '@proc-geo/test-fixtures';
 import {
-    computeMaxOffset, computeOffsetRings, computeStrips, solveSkeleton,
+    CLEAN_TEST_POLYGONS, FULL_CORPUS, HOLED_F1, HOLED_TEST_POLYGONS, holedSolveOptions, KNOWN_DEFECT_POLYGONS,
+} from '@proc-geo/test-fixtures';
+import {
+    computeMaxOffset, computeOffsetRings, computeStrips, CornerContext, loopOfExteriorEdge, solveSkeleton,
     SkeletonSolveResult, Strip, Vector2,
 } from '@proc-geo/core';
+import {distanceToSegment, holedTilingError, netRingArea, regionArea, stripArea as signedStripArea}
+    from './wavefront-measurement-helpers';
 
 /*
  * ============================================================================
@@ -196,5 +200,171 @@ describe('the strips and the residue account for the polygon they were cut from'
             .sort();
 
         expect(failing).toEqual(Object.keys(PINNED_TILING_ERRORS).sort());
+    });
+});
+
+/*
+ * ============================================================================
+ *  THE HOLED ROSTER: THE STRIPS AND THE SIGNED RINGS ACCOUNT FOR THE REGION.
+ * ============================================================================
+ *
+ * Skeleton loop-consumers spec, decisions 14, 18, 35 and 39. On a region with holes the identity is
+ * `Σ area(strip) + Σ −signedArea(ring) = area(outline) − Σ area(hole)`: an outer ring is clockwise and adds its area,
+ * a ring round a hole is counter-clockwise and takes its own away (`holedTilingError` in
+ * `wavefront-measurement-helpers.ts`, the one definition, which the sweep harness's holed path reads too). It is
+ * asserted at depth fractions 0.2, 0.5 and 1.0 at the same machine-precision bar as the single loop, 1e-14.
+ *
+ * DECISION 14 IS THE CONTRACT BUILDING-SHELL READS: `computeStrips(result, {depth: computeMaxOffset(result)})`
+ * returns one strip per exterior edge of every loop, strip `i` supported by edge `i`, its frontage on that edge.
+ */
+const HOLED_FRACTIONS = [0.2, 0.5, 1.0];
+
+describe('the holed roster: the strips and the signed rings account for the region (decisions 14, 35 and 39)', () => {
+    const solveHoled = (fixture: typeof HOLED_TEST_POLYGONS[number]) =>
+        solveSkeleton(fixture.outline, holedSolveOptions(fixture));
+
+    it.each(HOLED_TEST_POLYGONS.map(fixture => [fixture.name, fixture] as const))(
+        '%s tiles to machine precision at depth fractions 0.2, 0.5 and 1.0',
+        (_name, fixture) => {
+            const result = solveHoled(fixture);
+            const maxOffset = computeMaxOffset(result);
+            const errors = HOLED_FRACTIONS.map(fraction => holedTilingError(result, maxOffset * fraction));
+            expect(errors.filter(error => !(error < TILING_TOLERANCE))).toEqual([]);
+        },
+    );
+
+    it.each(HOLED_TEST_POLYGONS.map(fixture => [fixture.name, fixture] as const))(
+        '%s at full depth: one strip per exterior edge of every loop, strip i on edge i, its frontage on that edge',
+        (_name, fixture) => {
+            const result = solveHoled(fixture);
+            const {graph} = result;
+            const strips = computeStrips(result, {depth: computeMaxOffset(result)});
+            expect(strips).toHaveLength(graph.numExteriorNodes);
+            const extent = Math.max(...fixture.outline.flatMap(v => [Math.abs(v.x), Math.abs(v.y)]), 1);
+            const problems: string[] = [];
+            strips.forEach((strip, i) => {
+                const source = graph.nodes[graph.edges[i].source].position;
+                const target = graph.nodes[graph.edges[i].target!].position;
+                if (strip.supportingEdgeIds.length !== 1 || strip.supportingEdgeIds[0] !== i) {
+                    problems.push(`strip ${i} is supported by [${strip.supportingEdgeIds}]`);
+                }
+                if (strip.frontage.length !== 2 || strip.frontage[0] !== source || strip.frontage[1] !== target) {
+                    problems.push(`strip ${i}'s frontage is not edge ${i}'s own source and target`);
+                }
+                const middle = {
+                    x: (strip.frontage[0].x + strip.frontage[strip.frontage.length - 1].x) / 2,
+                    y: (strip.frontage[0].y + strip.frontage[strip.frontage.length - 1].y) / 2,
+                };
+                if (distanceToSegment(middle, source, target) > 1e-9 * extent) {
+                    problems.push(`strip ${i}'s frontage midpoint is off edge ${i}`);
+                }
+                if (strip.boundary.length < 3) {
+                    problems.push(`strip ${i} has no area at full depth`);
+                }
+            });
+            expect(problems).toEqual([]);
+        },
+    );
+
+    it.each(HOLED_TEST_POLYGONS.map(fixture => [fixture.name, fixture] as const))(
+        '%s: no corner joins two loops, and each corner\'s edge lengths and angle are the fixture\'s own',
+        (_name, fixture) => {
+            // THE RECORDING CLASSIFIER (decision 39). The expected lengths and angles are read off the loop table by
+            // loop-local arithmetic — the vertex after local vertex j of a loop is local vertex j + 1 mod count — and
+            // not off any edge's target, so they are independent of the code under test.
+            const result = solveHoled(fixture);
+            const {graph} = result;
+            const seen: CornerContext[] = [];
+            computeStrips(result, {
+                depth: computeMaxOffset(result) * 0.5,
+                classifyCorner: context => {
+                    seen.push(context);
+                    return 'none';
+                },
+            });
+            const position = (node: number) => graph.nodes[node].position;
+            const expected = graph.loops.flatMap(({start, count}) => Array.from({length: count}, (_unused, j) => {
+                const before = position(start + j);
+                const vertex = position(start + (j + 1) % count);
+                const after = position(start + (j + 2) % count);
+                let angle = Math.atan2(after.y - vertex.y, after.x - vertex.x)
+                    - Math.atan2(before.y - vertex.y, before.x - vertex.x);
+                while (angle <= 0) {
+                    angle += 2 * Math.PI;
+                }
+                while (angle > 2 * Math.PI) {
+                    angle -= 2 * Math.PI;
+                }
+                return {
+                    incoming: start + j,
+                    outgoing: start + (j + 1) % count,
+                    vertex,
+                    previousEdgeLength: Math.hypot(vertex.x - before.x, vertex.y - before.y),
+                    nextEdgeLength: Math.hypot(after.x - vertex.x, after.y - vertex.y),
+                    interiorAngle: angle,
+                };
+            }));
+            expect(seen).toHaveLength(graph.numExteriorNodes);
+            const problems: string[] = [];
+            seen.forEach(context => {
+                const incoming = context.previousEdgeIds[context.previousEdgeIds.length - 1];
+                const outgoing = context.nextEdgeIds[0];
+                if (loopOfExteriorEdge(graph, incoming) !== loopOfExteriorEdge(graph, outgoing)) {
+                    problems.push(`a corner joins edge ${incoming} to edge ${outgoing}, on two loops`);
+                    return;
+                }
+                const own = expected.find(entry => entry.incoming === incoming);
+                if (own === undefined || own.outgoing !== outgoing) {
+                    problems.push(`a corner joins edge ${incoming} to edge ${outgoing}, not to its own next edge`);
+                    return;
+                }
+                if (context.vertex !== own.vertex
+                    || Math.abs(context.previousEdgeLength - own.previousEdgeLength) > 1e-12 * own.previousEdgeLength
+                    || Math.abs(context.nextEdgeLength - own.nextEdgeLength) > 1e-12 * own.nextEdgeLength
+                    || Math.abs(context.interiorAngle - own.interiorAngle) > 1e-12) {
+                    problems.push(`the corner after edge ${incoming} reads vertex (${context.vertex.x}, ${context.vertex.y}),`
+                        + ` lengths ${context.previousEdgeLength} / ${context.nextEdgeLength}, angle ${context.interiorAngle};`
+                        + ` the fixture's own are (${own.vertex.x}, ${own.vertex.y}), ${own.previousEdgeLength} /`
+                        + ` ${own.nextEdgeLength}, ${own.interiorAngle}`);
+                }
+            });
+            expect(problems).toEqual([]);
+        },
+    );
+
+    it('reads decision 16\'s worked example on F1: reflex at the hole\'s (7, 6.5), convex at the outline\'s (0, 10)', () => {
+        const result = solveHoled(HOLED_F1);
+        const angles = new Map<string, number>();
+        computeStrips(result, {
+            depth: computeMaxOffset(result) * 0.5,
+            classifyCorner: context => {
+                angles.set(`${context.vertex.x},${context.vertex.y}`, context.interiorAngle);
+                return 'none';
+            },
+        });
+        expect(angles.get('7,6.5')).toBeCloseTo(3 * Math.PI / 2, 12);
+        expect(angles.get('0,10')).toBeCloseTo(Math.PI / 2, 12);
+    });
+
+    it('reads decision 18\'s worked example on F1 at depth 0.5: 22.83 + 81 − 5.83 = 98, and 109.66 summed unsigned', () => {
+        // Before the join at 2√2 − 2, the outline's ring has signed area −(10 − 2t)² = −81 and the hole's ring
+        // +(√2 + 2t)² ≈ +5.83. The swept bands are 19 + 3.83 = 22.83.
+        const result = solveHoled(HOLED_F1);
+        const rings = computeOffsetRings(result, 0.5);
+        expect(rings).toHaveLength(2);
+        expect(netRingArea(rings)).toBeCloseTo(81 - (Math.SQRT2 + 1) ** 2, 12);
+        const strips = computeStrips(result, {depth: 0.5}).reduce((total, strip) => total + signedStripArea(strip), 0);
+        expect(strips).toBeCloseTo(19 + ((Math.SQRT2 + 1) ** 2 - 2), 12);
+        expect(regionArea(result.graph)).toBeCloseTo(98, 12);
+        expect(holedTilingError(result, 0.5)).toBeLessThan(TILING_TOLERANCE);
+        // Summed as absolute areas the identity misses by twice the hole's ring.
+        const unsigned = strips + rings.reduce((total, ring) => total + Math.abs(signedRingArea(ring)), 0);
+        expect(unsigned).toBeCloseTo(98 + 2 * (Math.SQRT2 + 1) ** 2, 9);
+    });
+
+    it('is not vacuous: the roster is the whole holed roster, outside FULL_CORPUS', () => {
+        expect(HOLED_TEST_POLYGONS).toHaveLength(21);
+        const corpusNames = new Set(FULL_CORPUS.map(polygon => polygon.name));
+        expect(HOLED_TEST_POLYGONS.filter(fixture => corpusNames.has(fixture.name))).toEqual([]);
     });
 });

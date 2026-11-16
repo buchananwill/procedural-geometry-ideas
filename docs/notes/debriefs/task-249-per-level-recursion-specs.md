@@ -1,3 +1,11 @@
+---
+title: "Task 249 — Per-level recursion specs"
+type: workflow
+area: subdivision
+status: archived
+date: 2026-08-17
+---
+
 # Task 249 — Per-level recursion specs
 
 Spec: `docs/notes/per-level-recursion-specs-decisions.md`

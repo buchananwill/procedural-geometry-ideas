@@ -1,7 +1,9 @@
 ---
 title: "Tolerance Unification: Audit and Draft Decision Spec"
-type: decision-spec
-status: awaiting-ruling
+type: technical-reference
+area: straight-skeleton
+status: archived
+date: 2026-08-29
 ---
 
 # Tolerance unification — audit and draft decision spec

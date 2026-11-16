@@ -15,7 +15,7 @@ import {
 } from '../src/viewer/palette.ts';
 
 /** The spec's decision 10 list, written out so the palette is not checked against a list derived from itself. */
-const SPEC_SHELL_KINDS: readonly ShellKind[] = ['Wall', 'Gable', 'Roof', 'Underside', 'Ground', 'Cheek', 'Internal'];
+const SPEC_SHELL_KINDS: readonly ShellKind[] = ['Wall', 'Gable', 'Roof', 'Underside', 'Ground', 'Cheek', 'Internal', 'Tuck'];
 const DRAWN_KINDS = SPEC_SHELL_KINDS.filter(k => k !== 'Internal');
 
 type EdgeColours = Readonly<Record<EdgeKind, number>>;

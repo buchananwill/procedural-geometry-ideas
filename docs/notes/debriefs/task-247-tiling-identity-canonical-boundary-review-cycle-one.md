@@ -1,3 +1,11 @@
+---
+title: "Task 247 — Tiling identity against the canonical boundary — review cycle one"
+type: workflow
+area: subdivision
+status: archived
+date: 2026-08-17
+---
+
 # Task 247 — Tiling identity against the canonical boundary — review cycle one
 
 Spec: `docs/notes/tiling-identity-against-canonical-boundary-decisions.md`

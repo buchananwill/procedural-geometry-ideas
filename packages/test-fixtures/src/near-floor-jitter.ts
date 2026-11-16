@@ -165,7 +165,7 @@ export const OFF_EDGE_JITTER_L_SEED_55433_R021: Vector2[] = [
  * is the degeneracy this shape carries and the jitter does not remove — and two of the four removed
  * samples sat on the left wall's two segments, so the removal rejoins exterior edges 0 and 7 onto ONE
  * supporting line and the solve ends in a zero-area sub-polygon over it. IT NOW SOLVES: the
- * parallel-vertex closure in `algorithm-termination-cases.ts` terminates that sub-polygon at its
+ * parallel-vertex closure in `terminal-ladder.ts` terminates that sub-polygon at its
  * leading source. It stays on the defect roster for its census and causality signatures.
  */
 export const OFF_EDGE_JITTER_PLUS_SEED_7919: Vector2[] = [

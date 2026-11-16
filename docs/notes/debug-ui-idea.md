@@ -1,3 +1,11 @@
+---
+title: "Debug Features for the Procedural Geometry UI"
+type: commentary
+area: dashboard
+status: archived
+date: 2026-02-22
+---
+
 # Debug Features To Add To Procedural Geometry UI
 
 1. Zoom in/out on canvas.

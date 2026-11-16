@@ -1,13 +1,18 @@
 import {setSkeletonLogLevel, SKELETON_NOISE_FLOOR, solveSkeleton} from '@proc-geo/core';
 
+import {singleLoopSoundness, SOUND_SINGLE_LOOP} from './correct-solve-helpers';
 import {
     clockwise,
+    JITTER_CANONICAL_SKELETONS,
     JITTER_DOUBLE_REFLEX_PLUS,
     JITTER_K,
     JITTER_REFLEX_L,
+    JITTER_ROOFS,
     JITTER_SEEDS,
     jitteredSamples,
     jitterSweep,
+    leastCanonicalCoverage,
+    offRoofArcPoints,
 } from './jitter-helpers';
 
 /*
@@ -116,17 +121,49 @@ import {
  * subset below reproduces that plateau at both ends.
  *
  * ----------------------------------------------------------------------------
- * WHAT TO DO WHEN A NUMBER HERE MOVES
+ * THE STAGE-OFF ALONG-EDGE CLASS CURED AT THE TOP OF THE PLATEAU, 2026-11-15 (BSA.D335 stage 1,
+ * BSA.F108, BSA.F109, BSA.D338)
+ * ----------------------------------------------------------------------------
+ *
+ * Everything above is history, and it counted only cells that came back incomplete. The stage-off
+ * along-edge failures at 0.1 and 1.0 were the pairwise fallback's: of two meetings at one moment on one
+ * bisector it took whichever the edge-id tie-break named, which could be the far one. The nearer along
+ * the bisector's ray is now resolved first. Re-measured over all eighty cells per shape against the
+ * CORRECT result, not completeness — complete with no diagnostic, every causality oracle at zero on
+ * both sides, a tree, the strips tiling to 1e-12 at depth fractions 0.2, 0.5 and 1.0 (the sweep
+ * harness's `measureSolve`), every arc on the shape's hand-derived roof and the whole canonical
+ * skeleton covered. Cells that fail any of it, stage OFF, along-edge, at the parent commit and now:
+ *
+ *     magnitude          1e-9    1e-6    1e-3    0.1     1.0
+ *     L    parent         30      72      68      69      69
+ *     L    now            28      72      13       0       0
+ *     plus parent         29      72      65      67      67
+ *     plus now            29      72      31       0       0
+ *
+ * So the class is cured at 0.1 and 1.0 and NOT below. At 1e-3 the 44 wrong cells all complete: 40
+ * carry direction violations, and 7 miss the tiling bar by less than 1e-6. At 1e-6 and 1e-9 every
+ * wrong cell completes. At 1e-6 all 144 miss the tiling bar, 33 of them by more than 1e-6 (tenths of
+ * the area at depth fraction 0.5 on k = 4), 36 are not trees and 15 carry causality violations; at
+ * 1e-9, 49 of the 57 miss the tiling bar, 34 by more than 1e-6, and 13 carry causality violations.
+ * None of that is attributed here.
+ * The off-edge rows are not re-measured; `along-edge-jitter-known-failures.test.ts` holds them.
+ *
+ * The stage-OFF block below asserts the correct result on the sampled cells at 1.0 and 1e-3, every one
+ * of which is right (BSA.D336). It used to pin the defect's counts, and was green while the solver was
+ * wrong. Its 1e-3 cells hold only with the place order of the pairwise fallback (BSA.D335 stage 2):
+ * with edge-id order in its place, `k = 4, seed 47514` on the plus completes and is not a tree.
+ *
+ * ----------------------------------------------------------------------------
+ * WHAT TO DO WHEN A TEST HERE FAILS
  * ----------------------------------------------------------------------------
  *
  * The stage-ON assertions are a SPECIFICATION: they must stay at zero. If one fails, canonicalisation
  * has stopped removing on-line samples and the closure argument above no longer holds — fix that
  * before anything else.
  *
- * The stage-OFF assertions are a RECORDED DEFECT, sampled. If a count SHRINKS, something genuinely
- * improved the solver in this regime: widen the subset back to the full grid, re-measure the whole
- * table above, update it, and update backlog item 2. If a count GROWS, the regime regressed. Neither
- * drift is allowed to be silent.
+ * The stage-OFF assertions are a SPECIFICATION too: each sampled cell solves correctly. If one fails,
+ * the solver has regressed in a regime the default configuration never reaches, and the report names
+ * the cell and the property it lost.
  */
 
 setSkeletonLogLevel('silent');
@@ -154,7 +191,9 @@ const STAGE_OFF = 0;
  * the parallel-vertex closure re-measurement; the subset is unchanged and still sees each shape.)
  * `k = 2` is carried as the cheap control that must stay clean. A subset drawn only from the passing
  * counts would assert zero for the wrong reason and would go on passing through a total regression
- * of the stage-off regime.
+ * of the stage-off regime. Since the cure (2026-11-15) the same counts are where a return of the
+ * defect would show first: on the parent commit, 8 of the 12 stage-off cells below (both shapes) are
+ * wrong at 1.0, and 8 of 12 at 1e-3.
  *
  * `failed` counts below are therefore OUT OF SIX. The eighty-cell figures are in the header.
  */
@@ -206,65 +245,63 @@ describe('along-edge jitter: closed in the default configuration (specification)
     });
 });
 
-describe('along-edge jitter with the stage OFF: the recorded defect, still alive', () => {
+/** Positions agree with the hand derivation to a millionth of the shapes' 300-unit span. */
+const HAND_TOLERANCE = 1e-6 * 300;
+
+/**
+ * Every subset cell of `shape` at `magnitude` with the stage off whose solve is not the correct one, as text: the sound
+ * single-loop battery of `correct-solve-helpers.ts`, and the shape's hand-derived roof and canonical skeleton.
+ */
+function incorrectCells(shape: keyof typeof JITTER_ROOFS, magnitude: number): string[] {
+    const polygon = shape === 'L' ? JITTER_REFLEX_L : JITTER_DOUBLE_REFLEX_PLUS;
+    const found: string[] = [];
+    for (const k of SUBSET_COUNTS) {
+        for (const seed of SUBSET_SEEDS) {
+            const result = solveSkeleton(jitteredSamples(clockwise(polygon), k, seed, magnitude, ALONG_EDGE), {noiseFloor: STAGE_OFF});
+            // `noiseFloor: 0` turns canonicalisation off; the perceptual floor is the library's.
+            const report = {
+                ...singleLoopSoundness(result, SKELETON_NOISE_FLOOR),
+                offRoof: offRoofArcPoints(result, JITTER_ROOFS[shape], HAND_TOLERANCE).length,
+                coversCanonical: leastCanonicalCoverage(result, JITTER_CANONICAL_SKELETONS[shape], HAND_TOLERANCE) > 1 - 1e-9,
+            };
+            const correct = {...SOUND_SINGLE_LOOP, offRoof: 0, coversCanonical: true};
+            if (JSON.stringify(report) !== JSON.stringify(correct)) {
+                found.push(`k = ${k}, seed ${seed}: ${JSON.stringify(report)}`);
+            }
+        }
+    }
+    return found;
+}
+
+describe('along-edge jitter with the stage OFF', () => {
     /*
-     * This is what convicts canonicalisation of doing the work. If these went to zero without the
-     * table in the header being re-measured, the specification above would be passing for an unknown
-     * reason. Sampled six cells of eighty; the eighty-cell figures are 19 and 40, re-measured with
-     * the parallel-vertex closure in place — see the second table in the header.
+     * THE STAGE-OFF REGIME IS CURED (BSA.D335 stage 1, BSA.F108, BSA.F109), AND THESE TESTS ASSERT THE CURE
+     * (BSA.D336). Until 2026-11-15 this block pinned the defect's counts — 1 of 6 on the L and 2 of 6 on the plus, at
+     * k = 4, at both magnitudes — green while the solver was wrong. The cells failed in the pairwise fallback, which
+     * broke the tie between two simultaneous meetings on one bisector by edge id and could take the far one; resolving
+     * the nearer along the ray first made every one of them right. Measured on the full eighty-cell grid at magnitude
+     * 1.0 the same day: all 160 cells pass the battery and the hand derivation below, where 136 failed on the parent
+     * commit. Below 0.1 the full grid is not clean; see the header's last table.
+     *
+     * Each cell is held to the correct result, not to `complete`: the sound single-loop battery of
+     * `correct-solve-helpers.ts` (no diagnostic, every oracle at zero on both sides, a tree, the strips tiling), every
+     * live arc on the shape's hand-derived roof, and the whole canonical skeleton covered (`jitter-helpers.ts`). A
+     * failure prints each wrong cell's report.
      */
 
-    it('fails 1 of 6 on the reflex L, on a count the full grid fails', () => {
-        expect(jitterSweep(JITTER_REFLEX_L, HEADLINE_MAGNITUDE, ALONG_EDGE, STAGE_OFF, SUBSET_COUNTS, SUBSET_SEEDS))
-            .toEqual({failed: 1, failingCounts: [4]});
+    it('solves every sampled cell of the reflex L correctly at the headline magnitude', () => {
+        expect(incorrectCells('L', HEADLINE_MAGNITUDE)).toEqual([]);
     });
 
-    it('fails 2 of 6 on the double-reflex plus, on the same count as the L', () => {
-        /*
-         * THE COUNT MOVED FROM 7 TO 4 ON 2026-08-28 AND THE TOTAL DID NOT (journal decision 90).
-         * The corridor-midline fix stopped a corridor's midline being born pointing out of the
-         * corridor, which changes which sub-polygons this shape's arms hand back at k = 4 and k = 7
-         * with the stage off. Both cells are loud step failures either way, and the class this file
-         * convicts canonicalisation of handling is alive at exactly the same strength.
-         */
-        expect(jitterSweep(JITTER_DOUBLE_REFLEX_PLUS, HEADLINE_MAGNITUDE, ALONG_EDGE, STAGE_OFF, SUBSET_COUNTS, SUBSET_SEEDS))
-            .toEqual({failed: 2, failingCounts: [4]});
+    it('solves every sampled cell of the double-reflex plus correctly at the headline magnitude', () => {
+        expect(incorrectCells('plus', HEADLINE_MAGNITUDE)).toEqual([]);
     });
 
-    it('gives the SAME counts at 1e-3, three decades down — the plateau, all but one cell', () => {
-        // What makes the headline magnitude nearly free. If these ever diverge from the two
-        // assertions above, the failure has stopped being a property of the shape's offset layers
-        // and started being a property of how hard the samples were pushed, which is a different
-        // defect and needs a different account.
-        //
-        // THE PLUS'S 1e-3 COUNT FELL FROM 2 TO 1 ON 2026-09-11 UNDER THE COAXIALITY LANE (journal
-        // decision 137, spec A9/A10), AND THE PLATEAU IS NOW BROKEN BY EXACTLY ONE CELL — reported
-        // rather than smoothed over, because the comment above says what a divergence means and it
-        // now applies. The cell is `k = 4, seed 47514`: at 1e-3 it was an `unresolved-edges` failure
-        // and now solves complete; at the headline magnitude it still fails, so the divergence is a
-        // property of how hard the samples were pushed, which is the account this comment asks for.
-        //
-        // IT IS NOT AN UNQUALIFIED CURE, and that is the part to read. The newly-complete solve
-        // carries two DIRECTION violations (`e126` at `dot = -1`, `e130` at `dot = -0.99999999999`):
-        // two bisectors wired backwards along their own bases. It is a loud failure becoming a quiet
-        // wrong answer, which is the character journal decision 72 treats as a defect getting worse
-        // even where the pinned NUMBER falls. Two qualifications on that reading, both measured:
-        // this whole configuration runs with the boundary stage OFF and is already riddled with the
-        // same violation — `k = 7` at both magnitudes and both seeds reports complete with three or
-        // four of them, and did so before this change — so it is not a clean baseline; and no fixture
-        // in `FULL_CORPUS` moves at all, the digest included. Flagged for the lead.
-        //
-        // THE PLATEAU IS WHOLE AGAIN, 2026-09-24, ATTRIBUTED TO THE ANCHORED COINCIDENCE CLUSTERING
-        // (journal decision 155(b), C8 dispatch 1; toggle-measured against the retired connected
-        // components, nothing else moved in this file). `k = 4, seed 47514` at 1e-3 goes back from
-        // complete-with-two-direction-violations to a loud failure (`unresolved-edges`, one direction
-        // violation), so the plus reads 2 here as at the headline magnitude. A cell that solved at the
-        // tip no longer does, which is C8 spec T37's STOP 1 read literally; it is the quiet wrong answer
-        // this comment flagged becoming loud again (decision 72), and it is reported to the lead as such.
-        expect(jitterSweep(JITTER_REFLEX_L, 1e-3, ALONG_EDGE, STAGE_OFF, SUBSET_COUNTS, SUBSET_SEEDS))
-            .toEqual({failed: 1, failingCounts: [4]});
-        expect(jitterSweep(JITTER_DOUBLE_REFLEX_PLUS, 1e-3, ALONG_EDGE, STAGE_OFF, SUBSET_COUNTS, SUBSET_SEEDS))
-            .toEqual({failed: 2, failingCounts: [4]});
+    it('solves every sampled cell of both shapes correctly at 1e-3, three decades down', () => {
+        // The plateau this block used to pin ran from 1e-3 to 1.0 on the same failing counts. Every sampled cell is
+        // right here; 44 of the full grid's 160 at this magnitude are not (the header's last table).
+        expect(incorrectCells('L', 1e-3)).toEqual([]);
+        expect(incorrectCells('plus', 1e-3)).toEqual([]);
     });
 
     it('goes quiet at 1e-9, where the displacement is below the solver\'s own epsilon', () => {

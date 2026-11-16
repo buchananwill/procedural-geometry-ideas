@@ -1,7 +1,11 @@
 ---
 title: "Simultaneous Mirror Events: Fixed Design Decisions"
 type: decision-spec
-status: implementer-handoff
+area: straight-skeleton
+status: completed
+date: 2026-08-17
+part_of: [recursive-skeleton-subdivision.md]
+verified_by: [packages/core/tests/straight-skeleton/near-regular-ring-loss-diagnosis.test.ts, packages/core/tests/straight-skeleton/offset-projection.test.ts, packages/core/tests/straight-skeleton/offset-event-boundary-regression.test.ts]
 ---
 
 # Simultaneous mirror events

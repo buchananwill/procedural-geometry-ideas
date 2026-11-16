@@ -1,8 +1,12 @@
-// The full-grid sweep harness (journal-5 F83): 642 root cells + the census-grid regions, per-cell signatures. See README.md.
+// The full-grid sweep harness (journal-5 F83): 642 single-loop root cells, 336 holed cells (loop-consumers spec,
+// decision 43) + the census-grid regions, per-cell signatures. See README.md.
 import {createHash} from 'node:crypto';
 import {writeFileSync} from 'node:fs';
 import {
     FULL_CORPUS,
+    HOLED_TEST_POLYGONS,
+    HoledTestPolygon,
+    holedSolveOptions,
     NEAR_REGULAR_CIRCLE_32,
     NEAR_REGULAR_CIRCLE_48,
     NEAR_REGULAR_ROSETTE5_40,
@@ -17,6 +21,7 @@ import {
     makeSkeletonNormalisation,
     normaliseLength,
     setSkeletonLogLevel,
+    skeletonHoleCount,
     SkeletonSolveResult,
     solveSkeleton,
     SolveSkeletonOptions,
@@ -28,7 +33,8 @@ import {
 import {isClockwise} from '@proc-geo/core/random-polygon/geometry-helpers';
 import {clockwise, JITTER_DOUBLE_REFLEX_PLUS, JITTER_K, JITTER_REFLEX_L, JITTER_SEEDS, jitteredSamples} from '../straight-skeleton/jitter-helpers';
 import {place} from '../straight-skeleton/placement-helpers';
-import {oracleCausalityCounts, rateViolations} from '../straight-skeleton/wavefront-measurement-helpers';
+import {holedTilingError, oracleCausalityCounts, rateViolations} from '../straight-skeleton/wavefront-measurement-helpers';
+import {interiorGraphShape} from '../straight-skeleton/holed-test-helpers';
 
 setSkeletonLogLevel('silent');
 
@@ -106,6 +112,69 @@ export function allCells(): Cell[] {
     return cells;
 }
 
+/** The same transform applied to every loop of a holed fixture, the outline's weights and each hole's kept. */
+function eachLoop(fixture: HoledTestPolygon, move: (vertices: Vector2[]) => Vector2[]): HoledTestPolygon {
+    return {
+        ...fixture,
+        outline: move(fixture.outline),
+        holes: fixture.holes.map(hole => ({...hole, vertices: move([...hole.vertices])})),
+    };
+}
+
+/**
+ * The jitter of {@link jitterCell} applied to every loop IN LOOP ORDER: one stream over the outline's vertices and
+ * then each hole's, at the outline's span (which holds every hole), so the cell is one draw of the whole region.
+ * Exported for the holed guard's tests, which take two of the group's cells as specimens (BSA.D314, BSA.D315).
+ */
+export function jitterEveryLoop(fixture: HoledTestPolygon, multiple: number, seed: number): HoledTestPolygon {
+    const loops = [fixture.outline, ...fixture.holes.map(hole => [...hole.vertices])];
+    const span = Math.max(
+        Math.max(...fixture.outline.map(v => v.x)) - Math.min(...fixture.outline.map(v => v.x)),
+        Math.max(...fixture.outline.map(v => v.y)) - Math.min(...fixture.outline.map(v => v.y)),
+    );
+    const amplitude = multiple * 1e-8 * span;
+    let state = seed >>> 0;
+    const random = () => {
+        state = (state + 0x6d2b79f5) | 0;
+        let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
+        mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
+        return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+    };
+    const [outline, ...holes] = loops.map(loop => loop.map(vertex => ({
+        x: vertex.x + (random() * 2 - 1) * amplitude,
+        y: vertex.y + (random() * 2 - 1) * amplitude,
+    })));
+    return {...fixture, outline, holes: fixture.holes.map((hole, k) => ({...hole, vertices: holes[k]}))};
+}
+
+/**
+ * THE `holed` GROUP (skeleton loop-consumers spec, decision 43): each holed fixture at floors 1e-6 and 1e-5, at the
+ * six decades `1e8` to `1e13` through `place` applied to every loop, and at the eight jitter seeds at 1× applied to
+ * every loop in loop order: 16 cells per fixture. It adds no regions, because the recursive driver refuses holes.
+ *
+ * KEPT OUT OF {@link allCells}, which is the 642-cell single-loop roster the wavefront suites sweep and count.
+ */
+export function holedCells(): Cell[] {
+    const cells: Cell[] = [];
+    for (const fixture of HOLED_TEST_POLYGONS) {
+        for (const floor of [1e-6, 1e-5]) {
+            cells.push({name: `holed@${floor}:${fixture.name}`, group: 'holed', vertices: fixture.outline,
+                options: holedSolveOptions(fixture, {perceptualFloor: floor})});
+        }
+        for (const t of [1e8, 1e9, 1e10, 1e11, 1e12, 1e13]) {
+            const placed = eachLoop(fixture, vertices => place(vertices, 1, t));
+            cells.push({name: `holed:${fixture.name}@${t}`, group: 'holed', vertices: placed.outline,
+                options: holedSolveOptions(placed)});
+        }
+        for (let seed = 0; seed < 8; seed++) {
+            const jittered = jitterEveryLoop(fixture, 1, seed);
+            cells.push({name: `holed:${fixture.name}:jitter1x:s${seed}`, group: 'holed', vertices: jittered.outline,
+                options: holedSolveOptions(jittered)});
+        }
+    }
+    return cells;
+}
+
 function serialise(result: SkeletonSolveResult): string {
     const g = result.graph;
     const parts: string[] = [result.complete ? '1' : '0'];
@@ -134,6 +203,11 @@ function stripArea(strip: Strip): number {
 }
 
 export function tiling(result: SkeletonSolveResult): (number | string)[] {
+    // A SOLVE WITH HOLES TAKES THE HOLED IDENTITY (loop-consumers spec, decisions 35 and 44): the strips plus the
+    // SIGNED rings against the outline's area less the holes'. Every other solve keeps this function's own code.
+    if (skeletonHoleCount(result.graph) > 0) {
+        return holedTiling(result);
+    }
     const g = result.graph;
     const solved = g.nodes.slice(0, g.numExteriorNodes).map(n => n.position);
     ORIGIN = solved[0];
@@ -156,6 +230,23 @@ export function tiling(result: SkeletonSolveResult): (number | string)[] {
     });
 }
 
+/** {@link tiling}'s holed path: `holedTilingError` at the same three depth fractions, with the same throw records. */
+function holedTiling(result: SkeletonSolveResult): (number | string)[] {
+    let maxOffset: number;
+    try {
+        maxOffset = computeMaxOffset(result);
+    } catch (e) {
+        return [`throw:${(e as Error).message.slice(0, 40)}`];
+    }
+    return [0.2, 0.5, 1.0].map(fraction => {
+        try {
+            return holedTilingError(result, maxOffset * fraction);
+        } catch (e) {
+            return `throw:${(e as Error).message.slice(0, 40)}`;
+        }
+    });
+}
+
 export interface CellRecord {
     complete: boolean;
     nodes: number;
@@ -168,6 +259,16 @@ export interface CellRecord {
     tiling?: (number | string)[];
     guards?: Record<string, number>;
     stepFailures?: string[];
+    /**
+     * A HOLED CELL'S SHAPE (BSA.D316), so a structurally wrong holed cell shows in a field and not only in a changed
+     * digest. Present exactly when the cell was solved with holes. `holes` is the input's hole count;
+     * `unculledSelfLoops` counts the interior edges that end at their own source and are not marked culled;
+     * `cycleRank` is the interior graph's, as `interiorGraphShape` counts it (culled edges skipped, an arc recorded
+     * from both ends once, each un-culled self-loop adding one). A sound holed skeleton reads `0` and `holes`.
+     */
+    holes?: number;
+    unculledSelfLoops?: number;
+    cycleRank?: number;
 }
 
 export function measureSolve(vertices: Vector2[], options: SolveSkeletonOptions | undefined): CellRecord {
@@ -197,6 +298,14 @@ export function measureSolve(vertices: Vector2[], options: SolveSkeletonOptions 
         complete: result.complete, nodes: result.graph.nodes.length, edges: result.graph.edges.length,
         digest: serialise(result), kinds, oracles, testOracles, guards, stepFailures,
     };
+    // Only on a holed cell, so every single-loop record keeps its exact bytes.
+    const holeCount = options?.holes?.length ?? 0;
+    if (holeCount > 0) {
+        const shape = interiorGraphShape(result.graph);
+        record.holes = holeCount;
+        record.unculledSelfLoops = shape.selfLoops.length;
+        record.cycleRank = shape.cycleRank;
+    }
     if (result.complete) {
         try {
             record.isTree = buildSkeletonTree(result).isTree;
@@ -212,7 +321,7 @@ export function measureSolve(vertices: Vector2[], options: SolveSkeletonOptions 
 
 export function runSweep(outPath: string, group: string): void {
     const out: Record<string, CellRecord> = {};
-    for (const cell of allCells()) {
+    for (const cell of group === 'holed' ? holedCells() : allCells()) {
         if (cell.group !== group) continue;
         out[cell.name] = measureSolve(cell.vertices, cell.options);
     }

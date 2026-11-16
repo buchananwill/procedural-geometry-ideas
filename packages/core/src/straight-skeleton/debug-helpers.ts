@@ -1,8 +1,16 @@
-import type {CollisionEvent, PrimaryInteriorEdge, RayProjection, StraightSkeletonSolverContext, Vector2} from './types';
+import type {
+    CollisionEvent,
+    PrimaryInteriorEdge,
+    RayProjection,
+    SkeletonLoop,
+    StraightSkeletonSolverContext,
+    Vector2,
+} from './types';
 import {collideEdges} from './collision-helpers';
-import {birthArrivalOf, timeOf} from './collision-helpers';
+import {nodeBirthArrival, timeOf} from './collision-helpers';
 import {addVectors, makeBasis, makeWeightedBisectedBasis, scaleVector} from "./core-functions";
 import {intersectRays} from "./intersection-edges";
+import {loopNeighbours, loopTableBreach, weightsAreOmitted} from "./graph-helpers";
 
 export interface CollisionSweepEvent {
     instigatorEdgeId: number;
@@ -49,11 +57,11 @@ export function generateCollisionSweep(
 /**
  * Compute the wavefront TIME of each interior node (W-spec W5, W40).
  *
- * For each node with id >= numExteriorNodes, picks any outgoing interior edge and returns that
- * edge's BIRTH ARRIVAL as a time — the source's perpendicular distance from its clockwise parent's
- * supporting line, divided by that parent's weight. The distance half is `sourceOffsetDistance`,
- * unchanged (W-spec W6); the division is by exactly `1.0` at unit weights, so the readout the
- * dashboard has always drawn is untouched.
+ * For each node with id >= numExteriorNodes, takes its first outgoing interior edge and returns that
+ * edge's BIRTH ARRIVAL as a time ({@link nodeBirthArrival}) — the source's perpendicular distance from its clockwise parent's
+ * supporting line, divided by that parent's weight. The distance half is `sourceOffsetDistance`
+ * (W-spec W6); the division is by exactly `1.0` at unit weights, so there the readout is that
+ * distance, bit for bit.
  *
  * A SIBLING OF `computeNodeOffsets`, NOT A SECOND SOURCE OF TRUTH. This one reads the solver
  * context mid-solve and dates a node from the bisector leaving it; the projection's table re-derives
@@ -67,14 +75,9 @@ export function computeNodeOffsetDistances(
     const {graph} = context;
 
     for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
-        const node = graph.nodes[i];
-        // Find an outgoing interior edge
-        for (const edgeId of node.outEdges) {
-            if (context.edgeRank(edgeId) !== 'exterior') {
-                const edge = context.getInteriorWithId(edgeId);
-                result.set(i, timeOf(birthArrivalOf(edge, context)));
-                break;
-            }
+        const arrival = nodeBirthArrival(context, graph.nodes[i]);
+        if (arrival !== undefined) {
+            result.set(i, timeOf(arrival));
         }
     }
 
@@ -93,10 +96,15 @@ export function computeNodeOffsetDistances(
  * a common scaling of all weights, so this needs no normalisation of its own: the caller may pass
  * the raw array or the solve's normalised one and get the same picture.
  *
- * Absent or empty weights mean all ones, and the answer is then bit-for-bit the unweighted overlay
- * this function has always drawn. A weights array of the wrong length is REFUSED rather than padded,
+ * Absent or empty weights mean all ones, and the answer is then bit-for-bit the unweighted overlay.
+ * A weights array of the wrong length is REFUSED rather than padded,
  * for the reason W-spec W1 refuses it at the solver's door: a short array silently draws a different
  * polygon's bisectors.
+ *
+ * WITH A LOOP TABLE (dashboard holed-fixtures spec, decision 22): `vertices` and `weights` are in exterior id order,
+ * as a holed graph's exterior nodes and `result.weights` are; each vertex's two walls are the edges either side of it
+ * wrapping inside its own loop; and every edge of every loop is a target. A table that does not tile `vertices`, or
+ * holds a loop of fewer than three, is thrown. Omitted, all the vertices are one ring.
  */
 export function computePrimaryInteriorEdges(
     vertices: Vector2[],
@@ -113,33 +121,40 @@ export function computePrimaryInteriorEdges(
      */
     angularResolution: number,
     weights?: readonly number[],
+    /** The loop table, in exterior id order (decision 22). Omitted, all the vertices are one ring. */
+    loops?: readonly SkeletonLoop[],
 ): PrimaryInteriorEdge[] {
     if (vertices.length < 3) return [];
 
     const n = vertices.length;
-    if (weights !== undefined && weights.length > 0 && weights.length !== n) {
+    if (!weightsAreOmitted(weights) && weights!.length !== n) {
         throw new Error(
-            `computePrimaryInteriorEdges received ${weights.length} weights for ${n} vertices; `
+            `computePrimaryInteriorEdges received ${weights!.length} weights for ${n} vertices; `
             + `a weight array must be parallel to the vertices, one speed per edge.`);
     }
-    const weightOf = (index: number): number =>
-        weights === undefined || weights.length === 0 ? 1 : weights[index];
+    // Each vertex's neighbours within its own loop. One ring of all the vertices when no table is given, for which
+    // `next` and `previous` are `(i + 1) % n` and `(i - 1 + n) % n`.
+    const {next, previous} = loopNeighbours(loops, n);
+    if (loops !== undefined) {
+        assertLoopsTile(loops, n);
+    }
+    const weightOf = (index: number): number => weightsAreOmitted(weights) ? 1 : weights![index];
     const result: PrimaryInteriorEdge[] = [];
 
     for (let i = 0; i < n; i++) {
         const source = vertices[i];
 
-        // CW edge: from vertex i to vertex i+1
-        const cwBasis = makeBasis(vertices[i], vertices[(i + 1) % n]);
-        // WS edge: from vertex i-1 to vertex i
-        const wsBasis = makeBasis(vertices[(i - 1 + n) % n], vertices[i]);
+        // CW edge: from vertex i to the next vertex of its loop
+        const cwBasis = makeBasis(vertices[i], vertices[next(i)]);
+        // WS edge: from the previous vertex of its loop to vertex i
+        const wsBasis = makeBasis(vertices[previous(i)], vertices[i]);
 
         // Bisect: CW basis and reversed WS basis, at the two parents' speeds (W-spec W12).
         const fromNodeWS = scaleVector(wsBasis, -1);
         const bisected = makeWeightedBisectedBasis(
-            cwBasis, fromNodeWS, weightOf(i), weightOf((i - 1 + n) % n));
+            cwBasis, fromNodeWS, weightOf(i), weightOf(previous(i)));
 
-        // Determine correct direction via cross product (same as addBisectionEdge initial logic)
+        // Direction by the sign of the turn: `ensureBisectionIsInterior`'s rule, without its straight-vertex test
         const cross = cwBasis.x * wsBasis.y - cwBasis.y * wsBasis.x;
         const basis = cross < 0 ? scaleVector(bisected, -1) : bisected;
 
@@ -150,10 +165,10 @@ export function computePrimaryInteriorEdges(
 
         for (let j = 0; j < n; j++) {
             // Skip the two edges adjacent to this vertex
-            if (j === i || j === (i - 1 + n) % n) continue;
+            if (j === i || j === previous(i)) continue;
 
             const edgeStart = vertices[j];
-            const edgeEnd = vertices[(j + 1) % n];
+            const edgeEnd = vertices[next(j)];
             const edgeBasis = makeBasis(edgeStart, edgeEnd);
             const edgeLength = Math.sqrt(
                 (edgeEnd.x - edgeStart.x) ** 2 + (edgeEnd.y - edgeStart.y) ** 2
@@ -180,8 +195,32 @@ export function computePrimaryInteriorEdges(
 }
 
 /**
+ * A loop table must tile `0 .. n − 1` in order, contiguous from 0, and hold no loop of fewer than three (dashboard
+ * holed-fixtures spec, decision 22;
+ * the graph's own contract, `StraightSkeletonGraph.loops`), by {@link loopTableBreach} without its integer test.
+ * Throws, naming the first loop that breaks it, in this overlay's own words.
+ */
+function assertLoopsTile(loops: readonly SkeletonLoop[], n: number): void {
+    const breach = loopTableBreach(loops, n, false);
+    if (breach === undefined) {
+        return;
+    }
+    switch (breach.kind) {
+        case 'too-small':
+            throw new Error(`computePrimaryInteriorEdges received loop ${breach.loop} of ${breach.count} vertices; a `
+                + `loop holds no fewer than three.`);
+        case 'wrong-start':
+            throw new Error(`computePrimaryInteriorEdges received loop ${breach.loop} starting at ${breach.start}, `
+                + `where ${breach.expected} was expected; the loop table must tile the ${n} vertices in order.`);
+        case 'wrong-cover':
+            throw new Error(`computePrimaryInteriorEdges received loops covering ${breach.covered} vertices of ${n}; `
+                + `the loop table must tile the vertices in order.`);
+    }
+}
+
+/**
  * Computes pairwise intersection points between primary interior edges (bisectors).
- * O(n^2) segment-segment intersection using unitsToIntersection.
+ * O(n^2) segment-segment intersection using `intersectRays`.
  */
 export function computePrimaryEdgeIntersections(
     primaryEdges: PrimaryInteriorEdge[],

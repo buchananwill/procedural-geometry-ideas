@@ -51,6 +51,12 @@ export function useCollisionSweep(
     solverContext: StraightSkeletonSolverContext | null,
     skeleton: StraightSkeletonGraph | null,
     debug: DebugDisplayOptions,
+    /**
+     * The holed solve's graph, where holes are loaded (dashboard holed-fixtures spec, decisions 12 and 31). The init
+     * sweep then builds its context from this graph's exterior positions, weights and loop table, in caller space at
+     * the library floor, as the single-loop one does from the vertices. Omitted, the init sweep is today's.
+     */
+    holedGraph?: StraightSkeletonGraph | null,
 ): CollisionSweepState {
     const [collisionSweepLines, setCollisionSweepLines] = useState<CollisionSweepLine[] | null>(null);
     const [selectedDebugNodes, setSelectedDebugNodes] = useState<Set<number>>(new Set());
@@ -80,7 +86,11 @@ export function useCollisionSweep(
 
     function sweepAllPrimaryInit() {
         try {
-            const ctx = makeStraightSkeletonSolverContext(vertices);
+            const ctx = holedGraph
+                ? makeStraightSkeletonSolverContext(
+                    holedGraph.nodes.slice(0, holedGraph.numExteriorNodes).map(node => node.position),
+                    undefined, holedGraph.exteriorWeights, holedGraph.loops)
+                : makeStraightSkeletonSolverContext(vertices);
             initInteriorEdges(ctx);
             const edgeIds = ctx.graph.interiorEdges.map(e => e.id);
             setCollisionSweepLines(sweepLinesToRender(edgeIds, ctx));

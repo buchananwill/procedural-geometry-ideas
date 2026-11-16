@@ -1,0 +1,45 @@
+=== Bridge: top keys fixture,faces,edges,netEdges,vertices,cells,report
+ counts faces 27->27 edges 55->55 netEdges 2744->2744 vertices 1376->1376 cells 1368->1368
+ sample face {"id":0,"tag":{"kind":"Wall","wall":0,"plane":-1,"storey":0,"part":0},"normal":[0,-1,0],"offset":0,"loops":[[[200,0,250],[0,0,250],[0,0,0],[200,0,0]]],"area":50000,"sources":[{"ringModelIndex":0,"side":0}]} 
+ sample vertex {"id":0,"p":[200,0,250],"edges":[47,48,190,740],"cells":[19,84,400,335],"faces":[0,3,12,10]} 
+ sample edge {"id":0,"kind":"FloorLine","a":[200,0,250],"b":[0,0,250],"v":[0,1],"faces":[0,10]}
+ face geometry diff (0): []
+ vertex position diff (0): []
+ edge kind diff: []
+=== BridgeOverBlock: top keys fixture,faces,edges,netEdges,vertices,cells,report
+ counts faces 26->26 edges 58->58 netEdges 2996->2996 vertices 1499->1499 cells 1496->1496
+ face geometry diff (0): []
+ vertex position diff (0): []
+ edge kind diff: []
+=== BridgeOverBlockAt45: top keys fixture,faces,edges,netEdges,vertices,cells,report
+ counts faces 26->26 edges 61->61 netEdges 2836->2836 vertices 1413->1413 cells 1420->1420
+ face geometry diff (0): []
+ vertex position diff (0): []
+ edge kind diff: []
+=== SplitCourt9Seed7h250: top keys fixture,faces,edges,netEdges,vertices,cells,report
+ counts faces 45->43 edges 99->93 netEdges 2157->2147 vertices 1093->1088 cells 1063->1059
+ face geometry diff (6): [
+  '-1 Gable s0 A=43 n=0.000,-1.000,0.000',
+  '-1 Gable s1 A=1434 n=1.000,0.000,0.000',
+  '-1 Wall s2 A=50000 n=0.000,1.000,0.000',
+  '-1 Gable s2 A=64542 n=1.000,0.000,0.000',
+  '+1 Wall s2 A=49957 n=0.000,1.000,0.000',
+  '+1 Gable s2 A=65976 n=1.000,0.000,0.000'
+]
+ vertex position diff (5): [
+  '-1 700.000,408.168,750.000',
+  '-1 700.000,375.000,793.226',
+  '-1 700.000,341.832,750.000',
+  '-1 700.000,400.000,760.645',
+  '-1 700.000,350.000,760.645'
+]
+ edge kind diff: [
+  '+1 RingJunction',
+  '-1 WallPlate',
+  '-1 Verge',
+  '-2 Unclassified',
+  '-2 GableSloped',
+  '-1 GableHorizontal'
+]
+ report {"conflicts":["SplitCourt9Seed7h250: n=(0.000000, -1.000000, 0.000000) d=-150.000: Wall storey 2 wall 0 (part 11) over Gable storey 1 wall 0 (part 9)","SplitCourt9Seed7h250: n=(1.000000, 0.000000, 0.000000) d=700.000: Gable storey 1 wall 5 (part 10) over Gable storey 2 wall 5 (part 16)","SplitCourt9Seed7h250: n=(1.000000, 0.000000, 0.000000) d=700.000: Wall storey 2 wall 5 (part 13) over Gable storey 1 wall 5 (part 10)"],"survivingInternal":0,"unclassifiedEdges":2,"cheeks":0,"partialCells":145,"newEdgeKinds":["GableSloped","Unclassified"],"newConventions":["InternalCorner between Rings, named by geometry (C++: RingJunction)","Roof lines cut exactly (C++: staircase)"]} 
+ -> {"conflicts":[],"survivingInternal":0,"unclassifiedEdges":0,"cheeks":0,"partialCells":139,"newEdgeKinds":[],"newConventions":["InternalCorner between Rings, named by geometry (C++: RingJunction)","Roof lines cut exactly (C++: staircase)"]}

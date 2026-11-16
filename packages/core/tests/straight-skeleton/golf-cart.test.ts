@@ -93,7 +93,7 @@ describe('the double-split layer partitions at every split point', () => {
         const result = handleInteriorNGon(context, {
             interiorEdges: context.graph.interiorEdges.map(edge => edge.id),
         });
-        const children = result.childSteps.filter(child => child.interiorEdges.length > 0);
+        const children = result.filter(child => child.interiorEdges.length > 0);
         return {context, edgesBefore, children};
     }
 

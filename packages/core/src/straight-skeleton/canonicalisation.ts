@@ -1,5 +1,5 @@
-import {distanceToSupportingLine} from '../stroke-spline/vertex-budget';
-import {Vector2} from './types';
+import {distanceToSupportingLine} from './planar-geometry';
+import {PerceptualFloorOptions, Vector2} from './types';
 
 /**
  * The normalisation stage that removes boundary geometry too small to see, before the skeleton sees
@@ -8,9 +8,9 @@ import {Vector2} from './types';
  * WHY THIS EXISTS, AND IT IS NOT HYGIENE. A vertex whose perpendicular deviation from the chord
  * between its neighbours falls below a render-scale noise floor contributes nothing to the polygon's
  * silhouette. It contributes only numerical difficulty — and one specific, measured class of it: the
- * solver has a standing defect on exactly-subdivided reflex polygons, whose structural fix was
- * written, landed, measured and then reverted for costing several hundred lines in the solver's most
- * delicate function. Removing the input class is a better answer than handling it. The three known
+ * solver has a standing defect on exactly-subdivided reflex polygons, and a structural fix costs
+ * several hundred lines in the solver's most delicate function. Removing the input class is a better
+ * answer than handling it. The three known
  * failure lists that defect owns — `REFLEX_L_KNOWN_FAILURES`,
  * `DOUBLE_REFLEX_PLUS_KNOWN_FAILURES` and `failingSubdivisions(L_SHAPE)` — are what this stage is
  * measured against.
@@ -25,20 +25,19 @@ import {Vector2} from './types';
  * vertices has tiny turn angles and can bow visibly far off its chord.
  *
  * AND THE CHORD IS AN INFINITE LINE, NOT A SEGMENT — `distanceToSupportingLine`, not
- * `distanceToSegment`. This stage shipped for months on the clamped form and was wrong for the one
- * shape the paragraph above names as its motivating case. A FOLD is a vertex whose perpendicular foot
- * overshoots the END of the chord between its neighbours: the ring doubles back on itself, the apex
- * lies beyond `next`, and the clamped distance stops measuring the perpendicular and starts measuring
- * the distance to the endpoint — which is the fold's LENGTH along the boundary rather than its WIDTH
- * across it. Measured on the corpus (journal F37): a fold in one of the jitter fixtures' sub-regions
- * has a width of 8.4e-9 and a length of 9.9e-4, so the clamped form screened it at 3.88x the floor
- * while the shape it describes is a zero-area spike that a viewer cannot see and the solver cannot
- * resolve. The line distance is never larger than the segment distance, so this can only ever remove
- * MORE, and everything the clamped form removed it still removes.
+ * `distanceToSegment`. The clamped form is wrong for the one shape the paragraph above names as its
+ * motivating case. A FOLD is a vertex whose perpendicular foot overshoots the END of the chord between
+ * its neighbours: the ring doubles back on itself, the apex lies beyond `next`, and the clamped distance
+ * stops measuring the perpendicular and starts measuring the distance to the endpoint — which is the
+ * fold's LENGTH along the boundary rather than its WIDTH across it. Measured on the corpus (journal
+ * F37): a fold in one of the jitter fixtures' sub-regions has a width of 8.4e-9 and a length of 9.9e-4,
+ * so the clamped form screens it at 3.88x the floor while the shape it describes is a zero-area spike
+ * that a viewer cannot see and the solver cannot resolve. The line distance is never larger than the
+ * segment distance, so it removes everything the clamped form would, and more.
  *
- * The primitive is reused from `vertex-budget.ts` rather than reimplemented, as its clamped sibling
- * was — a second copy of the chord arithmetic would be a second thing to keep correct — but WHICH of
- * the two is used is this stage's own decision and not RDP's. RDP genuinely wants the clamped one,
+ * The primitive is the shared one in `planar-geometry.ts`, not a local copy — a second copy of the
+ * chord arithmetic would be a second thing to keep correct — but WHICH of the two is used is this
+ * stage's own decision and not RDP's (`vertex-budget.ts`). RDP genuinely wants the clamped one,
  * because its error bound is about distance to the reduced POLYLINE; this stage is asking a different
  * question of the same two points. See `canonicalisation.test.ts` for the fold and bump pair that
  * convicts the choice in both directions, and `region-boundary-folds.test.ts` for the sweep that
@@ -58,7 +57,7 @@ import {Vector2} from './types';
  *
  * THE FLOOR IS A PARAMETER AND IS NEVER RECOMPUTED FROM THE POLYGON IN HAND. For a direct
  * `solveSkeleton` call this is invisible, because the polygon in hand IS the root region. It matters
- * for the recursion driver, which will pass sub-regions through this same stage: normalising each
+ * for the recursion driver, which passes sub-regions through this same stage: normalising each
  * sub-region to its own extent would scale a thin sliver up enormously and leave it holding every
  * degenerate vertex it has — the exact opposite of the intent. The floor belongs to the ROOT region's
  * extent, so it travels down as an argument.
@@ -101,7 +100,8 @@ export interface CanonicalPolygon {
      *
      * This is what distinguishes a pinned vertex from a removed one in the report. A non-zero count
      * says the ring came back carrying geometry the floor calls invisible, which is a deliberate
-     * outcome of decision 7 rather than a stage that failed to fire.
+     * outcome — canonicalisation never removes a vertex that bounds a run (access-run provenance
+     * spec, decision 7) — rather than a stage that failed to fire.
      */
     pinnedUnderFloorCount: number;
 }
@@ -115,87 +115,21 @@ export const REMOVED_VERTEX_INDEX = -1;
  * A UNIT-SPACE CONSTANT, applied after `makeSkeletonNormalisation` has carried the polygon to unit
  * extent, so it is relative by construction and there is one tolerance system rather than two. A
  * caller-space floor scaled per polygon would reintroduce precisely the absolute-tolerance defect
- * that normalisation was landed to remove.
+ * that normalisation removes.
  *
- * IT CLEARED THE RETIRED SCRATCH `FLOATING_POINT_EPSILON` (1e-8, deleted by C8 spec T1) BY TWO ORDERS
- * OF MAGNITUDE, AND THAT GAP WAS THE ENTIRE POINT OF
- * THE STAGE. If the two were comparable the pass would buy nothing: a vertex at 1.1x the epsilon
- * would survive canonicalisation and still be sitting inside the solver's degenerate band. The gap is
- * what makes every SURVIVING vertex comfortably non-degenerate rather than merely non-degenerate. A
- * candidate floor within one order of magnitude of the epsilon is evidence that the measurement is
- * wrong, not a result.
+ * IT CLEARS THE SOLVER'S HELD `1e-8` BARS (`HELD_SIMULTANEITY_WINDOW`, `ARITHMETIC_SAME_POINT_BOX` and
+ * their kin, constants.ts) BY TWO ORDERS OF MAGNITUDE, AND THAT GAP IS THE POINT OF THE STAGE. If the
+ * two were comparable the pass would buy nothing: a vertex at 1.1x the bar would survive
+ * canonicalisation and still be sitting inside the solver's degenerate band. The gap is what makes
+ * every SURVIVING vertex comfortably non-degenerate rather than merely non-degenerate. A candidate
+ * floor within one order of magnitude of those bars is evidence that the measurement is wrong, not a
+ * result.
  *
- * MEASURED, AND THE BAND AROUND THIS VALUE IS NARROW RATHER THAN A PLATEAU — the distinction matters
- * because the plateau is real for the wrong population. Swept across the fixture corpus, the corpus
- * is insensitive: the only vertex removed anywhere below `1e-3` is one exactly-collinear vertex in a
- * hand-authored fixture, at deviation `7.85e-17`, which any non-zero floor removes. So the corpus
- * alone would suggest four decades of freedom. IT IS NOT THE CORPUS THAT BINDS. The recursive
- * subdivision arc's per-level tiling identity holds at `1e-6`, `2e-6` and `3e-6` and fails at `5e-6`
- * by `1.03e-6` against a `1e-6` tolerance, so the usable band is `[1e-6, 3e-6]` — a factor of three.
- *
- * That narrowness is an artefact of the root-relative floor not yet being wired through the recursion
- * driver: sub-regions still canonicalise against their own extent, so a thin sliver scales up and its
- * floor shrinks in world terms. Once the driver passes the root region's floor down, the arc's upper
- * bound relaxes and the band widens. Until then, `1e-6` sits at the bottom of a narrow band by
- * deliberate choice, not on a plateau.
+ * THE VALUE SITS AT THE BOTTOM OF A NARROW MEASURED BAND, NOT ON A PLATEAU: the fixture corpus binds
+ * nothing below `1e-3`, and the recursion's per-level tiling identity is what binds it.
+ * Measured: input-canonicalisation-decisions.md, "Measurement record", "SKELETON_NOISE_FLOOR: the usable band".
  */
 export const SKELETON_NOISE_FLOOR = 1e-6;
-
-/**
- * The client's perceptual floor, taken once and applied to every floor-derived bar in the solve.
- *
- * ONE FLOOR, SET ONCE, IN UNIT SPACE. Journal decision 106: the solver must not create geometry the
- * client will throw away in its renderer, so the value that decides "can this be seen?" belongs to
- * the client, not to this module. {@link SKELETON_NOISE_FLOOR} is the library DEFAULT — conservative,
- * for a headless consumer with no rendering limits to measure — and a client with a known zoom cap
- * derives its own and passes it here. Omitting the option is byte-identical to the behaviour before
- * the option existed.
- *
- * EVERY PERCEPTUAL QUESTION IN THE SOLVE READS THIS ONE FLOOR (C8 spec T2, T25; journal decisions 144
- * and 157). An earlier version of this comment said "exactly two production bars are floor-derived";
- * that stopped being true with the angular package and is false now. Under the tolerance-derivation
- * package's category rule, a comparison that decides a QUESTION the arithmetic cannot decide — about
- * input geometry, or about candidate events before any node exists — takes δ, and the solve derives
- * every such bar from this value once, at context construction:
- *
- *   - {@link canonicalisePolygon}'s deviation bar — "this boundary vertex cannot be seen, so the
- *     solver never sees it either" — the ROOT floor restated in region units by the recursion driver,
- *     strictly below (the same inequality as every other "same point before any node" bar, T7);
- *   - the coincidence clustering's `isOneEvent` bar (`coincident-events.ts`), anchored (decision 155);
- *   - the coaxiality lane, `coaxialityFloor(δ) = δ` (spec A9/A10);
- *   - the angular resolution, `angularResolution(δ)` (spec A1–A8);
- *   - the simultaneity window's cap, `simultaneityWindow(δ) = δ` (C8 spec T12–T14; its seven sites are
- *     held at a measured STOP);
- *   - the degeneracy bar, `degenerateAreaBar(δ, perimeter)` — the root floor restated in caller units in
- *     the recursion, the solve's floor in unit space in the decomposition (T23, O3 form (b));
- *   - the solver's own causality check (journal decisions 148, 149);
- *   - the weight door's two bounds, `maxWeightRatio(δ)` and `minWeightTurnSine(δ, Δw)` (T21, T22).
- *
- * What is NOT floor-derived is so by the same rule, not by exemption: a comparison whose acceptance
- * DISCARDS OR SUBSTITUTES an answer already produced takes the unit roundoff (`findOrAddNode`'s
- * same-point bar, whose derivation is held by its O1 STOP; the moment bar `ARRIVAL_MOMENT_ULPS`), and
- * a division guard takes its own rounding bound. The strip and parcel constants
- * are classified and not re-derived (T27, O5); and the test-side bars are instruments, held tighter
- * than any floor on purpose (audit §7.1 decision 5).
- *
- * WHAT THE OPTION CHANGES IS WHERE A VALUE COMES FROM, NEVER WHAT IT MEANS. Each bar above keeps its
- * own space and its own predicate exactly as it had them; only the number substituted
- * for {@link SKELETON_NOISE_FLOOR} is the client's. In particular the recursion driver's root-floor
- * pass-down is untouched: the canonicalisation bar is still the ROOT's floor restated in the region's
- * units while the coincidence bar is still the raw floor in whatever unit space the region has. That
- * asymmetry is audit §7.2 decision 9, still OPEN, and this option does not settle it.
- */
-export interface PerceptualFloorOptions {
-    /**
-     * The smallest separation the client can render as two things rather than one, IN UNIT SPACE —
-     * a fraction of the polygon's own extent, because the solve is normalised to unit extent before
-     * anything looks at it. Defaults to {@link SKELETON_NOISE_FLOOR}.
-     *
-     * Derive it, do not pick it: viewport pixels ÷ (zoom cap × the reference world extent) is the
-     * chain, and `apps/demo` carries a worked example at its two solver pages.
-     */
-    perceptualFloor?: number;
-}
 
 /** The client's floor, or the library default where the client did not state one. */
 export function resolvePerceptualFloor(options?: PerceptualFloorOptions): number {
@@ -210,7 +144,8 @@ const MINIMUM_RING_SIZE = 3;
  * `noiseFloor`, iterating to a fixed point.
  *
  * `noiseFloor` is expected in the SAME SPACE as `vertices`, and the solver entry points call this in
- * unit space with {@link SKELETON_NOISE_FLOOR}. It is taken as a parameter and never derived from the
+ * unit space with the solve's noise floor ({@link SKELETON_NOISE_FLOOR} by default). It is taken as a
+ * parameter and never derived from the
  * polygon: see this module's header for why that distinction is load-bearing rather than stylistic.
  *
  * SMALLEST-DEVIATION-FIRST, ONE VERTEX PER ITERATION. Removing every under-floor vertex in one sweep
@@ -231,8 +166,8 @@ const MINIMUM_RING_SIZE = 3;
  * and a lane mouth meeting a frontage almost tangentially genuinely can fall under the floor. See
  * `runBoundaryVertexIndices` in `region.ts` for which vertices those are. An index that is not an
  * integer inside the ring is REJECTED rather than ignored, because a pin silently dropped is exactly
- * the failure the pinning exists to prevent. Pinning nothing — the default — leaves this stage
- * behaving precisely as it did before pins existed.
+ * the failure the pinning exists to prevent. Pinning nothing — the default — leaves every vertex
+ * removable.
  *
  * Returns fresh vertex objects and never aliases the input, matching `vertex-budget.ts`, so a caller
  * mutating the result cannot reach back into the polygon it passed in.

@@ -1,3 +1,11 @@
+---
+title: "Task 241 — Canonicalise the node-offset table for simultaneous mirror events"
+type: workflow
+area: straight-skeleton
+status: archived
+date: 2026-08-17
+---
+
 # Task 241 — Canonicalise the node-offset table for simultaneous mirror events
 
 Spec: `docs/notes/simultaneous-mirror-events-decisions.md` (decisions 1–13).

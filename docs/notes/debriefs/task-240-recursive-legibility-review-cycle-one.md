@@ -1,9 +1,12 @@
 ---
 title: "Task 240 — Review cycle 1: splitting the adapter, and moving its tests"
-type: debrief
-task: 240
-spec: docs/notes/recursive-subdivision-legibility-decisions.md
-supersedes: docs/notes/debriefs/task-240-recursive-legibility-ancestor-tints.md
+type: workflow
+area: subdivision
+status: archived
+date: 2026-08-17
+# task: 240
+# spec: docs/notes/recursive-subdivision-legibility-decisions.md
+# supersedes: docs/notes/debriefs/task-240-recursive-legibility-ancestor-tints.md
 ---
 
 # Task Summary

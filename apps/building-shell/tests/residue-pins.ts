@@ -2,8 +2,8 @@
 // its outcome. One module, so the robustness sweeps and the golden set's tie test (golden.test.ts) read the same pins:
 // a residue golden's manifest entry equals its pin here, verbatim. Every pin carries its class: a cause `causeOf` reads
 // (`CausedPinTable`), or its residue class where no cause applies (`ClassedPinTable`, journal decision 163, N3).
-import type {CausedPinTable, ClassedPin, ClassedPinTable} from './pin-table.ts';
-import type {CourtName, GapName, GridName, JutCutName, NudgeName, RosterPitchName, SplitCourtName, UName} from './robustness-fixtures.ts';
+import type {CausedPinTable, ClassedPin, ClassedPinTable, PinRecord} from './pin-table.ts';
+import type {CourtName, CourtyardJutName, GapName, GridName, NudgeName, RosterPitchName, SplitCourtName, UName} from './robustness-fixtures.ts';
 
 /** A generated case's key: its seed, storey height and name, of the name type `N` its generator emits (decision 155, B4). */
 export type SeededKey<N extends string> = `s${number}h${number}/${N}`;
@@ -18,95 +18,136 @@ export const seededKey = <N extends string>(seed: number, storeyHeight: number, 
  * new defect, and either is re-measured, never softened. The default run builds every case listed here (decision 156,
  * F6) as well as seeds 1 and 2 at 300 and 250 whole; the opt-in run (`SHELL_COURT_SEEDS`) asserts against the same
  * table. Every count-only signature names its place (decision 150, F4), so a defect that moves fails its pin.
- * Seeds 1 to 14 fail 63 of 1680 (3.75%); seeds 7 to 14 alone, 45 of 960.
+ * Seeds 1 to 14 fail 63 of 1680 (3.75%); seeds 7 to 14 alone, 45 of 960. WP-G2 (gable rise decision 3) cured 30 of
+ * those pins: 6 are promoted and 24 re-pinned by their conflicts in `GABLE_RISE_CONFLICTS`, each noted where it lived.
  * WP3.6's table (decision 135, F2) held two `cleanMesh` refusals that floor-standing holed hip solids caused, s1h300/
  * Court5 (a stuck cap) and s1h250/Court16 (a pinching collapse); clustering (decision 122, F-C) cures both, and they are
  * kept as named regressions below, since the generator now draws other layouts under those names.
+ * **The holed roof (holed roof decision 48) cures every pin left here**: each cut-piece overshoot and each Cheek stood on
+ * or beside the courtyard cut, and each case builds clean with its island roofed by its outline and its hole.
  */
 export const COURTYARD_DEFECTS: CausedPinTable<SeededKey<CourtName>> = {
-  's1h250/Court14': {cause: "decision 132's cut rule exposes algorithm B's Cheek class (a regression)", outcome: ["cheeks 1, expected 0, at (150, 400, 250)"]},
-  's1h250/Court25': {cause: "partial face-to-face contact of two storeys on one plane (Court25 class)", outcome: ["throws: cell 729: side 24-278 (100, 500, 500) to (100, 500, 550) reads ShellEdge 63, its NetEdge -1"]},
-  's1h263/Court14': {cause: "decision 132's cut rule exposes algorithm B's Cheek class (a regression)", outcome: ["cheeks 1, expected 0, at (150, 400, 263)"]},
-  's1h263/Court25': {cause: "partial face-to-face contact of two storeys on one plane (Court25 class)", outcome: ["throws: cell 871: side 24-318 (100, 500, 526) to (100, 500, 550) reads ShellEdge 63, its NetEdge -1"]},
-  's1h300/Court14': {cause: "decision 132's cut rule exposes algorithm B's Cheek class (a regression)", outcome: ["cheeks 1, expected 0, at (150, 400, 300)"]},
-  's1h300/Court25': {cause: "partial face-to-face contact of two storeys on one plane (Court25 class)", outcome: ["throws: cell 847: side 24-292 (100, 500, 600) to (100, 500, 650) reads ShellEdge 63, its NetEdge -1"]},
-  's2h250/Court15': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (275, 100, 562.546875)","3 Unclassified Edges: (250, 100, 557.7353515625) to (275, 100, 572.1689453125); (250, 100, 557.7353515625) to (300, 100, 557.7353515625); (275, 100, 572.1689453125) to (300, 100, 557.7353515625)"]},
-  's2h263/Court15': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (275, 100, 588.546875)","3 Unclassified Edges: (250, 100, 583.7353515625) to (275, 100, 598.1689453125); (250, 100, 583.7353515625) to (300, 100, 583.7353515625); (275, 100, 598.1689453125) to (300, 100, 583.7353515625)"]},
-  's2h300/Court15': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (275, 100, 662.546875)","3 Unclassified Edges: (250, 100, 657.7353515625) to (275, 100, 672.1689453125); (250, 100, 657.7353515625) to (300, 100, 657.7353515625); (275, 100, 672.1689453125) to (300, 100, 657.7353515625)"]},
-  's4h250/Court7': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (606.4326171875, 300, 263.3369140625)","3 Unclassified Edges: (550, 300, 250) to (619.298828125, 300, 290.009765625); (550, 300, 250) to (650, 300, 250); (619.298828125, 300, 290.009765625) to (650, 300, 250)"]},
-  's4h263/Court7': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (606.4326171875, 300, 276.3369140625)","3 Unclassified Edges: (550, 300, 263) to (619.298828125, 300, 303.009765625); (550, 300, 263) to (650, 300, 263); (619.298828125, 300, 303.009765625) to (650, 300, 263)"]},
-  's4h300/Court7': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (606.4326171875, 300, 313.3369140625)","3 Unclassified Edges: (550, 300, 300) to (619.298828125, 300, 340.009765625); (550, 300, 300) to (650, 300, 300); (619.298828125, 300, 340.009765625) to (650, 300, 300)"]},
-  's5h250/Court34': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 4, expected 0, at (250, 195.3779296875, 504.6220703125); (250, 500, 500); (250, 500, 510.6455078125); (250, 86.8349609375, 613.1650390625)"]},
-  's5h263/Court34': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 2, expected 0, at (250, 500, 526); (250, 86.8349609375, 639.1650390625)"]},
-  's5h300/Court34': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 2, expected 0, at (250, 500, 600); (250, 86.8349609375, 713.1650390625)"]},
-  's6h250/Court23': {cause: "decision 132's cut rule exposes algorithm B's Cheek class (a regression)", outcome: ["cheeks 2, expected 0, at (100, 300, 380.322265625); (350, 300, 250)"]},
-  's6h263/Court23': {cause: "decision 132's cut rule exposes algorithm B's Cheek class (a regression)", outcome: ["cheeks 2, expected 0, at (100, 300, 393.322265625); (350, 300, 263)"]},
-  's6h300/Court23': {cause: "decision 132's cut rule exposes algorithm B's Cheek class (a regression)", outcome: ["cheeks 2, expected 0, at (100, 300, 430.322265625); (350, 300, 300)"]},
-  's7h250/Court14': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (291.83203125, 250, 500)"]},
-  's7h250/Court22': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (850, 500, 275.1181640625)","3 Unclassified Edges: (750, 500, 250) to (850, 500, 325.35546875); (750, 500, 250) to (950, 500, 250); (850, 500, 325.35546875) to (950, 500, 250)"]},
-  's7h250/Court38': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (665.8642578125, 100, 578.5283203125)","3 Unclassified Edges: (657.822265625, 100, 575.35546875) to (665.1259765625, 100, 584.8740234375); (657.822265625, 100, 575.35546875) to (674.64453125, 100, 575.35546875); (665.1259765625, 100, 584.8740234375) to (674.64453125, 100, 575.35546875)"]},
-  's7h263/Court14': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (301.806640625, 250, 526)"]},
-  's7h263/Court22': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (850, 500, 288.1181640625)","3 Unclassified Edges: (750, 500, 263) to (850, 500, 338.35546875); (750, 500, 263) to (950, 500, 263); (850, 500, 338.35546875) to (950, 500, 263)"]},
-  's7h263/Court38': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (665.8642578125, 100, 604.5283203125)","3 Unclassified Edges: (657.822265625, 100, 601.35546875) to (665.1259765625, 100, 610.8740234375); (657.822265625, 100, 601.35546875) to (674.64453125, 100, 601.35546875); (665.1259765625, 100, 610.8740234375) to (674.64453125, 100, 601.35546875)"]},
-  's7h300/Court14': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (330.1982421875, 250, 600)"]},
-  's7h300/Court22': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (850, 500, 325.1181640625)","3 Unclassified Edges: (750, 500, 300) to (850, 500, 375.35546875); (750, 500, 300) to (950, 500, 300); (850, 500, 375.35546875) to (950, 500, 300)"]},
-  's7h300/Court38': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (665.8642578125, 100, 678.5283203125)","3 Unclassified Edges: (657.822265625, 100, 675.35546875) to (665.1259765625, 100, 684.8740234375); (657.822265625, 100, 675.35546875) to (674.64453125, 100, 675.35546875); (665.1259765625, 100, 684.8740234375) to (674.64453125, 100, 675.35546875)"]},
-  's8h250/Court4': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (497.6572265625, 300, 264.32421875)","3 Unclassified Edges: (450, 300, 250) to (492.97265625, 300, 292.97265625); (450, 300, 250) to (550, 300, 250); (492.97265625, 300, 292.97265625) to (550, 300, 250)"]},
-  's8h263/Court4': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (497.6572265625, 300, 277.32421875)","3 Unclassified Edges: (450, 300, 263) to (492.97265625, 300, 305.97265625); (450, 300, 263) to (550, 300, 263); (492.97265625, 300, 305.97265625) to (550, 300, 263)"]},
-  's8h300/Court4': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (497.6572265625, 300, 314.32421875)","3 Unclassified Edges: (450, 300, 300) to (492.97265625, 300, 342.97265625); (450, 300, 300) to (550, 300, 300); (492.97265625, 300, 342.97265625) to (550, 300, 300)"]},
-  's9h250/Court0': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (250, 250, 695.4833984375)"]},
-  's9h250/Court27': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (175, 300, 325)"]},
-  's9h263/Court0': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (250, 250, 721.4833984375)"]},
-  's9h263/Court27': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (175, 300, 338)"]},
-  's9h300/Court0': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (250, 250, 795.4833984375)"]},
-  's9h300/Court27': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (175, 300, 375)"]},
-  's10h250/Court15': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (595.5458984375, 100, 265.916015625)","3 Unclassified Edges: (550, 100, 250) to (586.6376953125, 100, 297.7470703125); (550, 100, 250) to (650, 100, 250); (586.6376953125, 100, 297.7470703125) to (650, 100, 250)"]},
-  's10h250/Court18': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (450, 108.451171875, 331.7236328125)"]},
-  's10h250/Court35': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (114.94140625, 600, 268.2490234375)","3 Unclassified Edges: (100, 600, 278.8671875) to (150, 600, 250); (94.82421875, 600, 275.87890625) to (100, 600, 278.8671875); (94.82421875, 600, 275.87890625) to (150, 600, 250)"]},
-  's10h263/Court15': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (595.5458984375, 100, 278.916015625)","3 Unclassified Edges: (550, 100, 263) to (586.6376953125, 100, 310.7470703125); (550, 100, 263) to (650, 100, 263); (586.6376953125, 100, 310.7470703125) to (650, 100, 263)"]},
-  's10h263/Court18': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (450, 108.451171875, 344.7236328125)"]},
-  's10h263/Court35': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (115.0185546875, 600, 281.29296875)","3 Unclassified Edges: (100, 600, 291.8671875) to (150, 600, 263); (95.0546875, 600, 289.01171875) to (100, 600, 291.8671875); (95.0546875, 600, 289.01171875) to (150, 600, 263)"]},
-  's10h300/Court15': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (595.5458984375, 100, 315.916015625)","3 Unclassified Edges: (550, 100, 300) to (586.6376953125, 100, 347.7470703125); (550, 100, 300) to (650, 100, 300); (586.6376953125, 100, 347.7470703125) to (650, 100, 300)"]},
-  's10h300/Court18': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (450, 108.451171875, 381.7236328125)"]},
-  's10h300/Court35': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (115.2041015625, 600, 318.400390625)","3 Unclassified Edges: (100, 600, 328.8671875) to (150, 600, 300); (95.611328125, 600, 326.3330078125) to (100, 600, 328.8671875); (95.611328125, 600, 326.3330078125) to (150, 600, 300)"]},
-  's11h250/Court35': {cause: "a Cell corner in no triangle of its face's fan", outcome: ["throws: vertex 219 at (200, 550, 300): Cell 563 lies in no triangle of its face's fan"]},
-  's11h263/Court35': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (197.8056640625, 550, 281.861328125)","3 Unclassified Edges: (150, 550, 263) to (193.4169921875, 550, 319.5830078125); (150, 550, 263) to (250, 550, 263); (193.4169921875, 550, 319.5830078125) to (250, 550, 263)"]},
-  's11h300/Court35': {cause: "a Cell corner in no triangle of its face's fan", outcome: ["throws: vertex 227 at (200, 550, 350): Cell 667 lies in no triangle of its face's fan"]},
-  's12h250/Court1': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (241.45703125, 300, 391.45703125)"]},
-  's12h250/Court2': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (200, 150, 537.677734375)"]},
-  's12h263/Court1': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (241.45703125, 300, 404.45703125)"]},
-  's12h263/Court2': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (200, 150, 563.677734375)"]},
-  's12h300/Court1': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (241.45703125, 300, 441.45703125)"]},
-  's12h300/Court2': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (200, 150, 637.677734375)"]},
-  's13h250/Court9': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 2, expected 0, at (146.05078125, 250, 310.0146484375); (400, 250, 250)"]},
-  's13h250/Court13': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (524.93359375, 200, 589.56640625)","3 Unclassified Edges: (516.4521484375, 200, 586.6025390625) to (523.275390625, 200, 595.494140625); (516.4521484375, 200, 586.6025390625) to (535.07421875, 200, 586.6025390625); (523.275390625, 200, 595.494140625) to (535.07421875, 200, 586.6025390625)"]},
-  's13h250/Court21': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (450, 250, 500)"]},
-  's13h263/Court9': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 2, expected 0, at (146.05078125, 250, 323.0146484375); (400, 250, 263)"]},
-  's13h263/Court13': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (524.93359375, 200, 615.56640625)","3 Unclassified Edges: (516.4521484375, 200, 612.6025390625) to (523.275390625, 200, 621.494140625); (516.4521484375, 200, 612.6025390625) to (535.07421875, 200, 612.6025390625); (523.275390625, 200, 621.494140625) to (535.07421875, 200, 612.6025390625)"]},
-  's13h263/Court21': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (450, 250, 526)"]},
-  's13h300/Court9': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 2, expected 0, at (146.05078125, 250, 360.0146484375); (400, 250, 300)"]},
-  's13h300/Court13': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (524.93359375, 200, 689.56640625)","3 Unclassified Edges: (516.4521484375, 200, 686.6025390625) to (523.275390625, 200, 695.494140625); (516.4521484375, 200, 686.6025390625) to (535.07421875, 200, 686.6025390625); (523.275390625, 200, 695.494140625) to (535.07421875, 200, 686.6025390625)"]},
-  's13h300/Court21': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (450, 250, 600)"]},
+  // 's1h250/Court14': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's1h250/Court25': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's1h263/Court14': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // Re-pinned by journal decision 220 (WP-G4.2): an all-gable wall became a rise, and the same throw moved to cell 824 (it was cell 826, side 26-328).
+  // 's1h263/Court25': cured by journal decisions 243 to 245 (WP-L2): it no longer throws; clean, re-pinned in GABLE_RISE_CONFLICTS by its F69 conflict.
+  // Was: "throws: cell 824: side 29-324 (100, 500, 526) to (100, 500, 550) reads ShellEdge 73, its NetEdge -1".
+  // Journal decision 245: a covered rise (decision 243, rule 3) on Ring 3's S side over x [650, 900] lies on the courtyard
+  // cut's line y = 150, and the cut-piece overshoot appears on that cut. Smallest input: `COVERED_RISE_ON_HOLE_LINE`.
+  // 's1h250/Court29': cured by journal decision 272 (WP-C3): its surviving Internal cut face was a tuck's lower layer, back to back with the Wall over it, now labelled Tuck; clean. Was: ["survivingInternal 1 at (212.8662109375, 150, 276.6728515625)","3 Unclassified Edges: (100, 150, 250) to (238.5986328125, 150, 330.01953125); (100, 150, 250) to (300, 150, 250); (238.5986328125, 150, 330.01953125) to (300, 150, 250)"].
+  // Journal decision 245, as s1h250.
+  // 's1h300/Court29': cured by journal decision 272 (WP-C3): its surviving Internal cut face was a tuck's lower layer, back to back with the Wall over it, now labelled Tuck; clean. Was: ["survivingInternal 1 at (212.8662109375, 150, 326.6728515625)","3 Unclassified Edges: (100, 150, 300) to (238.5986328125, 150, 380.01953125); (100, 150, 300) to (300, 150, 300); (238.5986328125, 150, 380.01953125) to (300, 150, 300)"].
+  // 's1h300/Court14': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's1h300/Court25': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's2h250/Court15': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (275, 100, 562.546875)","3 Unclassified Edges: (250, 100, 557.7353515625) to (275, 100, 572.1689453125); (250, 100, 557.7353515625) to (300, 100, 557.7353515625); (275, 100, 572.1689453125) to (300, 100, 557.7353515625)"].
+  // 's2h263/Court15': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (275, 100, 588.546875)","3 Unclassified Edges: (250, 100, 583.7353515625) to (275, 100, 598.1689453125); (250, 100, 583.7353515625) to (300, 100, 583.7353515625); (275, 100, 598.1689453125) to (300, 100, 583.7353515625)"].
+  // 's2h300/Court15': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (275, 100, 662.546875)","3 Unclassified Edges: (250, 100, 657.7353515625) to (275, 100, 672.1689453125); (250, 100, 657.7353515625) to (300, 100, 657.7353515625); (275, 100, 672.1689453125) to (300, 100, 657.7353515625)"].
+  // 's4h250/Court7': promoted by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise, and it is clean, its height oracle held, with no conflict.
+  // 's4h263/Court7': promoted by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise, and it is clean, its height oracle held, with no conflict.
+  // 's4h300/Court7': promoted by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise, and it is clean, its height oracle held, with no conflict.
+  // 's5h250/Court34': cured by journal decision 264 (WP-C1): its x = 0 line, claimed gable at two pitches, now builds a rise at each, [0, 500] at 30° and [500, 700] at 52.5°; clean, re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // Was: "cheeks 4, expected 0, at (250, 195.3779296875, 504.6220703125); (250, 500, 500); (250, 500, 510.6455078125); (250, 86.8349609375, 613.1650390625)".
+  // 's5h263/Court34': cured by journal decision 264 (WP-C1), as s5h250. Was: "cheeks 2, expected 0, at (250, 500, 526); (250, 86.8349609375, 639.1650390625)".
+  // 's5h300/Court34': cured by journal decision 264 (WP-C1), as s5h250. Was: "cheeks 2, expected 0, at (250, 500, 600); (250, 86.8349609375, 713.1650390625)".
+  // 's6h250/Court23': promoted by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise, and it is clean, its height oracle held, with no conflict.
+  // 's6h263/Court23': promoted by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise, and it is clean, its height oracle held, with no conflict.
+  // 's6h300/Court23': promoted by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise, and it is clean, its height oracle held, with no conflict.
+  // 's7h250/Court14': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["cheeks 1, expected 0, at (291.83203125, 250, 500)"].
+  // 's7h250/Court22': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's7h250/Court38': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (665.8642578125, 100, 578.5283203125)","3 Unclassified Edges: (657.822265625, 100, 575.35546875) to (665.1259765625, 100, 584.8740234375); (657.822265625, 100, 575.35546875) to (674.64453125, 100, 575.35546875); (665.1259765625, 100, 584.8740234375) to (674.64453125, 100, 575.35546875)"].
+  // 's7h263/Court14': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["cheeks 1, expected 0, at (301.806640625, 250, 526)"].
+  // 's7h263/Court22': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's7h263/Court38': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (665.8642578125, 100, 604.5283203125)","3 Unclassified Edges: (657.822265625, 100, 601.35546875) to (665.1259765625, 100, 610.8740234375); (657.822265625, 100, 601.35546875) to (674.64453125, 100, 601.35546875); (665.1259765625, 100, 610.8740234375) to (674.64453125, 100, 601.35546875)"].
+  // 's7h300/Court14': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["cheeks 1, expected 0, at (330.1982421875, 250, 600)"].
+  // 's7h300/Court22': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's7h300/Court38': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (665.8642578125, 100, 678.5283203125)","3 Unclassified Edges: (657.822265625, 100, 675.35546875) to (665.1259765625, 100, 684.8740234375); (657.822265625, 100, 675.35546875) to (674.64453125, 100, 675.35546875); (665.1259765625, 100, 684.8740234375) to (674.64453125, 100, 675.35546875)"].
+  // 's8h250/Court4': promoted by journal decisions 243 to 245 (WP-L2): a covered rise is built over its cut-piece overshoot, and it is clean, its height oracle held, with no conflict.
+  // 's8h263/Court4': promoted by journal decisions 243 to 245 (WP-L2): a covered rise is built over its cut-piece overshoot, and it is clean, its height oracle held, with no conflict.
+  // 's8h300/Court4': promoted by journal decisions 243 to 245 (WP-L2): a covered rise is built over its cut-piece overshoot, and it is clean, its height oracle held, with no conflict.
+  // 's9h250/Court0': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's9h250/Court27': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's9h263/Court0': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's9h263/Court27': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's9h300/Court0': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's9h300/Court27': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's10h250/Court15': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's10h250/Court18': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's10h250/Court35': cured by journal decision 272 (WP-C3): its surviving Internal cut face was a tuck's lower layer, back to back with the Wall over it, now labelled Tuck; clean. Was: ["survivingInternal 1 at (114.94140625, 600, 268.2490234375)","3 Unclassified Edges: (100, 600, 278.8671875) to (150, 600, 250); (94.82421875, 600, 275.87890625) to (100, 600, 278.8671875); (94.82421875, 600, 275.87890625) to (150, 600, 250)"].
+  // 's10h263/Court15': cured by journal decisions 243 to 245 (WP-L2): a covered rise is built over its cut-piece overshoot; clean, re-pinned in GABLE_RISE_CONFLICTS by its F69 conflict.
+  // 's10h263/Court18': cured by gable rise decision 3 (WP-G2) and re-pinned in GABLE_RISE_CONFLICTS; worsened by journal decision 220 (WP-G4.2), an accepted cost:
+  // a courtyard hole wall whose band runs on under a taller Ring is now a rise, and a 26.8 cm² sliver of its storey 0 Gable front, coplanar with the taller
+  // Ring's storey 1 Wall on y = 400 and facing it, meets that Wall in 2 Unclassified Edges: SplitCourt9's Gable-Wall pair. Its conflict stays pinned there too.
+  // 's10h263/Court18': cured by journal decisions 243 to 245 (WP-L2): its 2 Unclassified Gable-Wall Edges are gone; clean, its conflict pinned in GABLE_RISE_CONFLICTS.
+  // 's10h263/Court35': cured by journal decision 272 (WP-C3): its surviving Internal cut face was a tuck's lower layer, back to back with the Wall over it, now labelled Tuck; clean. Was: ["survivingInternal 1 at (115.0185546875, 600, 281.29296875)","3 Unclassified Edges: (100, 600, 291.8671875) to (150, 600, 263); (95.0546875, 600, 289.01171875) to (100, 600, 291.8671875); (95.0546875, 600, 289.01171875) to (150, 600, 263)"].
+  // 's10h300/Court15': cured by journal decisions 243 to 245 (WP-L2): a covered rise is built over its cut-piece overshoot; clean, re-pinned in GABLE_RISE_CONFLICTS by its F69 conflict.
+  // 's10h300/Court18': cured by gable rise decision 3 (WP-G2) and re-pinned in GABLE_RISE_CONFLICTS; worsened by journal decision 220 (WP-G4.2), as s10h263.
+  // 's10h300/Court18': cured by journal decisions 243 to 245 (WP-L2): its 2 Unclassified Gable-Wall Edges are gone; clean, its conflict pinned in GABLE_RISE_CONFLICTS.
+  // 's10h300/Court35': cured by journal decision 272 (WP-C3): its surviving Internal cut face was a tuck's lower layer, back to back with the Wall over it, now labelled Tuck; clean. Was: ["survivingInternal 1 at (115.2041015625, 600, 318.400390625)","3 Unclassified Edges: (100, 600, 328.8671875) to (150, 600, 300); (95.611328125, 600, 326.3330078125) to (100, 600, 328.8671875); (95.611328125, 600, 326.3330078125) to (150, 600, 300)"].
+  // 's11h250/Court35': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's11h263/Court35': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's11h300/Court35': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's12h250/Court1': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["cheeks 1, expected 0, at (241.45703125, 300, 391.45703125)"].
+  // 's12h250/Court2': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's12h263/Court1': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["cheeks 1, expected 0, at (241.45703125, 300, 404.45703125)"].
+  // 's12h263/Court2': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's12h300/Court1': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["cheeks 1, expected 0, at (241.45703125, 300, 441.45703125)"].
+  // 's12h300/Court2': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's13h250/Court9': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["cheeks 2, expected 0, at (146.05078125, 250, 310.0146484375); (400, 250, 250)"].
+  // 's13h250/Court13': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (524.93359375, 200, 589.56640625)","3 Unclassified Edges: (516.4521484375, 200, 586.6025390625) to (523.275390625, 200, 595.494140625); (516.4521484375, 200, 586.6025390625) to (535.07421875, 200, 586.6025390625); (523.275390625, 200, 595.494140625) to (535.07421875, 200, 586.6025390625)"].
+  // Re-pinned by journal decisions 243 to 245 (WP-L2), was its 1 Cheek: a covered rise (decision 243, rule 3) on its storey 1 S lines
+  // reaches the Cell-laying class (journal F64, F74). Smallest input: `COVERED_RISE_CELL_CLASH`.
+  // Re-pinned by journal decision 272 (WP-C3): its tucked Cheek is labelled Tuck, and it builds; what remains is its exposed Cheek, the
+  // Cheek class's fact (journal decision 260). Was: "throws: vertex 273 at (300, 250, 550): two Cells run the same way along one NetEdge".
+  // 's13h250/Court21': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["cheeks 1, expected 0, at (450, 250, 500)"].
+  // 's13h263/Court9': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["cheeks 2, expected 0, at (146.05078125, 250, 323.0146484375); (400, 250, 263)"].
+  // 's13h263/Court13': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (524.93359375, 200, 615.56640625)","3 Unclassified Edges: (516.4521484375, 200, 612.6025390625) to (523.275390625, 200, 621.494140625); (516.4521484375, 200, 612.6025390625) to (535.07421875, 200, 612.6025390625); (523.275390625, 200, 621.494140625) to (535.07421875, 200, 612.6025390625)"].
+  // 's13h263/Court21': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["cheeks 1, expected 0, at (450, 250, 526)"].
+  // 's13h300/Court9': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["cheeks 2, expected 0, at (146.05078125, 250, 360.0146484375); (400, 250, 300)"].
+  // 's13h300/Court13': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (524.93359375, 200, 689.56640625)","3 Unclassified Edges: (516.4521484375, 200, 686.6025390625) to (523.275390625, 200, 695.494140625); (516.4521484375, 200, 686.6025390625) to (535.07421875, 200, 686.6025390625); (523.275390625, 200, 695.494140625) to (535.07421875, 200, 686.6025390625)"].
+  // Re-pinned by journal decisions 243 to 245 (WP-L2), was its 1 Cheek: a covered rise (decision 243, rule 3) on its storey 1 S lines
+  // reaches the Cell-laying class (journal F64, F74). Smallest input: `COVERED_RISE_CELL_CLASH`.
+  // Re-pinned by journal decision 272 (WP-C3): its tucked Cheek is labelled Tuck, and it builds; what remains is its exposed Cheek, the
+  // Cheek class's fact (journal decision 260). Was: "throws: vertex 289 at (300, 250, 650): two Cells run the same way along one NetEdge".
+  // 's13h300/Court21': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["cheeks 1, expected 0, at (450, 250, 600)"].
 };
 
 /** Measured at WP3.8.2 over seeds 1 to 14 at 250, 263 and 300 cm: every U-shape case that breaks an invariant. */
 export const U_DEFECTS: CausedPinTable<SeededKey<UName>> = {
-  's6h263/U8': {cause: "edge contact between opposite coplanar faces (U8 class)", outcome: ["throws: vertex 286 at (104.8515625, 550, 650): two Cells run the same way along one NetEdge"]},
-  's6h300/U8': {cause: "edge contact between opposite coplanar faces (U8 class)", outcome: ["throws: vertex 285 at (123.267578125, 550, 700): two Cells run the same way along one NetEdge"]},
+  // 's6h263/U8': cured by journal decision 272 (WP-C3): the tuck under its gable end is labelled Tuck and given no Cells; clean. Was: ["throws: vertex 286 at (104.8515625, 550, 650): two Cells run the same way along one NetEdge"].
+  // 's6h300/U8': cured by journal decision 272 (WP-C3): the tuck under its gable end is labelled Tuck and given no Cells; clean. Was: ["throws: vertex 285 at (123.267578125, 550, 700): two Cells run the same way along one NetEdge"].
 };
 
 /**
  * Measured at WP3.8.2 over seeds 1 to 14 at 250, 263 and 300 cm: every split-band courtyard (journal decisions 150,
- * 151 and 153) that breaks an invariant, in the same form, 6 of 1680. Split mode makes the free cut, collinear with no
+ * 151 and 153) that breaks an invariant, in the same form, 6 of 1680. WP-G2 (gable rise decision 3) cured 5, each
+ * re-pinned by its conflicts in `GABLE_RISE_SPLIT_CONFLICTS`; the `cleanMesh stuck cap` class is left with no member. Split mode makes the free cut, collinear with no
  * wall, the shortest, so every one of these reads the free branch and takes the island's steepest wall.
+ * **Journal decision 264 (WP-C1)** removes decision 220's two-pitch sub-rule, so a line claimed gable at two pitches
+ * builds a rise at each. Six cases of the default run gain 1 Cheek each, enrolled here: SplitCourt1 at s1, SplitCourt11
+ * and SplitCourt29 at s2, each at 250 and 300 cm. A Cheek is no defect (journal decisions 260 and 263); the class names
+ * are `causeOf`'s, which reads the signature alone.
  */
 export const SPLIT_COURTYARD_DEFECTS: CausedPinTable<SeededKey<SplitCourtName>> = {
-  's2h250/SplitCourt10': {cause: "cleanMesh stuck cap", outcome: ["throws: cleanMesh: cap 38 (31-36, apex 34 at (712.802734375, 231.9697265625, 297.3251953125)) can neither flip nor merge its apex into its long edge"]},
-  's2h263/SplitCourt10': {cause: "cleanMesh stuck cap", outcome: ["throws: cleanMesh: cap 38 (31-36, apex 34 at (712.802734375, 231.9697265625, 310.3251953125)) can neither flip nor merge its apex into its long edge"]},
-  's2h300/SplitCourt10': {cause: "cleanMesh stuck cap", outcome: ["throws: cleanMesh: cap 38 (31-37, apex 34 at (712.802734375, 231.9697265625, 347.3251953125)) can neither flip nor merge its apex into its long edge"]},
-  's5h250/SplitCourt29': {cause: "partial face-to-face contact of two storeys on one plane (Court25 class)", outcome: ["throws: cell 790: side 334-11 (750, 450, 300) to (750, 450, 250) reads ShellEdge 59, its NetEdge -1"]},
-  's7h250/SplitCourt9': {cause: "a Gable-Wall edge, Unclassified (SplitCourt9 class)", outcome: ["2 Unclassified Edges: (191.8310546875, 400, 500) to (200, 400, 500); (200, 400, 500) to (200, 400, 510.6455078125)"]},
-  's13h250/SplitCourt30': {cause: "cleanMesh stuck cap", outcome: ["throws: cleanMesh: cap 131 (63-72, apex 64 at (500.4453125, 736.64453125, 510.064453125)) can neither flip nor merge its apex into its long edge"]},
+  // 's2h250/SplitCourt10': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's2h263/SplitCourt10': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's2h300/SplitCourt10': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's5h250/SplitCourt29': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's7h250/SplitCourt9': cured by journal decisions 243 to 245 (WP-L2): its 2 Unclassified Gable-Wall Edges are gone; clean, re-pinned in GABLE_RISE_SPLIT_CONFLICTS by its F69 conflicts.
+  // 's13h250/SplitCourt30': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // Enrolled by journal decision 264 (WP-C1), an accepted fact (journal decisions 260 and 263): a line claimed gable at two pitches now builds a rise at
+  // each, and the shell gains 1 Cheek. Was clean. Its conflicts are pinned in GABLE_RISE_SPLIT_CONFLICTS.
+  's1h250/SplitCourt1': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (250, 700, 400)"]},
+  // Enrolled by journal decision 264 (WP-C1), as s1h250.
+  's1h300/SplitCourt1': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (250, 700, 450)"]},
+  // Enrolled by journal decision 264 (WP-C1), as s1h250/SplitCourt1.
+  's2h250/SplitCourt11': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (250, 160.75390625, 644.3369140625)"]},
+  // Enrolled by journal decision 264 (WP-C1), as s1h250/SplitCourt1.
+  's2h300/SplitCourt11': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (250, 160.75390625, 744.3369140625)"]},
+  // Enrolled by journal decision 264 (WP-C1), as s1h250/SplitCourt1.
+  's2h250/SplitCourt29': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (550, 150, 250)"]},
+  // Enrolled by journal decision 264 (WP-C1), as s1h250/SplitCourt1.
+  's2h300/SplitCourt29': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (550, 150, 300)"]},
 };
 
 /**
@@ -194,7 +235,8 @@ export const GAP_DEFECTS: ClassedPinTable<GapName> = {
  *   cases whose invariants hold are listed too, with their edges alone.
  * - **Courtyard at mixed pitch**: one or two Internal triangles survive on the cut's plane, y = 300, with their
  *   Unclassified Edges, the cut pieces' faces across the slit no longer matching. Roof-gable algorithm B's cut-piece
- *   overshoot class (`CutOvershootProbe`), inherited. Content's own 22.5/45 reaches it (decision 148, F3).
+ *   overshoot class (`OffCentreCourtyard`), inherited. Content's own 22.5/45 reaches it (decision 148, F3). **Every one
+ *   is cured by the holed roof** (holed roof decision 48): no cut, so no cut piece; each is kept below as a comment.
  */
 export const ROSTER_PITCH_DEFECTS: ClassedPinTable<RosterPitchName> = {
   'BridgeOverBlock@40': {residueClass: 'roof meets the floor above', outcome: ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (297.9384765625, 297.9384765625, 500) to (297.9384765625, 302.0615234375, 500); SoffitJunction (297.9384765625, 297.9384765625, 500) to (702.0615234375, 297.9384765625, 500); SoffitJunction (297.9384765625, 302.0615234375, 500) to (702.0615234375, 302.0615234375, 500); SoffitJunction (702.0615234375, 297.9384765625, 500) to (702.0615234375, 302.0615234375, 500)"]},
@@ -254,45 +296,269 @@ export const ROSTER_PITCH_DEFECTS: ClassedPinTable<RosterPitchName> = {
   'BridgeOverBlock@75/45s': {residueClass: 'roof meets the floor above', outcome: ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (250, 533.0126953125, 500) to (750, 533.0126953125, 500); SoffitJunction (250, 66.9873046875, 500) to (250, 533.0126953125, 500); SoffitJunction (250, 66.9873046875, 500) to (750, 66.9873046875, 500); SoffitJunction (750, 66.9873046875, 500) to (750, 533.0126953125, 500)"]},
   'BridgeOverBlock@75/60r': {residueClass: 'roof meets the floor above', outcome: ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 533.0126953125, 500) to (800, 533.0126953125, 500); SoffitJunction (200, 66.9873046875, 500) to (800, 66.9873046875, 500)"]},
   'BridgeOverBlock@75/60s': {residueClass: 'roof meets the floor above', outcome: ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 533.0126953125, 500) to (800, 533.0126953125, 500); SoffitJunction (200, 66.9873046875, 500) to (800, 66.9873046875, 500)"]},
-  'Courtyard@7/22.5s': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 1 at (150, 300, 295.267578125)","3 Unclassified Edges: (150, 300, 312.1318359375) to (211.0712890625, 300, 286.8349609375); (88.9287109375, 300, 286.8349609375) to (150, 300, 312.1318359375); (88.9287109375, 300, 286.8349609375) to (211.0712890625, 300, 286.8349609375)"]},
-  'Courtyard@7/30s': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 2 at (121.2666015625, 300, 319.578125); (150.376953125, 300, 303.2060546875)","4 Unclassified Edges: (148.8681640625, 300, 335.94921875) to (151.1318359375, 300, 335.94921875); (151.1318359375, 300, 335.94921875) to (236.19921875, 300, 286.8349609375); (63.80078125, 300, 286.8349609375) to (148.8681640625, 300, 335.94921875); (63.80078125, 300, 286.8349609375) to (236.19921875, 300, 286.8349609375)"]},
-  'Courtyard@7/45s': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 2 at (112.2783203125, 300, 319.578125); (171.3505859375, 300, 303.2060546875)","4 Unclassified Edges: (214.05078125, 300, 335.94921875) to (263.1650390625, 300, 286.8349609375); (36.8349609375, 300, 286.8349609375) to (263.1650390625, 300, 286.8349609375); (36.8349609375, 300, 286.8349609375) to (85.94921875, 300, 335.94921875); (85.94921875, 300, 335.94921875) to (214.05078125, 300, 335.94921875)"]},
-  'Courtyard@7/60s': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 2 at (107.0888671875, 300, 319.578125); (183.458984375, 300, 303.2060546875)","4 Unclassified Edges: (21.2666015625, 300, 286.8349609375) to (278.7333984375, 300, 286.8349609375); (21.2666015625, 300, 286.8349609375) to (49.623046875, 300, 335.94921875); (250.376953125, 300, 335.94921875) to (278.7333984375, 300, 286.8349609375); (49.623046875, 300, 335.94921875) to (250.376953125, 300, 335.94921875)"]},
-  'Courtyard@7/75s': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 2 at (103.2900390625, 300, 319.578125); (192.3232421875, 300, 303.2060546875)","4 Unclassified Edges: (23.0302734375, 300, 335.94921875) to (276.9697265625, 300, 335.94921875); (276.9697265625, 300, 335.94921875) to (290.1298828125, 300, 286.8349609375); (9.8701171875, 300, 286.8349609375) to (23.0302734375, 300, 335.94921875); (9.8701171875, 300, 286.8349609375) to (290.1298828125, 300, 286.8349609375)"]},
-  'Courtyard@22.5/45s': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 1 at (150, 300, 382.8427734375)","3 Unclassified Edges: (124.263671875, 300, 374.263671875) to (150, 300, 400); (124.263671875, 300, 374.263671875) to (175.736328125, 300, 374.263671875); (150, 300, 400) to (175.736328125, 300, 374.263671875)"]},
-  'Courtyard@22.5/60s': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 1 at (150, 300, 419.4453125)","3 Unclassified Edges: (150, 300, 509.8076171875) to (228.255859375, 300, 374.263671875); (71.744140625, 300, 374.263671875) to (150, 300, 509.8076171875); (71.744140625, 300, 374.263671875) to (228.255859375, 300, 374.263671875)"]},
-  'Courtyard@22.5/75s': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 2 at (111.0986328125, 300, 484.720703125); (174.1025390625, 300, 429.4921875)","4 Unclassified Edges: (222.30859375, 300, 539.94921875) to (266.703125, 300, 374.263671875); (33.296875, 300, 374.263671875) to (266.703125, 300, 374.263671875); (33.296875, 300, 374.263671875) to (77.69140625, 300, 539.94921875); (77.69140625, 300, 539.94921875) to (222.30859375, 300, 539.94921875)"]},
-  'Courtyard@30/7r': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 1 at (150, 300, 336.1669921875)","3 Unclassified Edges: (148.8681640625, 300, 335.94921875) to (150, 300, 336.6025390625); (148.8681640625, 300, 335.94921875) to (151.1318359375, 300, 335.94921875); (150, 300, 336.6025390625) to (151.1318359375, 300, 335.94921875)"]},
-  'Courtyard@30/60s': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 1 at (150, 300, 452.072265625)","3 Unclassified Edges: (100, 300, 423.205078125) to (150, 300, 509.8076171875); (100, 300, 423.205078125) to (200, 300, 423.205078125); (150, 300, 509.8076171875) to (200, 300, 423.205078125)"]},
-  'Courtyard@30/75s': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 2 at (115.4697265625, 300, 577.1650390625); (163.9033203125, 300, 500.185546875)","4 Unclassified Edges: (108.2900390625, 300, 654.1455078125) to (191.7099609375, 300, 654.1455078125); (191.7099609375, 300, 654.1455078125) to (253.58984375, 300, 423.205078125); (46.41015625, 300, 423.205078125) to (108.2900390625, 300, 654.1455078125); (46.41015625, 300, 423.205078125) to (253.58984375, 300, 423.205078125)"]},
-  'Courtyard@45/7r': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 1 at (150, 300, 357.2998046875)","3 Unclassified Edges: (150, 300, 400) to (214.05078125, 300, 335.94921875); (85.94921875, 300, 335.94921875) to (150, 300, 400); (85.94921875, 300, 335.94921875) to (214.05078125, 300, 335.94921875)"]},
-  'Courtyard@45/75s': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 1 at (150, 300, 636.6025390625)","3 Unclassified Edges: (150, 300, 809.8076171875) to (219.615234375, 300, 550); (80.384765625, 300, 550) to (150, 300, 809.8076171875); (80.384765625, 300, 550) to (219.615234375, 300, 550)"]},
-  'Courtyard@60/7r': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 1 at (150, 300, 393.90234375)","3 Unclassified Edges: (150, 300, 509.8076171875) to (250.376953125, 300, 335.94921875); (49.623046875, 300, 335.94921875) to (150, 300, 509.8076171875); (49.623046875, 300, 335.94921875) to (250.376953125, 300, 335.94921875)"]},
-  'Courtyard@60/75s': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 1 at (150, 300, 783.0126953125)","3 Unclassified Edges: (139.23046875, 300, 769.615234375) to (150, 300, 809.8076171875); (139.23046875, 300, 769.615234375) to (160.76953125, 300, 769.615234375); (150, 300, 809.8076171875) to (160.76953125, 300, 769.615234375)"]},
-  'Courtyard@75/7r': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 1 at (150, 300, 493.90234375)","3 Unclassified Edges: (150, 300, 809.8076171875) to (276.9697265625, 300, 335.94921875); (23.0302734375, 300, 335.94921875) to (150, 300, 809.8076171875); (23.0302734375, 300, 335.94921875) to (276.9697265625, 300, 335.94921875)"]},
-  'Courtyard@75/22.5r': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 1 at (150, 300, 629.90234375)","3 Unclassified Edges: (150, 300, 809.8076171875) to (222.30859375, 300, 539.94921875); (77.69140625, 300, 539.94921875) to (150, 300, 809.8076171875); (77.69140625, 300, 539.94921875) to (222.30859375, 300, 539.94921875)"]},
-  'Courtyard@75/30r': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 1 at (150, 300, 706.033203125)","3 Unclassified Edges: (108.2900390625, 300, 654.1455078125) to (150, 300, 809.8076171875); (108.2900390625, 300, 654.1455078125) to (191.7099609375, 300, 654.1455078125); (150, 300, 809.8076171875) to (191.7099609375, 300, 654.1455078125)"]},
+  // 'Courtyard@7/22.5s': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (150, 300, 295.267578125)","3 Unclassified Edges: (150, 300, 312.1318359375) to (211.0712890625, 300, 286.8349609375); (88.9287109375, 300, 286.8349609375) to (150, 300, 312.1318359375); (88.9287109375, 300, 286.8349609375) to (211.0712890625, 300, 286.8349609375)"].
+  // 'Courtyard@7/30s': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 2 at (121.2666015625, 300, 319.578125); (150.376953125, 300, 303.2060546875)","4 Unclassified Edges: (148.8681640625, 300, 335.94921875) to (151.1318359375, 300, 335.94921875); (151.1318359375, 300, 335.94921875) to (236.19921875, 300, 286.8349609375); (63.80078125, 300, 286.8349609375) to (148.8681640625, 300, 335.94921875); (63.80078125, 300, 286.8349609375) to (236.19921875, 300, 286.8349609375)"].
+  // 'Courtyard@7/45s': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 2 at (112.2783203125, 300, 319.578125); (171.3505859375, 300, 303.2060546875)","4 Unclassified Edges: (214.05078125, 300, 335.94921875) to (263.1650390625, 300, 286.8349609375); (36.8349609375, 300, 286.8349609375) to (263.1650390625, 300, 286.8349609375); (36.8349609375, 300, 286.8349609375) to (85.94921875, 300, 335.94921875); (85.94921875, 300, 335.94921875) to (214.05078125, 300, 335.94921875)"].
+  // 'Courtyard@7/60s': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 2 at (107.0888671875, 300, 319.578125); (183.458984375, 300, 303.2060546875)","4 Unclassified Edges: (21.2666015625, 300, 286.8349609375) to (278.7333984375, 300, 286.8349609375); (21.2666015625, 300, 286.8349609375) to (49.623046875, 300, 335.94921875); (250.376953125, 300, 335.94921875) to (278.7333984375, 300, 286.8349609375); (49.623046875, 300, 335.94921875) to (250.376953125, 300, 335.94921875)"].
+  // 'Courtyard@7/75s': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 2 at (103.2900390625, 300, 319.578125); (192.3232421875, 300, 303.2060546875)","4 Unclassified Edges: (23.0302734375, 300, 335.94921875) to (276.9697265625, 300, 335.94921875); (276.9697265625, 300, 335.94921875) to (290.1298828125, 300, 286.8349609375); (9.8701171875, 300, 286.8349609375) to (23.0302734375, 300, 335.94921875); (9.8701171875, 300, 286.8349609375) to (290.1298828125, 300, 286.8349609375)"].
+  // 'Courtyard@22.5/45s': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (150, 300, 382.8427734375)","3 Unclassified Edges: (124.263671875, 300, 374.263671875) to (150, 300, 400); (124.263671875, 300, 374.263671875) to (175.736328125, 300, 374.263671875); (150, 300, 400) to (175.736328125, 300, 374.263671875)"].
+  // 'Courtyard@22.5/60s': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (150, 300, 419.4453125)","3 Unclassified Edges: (150, 300, 509.8076171875) to (228.255859375, 300, 374.263671875); (71.744140625, 300, 374.263671875) to (150, 300, 509.8076171875); (71.744140625, 300, 374.263671875) to (228.255859375, 300, 374.263671875)"].
+  // 'Courtyard@22.5/75s': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 2 at (111.0986328125, 300, 484.720703125); (174.1025390625, 300, 429.4921875)","4 Unclassified Edges: (222.30859375, 300, 539.94921875) to (266.703125, 300, 374.263671875); (33.296875, 300, 374.263671875) to (266.703125, 300, 374.263671875); (33.296875, 300, 374.263671875) to (77.69140625, 300, 539.94921875); (77.69140625, 300, 539.94921875) to (222.30859375, 300, 539.94921875)"].
+  // 'Courtyard@30/7r': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (150, 300, 336.1669921875)","3 Unclassified Edges: (148.8681640625, 300, 335.94921875) to (150, 300, 336.6025390625); (148.8681640625, 300, 335.94921875) to (151.1318359375, 300, 335.94921875); (150, 300, 336.6025390625) to (151.1318359375, 300, 335.94921875)"].
+  // 'Courtyard@30/60s': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (150, 300, 452.072265625)","3 Unclassified Edges: (100, 300, 423.205078125) to (150, 300, 509.8076171875); (100, 300, 423.205078125) to (200, 300, 423.205078125); (150, 300, 509.8076171875) to (200, 300, 423.205078125)"].
+  // 'Courtyard@30/75s': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 2 at (115.4697265625, 300, 577.1650390625); (163.9033203125, 300, 500.185546875)","4 Unclassified Edges: (108.2900390625, 300, 654.1455078125) to (191.7099609375, 300, 654.1455078125); (191.7099609375, 300, 654.1455078125) to (253.58984375, 300, 423.205078125); (46.41015625, 300, 423.205078125) to (108.2900390625, 300, 654.1455078125); (46.41015625, 300, 423.205078125) to (253.58984375, 300, 423.205078125)"].
+  // 'Courtyard@45/7r': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (150, 300, 357.2998046875)","3 Unclassified Edges: (150, 300, 400) to (214.05078125, 300, 335.94921875); (85.94921875, 300, 335.94921875) to (150, 300, 400); (85.94921875, 300, 335.94921875) to (214.05078125, 300, 335.94921875)"].
+  // 'Courtyard@45/75s': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (150, 300, 636.6025390625)","3 Unclassified Edges: (150, 300, 809.8076171875) to (219.615234375, 300, 550); (80.384765625, 300, 550) to (150, 300, 809.8076171875); (80.384765625, 300, 550) to (219.615234375, 300, 550)"].
+  // 'Courtyard@60/7r': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (150, 300, 393.90234375)","3 Unclassified Edges: (150, 300, 509.8076171875) to (250.376953125, 300, 335.94921875); (49.623046875, 300, 335.94921875) to (150, 300, 509.8076171875); (49.623046875, 300, 335.94921875) to (250.376953125, 300, 335.94921875)"].
+  // 'Courtyard@60/75s': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (150, 300, 783.0126953125)","3 Unclassified Edges: (139.23046875, 300, 769.615234375) to (150, 300, 809.8076171875); (139.23046875, 300, 769.615234375) to (160.76953125, 300, 769.615234375); (150, 300, 809.8076171875) to (160.76953125, 300, 769.615234375)"].
+  // 'Courtyard@75/7r': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (150, 300, 493.90234375)","3 Unclassified Edges: (150, 300, 809.8076171875) to (276.9697265625, 300, 335.94921875); (23.0302734375, 300, 335.94921875) to (150, 300, 809.8076171875); (23.0302734375, 300, 335.94921875) to (276.9697265625, 300, 335.94921875)"].
+  // 'Courtyard@75/22.5r': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (150, 300, 629.90234375)","3 Unclassified Edges: (150, 300, 809.8076171875) to (222.30859375, 300, 539.94921875); (77.69140625, 300, 539.94921875) to (150, 300, 809.8076171875); (77.69140625, 300, 539.94921875) to (222.30859375, 300, 539.94921875)"].
+  // 'Courtyard@75/30r': cured by the holed roof (holed roof decision 48): no cut, so no cut piece; clean. Was: ["survivingInternal 1 at (150, 300, 706.033203125)","3 Unclassified Edges: (108.2900390625, 300, 654.1455078125) to (150, 300, 809.8076171875); (108.2900390625, 300, 654.1455078125) to (191.7099609375, 300, 654.1455078125); (150, 300, 809.8076171875) to (191.7099609375, 300, 654.1455078125)"].
 };
 
 /**
- * Journal decision 175 and F55, measured at WP3.9.1 at 250 cm storeys, genus 1, enrolled as best effort (decision
- * 172): a courtyard cut that qualifies while collinear with a jutting wall, both at 30 degrees (`jutCutFixtures`). Its
- * signature names its places: two Internal triangles surviving on the cut's plane, y = 300, a Cheek at the cut's outer
- * end, (0, 300, 250), and four Unclassified Edges on y = 300 from x 0 to 127. `CourtyardJutCut`, whose cut does not
- * qualify, is clean, so it is not listed.
+ * Journal decision 175 and F55: the contested-jut courtyards (`courtyardJutFixtures`), at 250 cm storeys, genus 1. The
+ * table is empty: in each case the 30 degree Ring lies wholly inside the jutting Ring, so the solve drops it and its
+ * 30 degree side with it (journal decisions 260 to 262), and both cases build clean. The table stays, so the robustness
+ * sweep holds both cases clean.
  */
-export const JUT_CUT_DEFECTS: ClassedPinTable<JutCutName> = {
-  'CourtyardJutCutSwapped': {residueClass: 'courtyard cut collinear with a jutting wall', outcome: ["survivingInternal 2 at (42.2646484375, 300, 432.13671875); (58.931640625, 300, 457.7353515625)","cheeks 1, expected 0, at (0, 300, 250)","4 Unclassified Edges: (0, 300, 423.205078125) to (0, 300, 450); (0, 300, 423.205078125) to (126.794921875, 300, 423.205078125); (0, 300, 450) to (50, 300, 500); (50, 300, 500) to (126.794921875, 300, 423.205078125)"]},
+export const COURTYARD_JUT_DEFECTS: ClassedPinTable<CourtyardJutName> = {};
+
+/**
+ * WP3.6's finding (courtyard.test.ts), `CUT_OVERSHOOT_DEFECTS`, is gone: roof-gable algorithm B's cut-piece overshoot
+ * (`CutOvershootProbe`, now `OffCentreCourtyard`) was cured by the holed roof (holed roof decisions 48 and 49), which builds
+ * no cut and so no cut piece; it builds clean at genus 1. Was: survivingInternal 1 at (125, 250, 312.546875) and 3
+ * Unclassified Edges on y = 250.
+ */
+
+/**
+ * WP-G2 (gable rise decision 3, journal decision 206): the cases decision 3 cured that are clean by every invariant and
+ * the rise's height oracle, but carry re-tag conflicts, so they are re-pinned here, not promoted: each with exactly its
+ * conflicts. Every one is F69's class: a storey's Wall or Gable reported over the Gable of the storey below on one plane,
+ * as a rise's front buried under a flush upper wall gives. Most carried conflicts before WP-G2 too (up to 19); none were
+ * pinned, since the sweeps never asserted conflicts. `s10h250/Court15` (from none to 1) and `s11h263/Court35` (from none
+ * to 2) are the two that gained conflicts where they had none.
+ *
+ * **Journal decision 220 (WP-G4.2)**: an all-gable wall whose algorithm B piece is not its claimed band is a hip with a
+ * rise. Its accepted cost is more F69 conflicts, pinned exactly here: `s2h250/Court14`, `s2h300/Court14` (2 to 3),
+ * `s2h250/Court29`, `s2h300/Court29` (1 to 2) and `s2h250/Court3` (2 to 3), enrolled from the default run's whole
+ * sweeps, where conflicts are otherwise not asserted. The `s1` Court14 and Court25 rows are re-pinned: the same count,
+ * read off other triangles. `s10h263/Court18` and `s10h300/Court18` keep their conflict here, and their new Unclassified
+ * Edges are pinned in `COURTYARD_DEFECTS`.
+ *
+ * **Journal decisions 243 to 245 (WP-L2)**: every row the three rules move is re-pinned with its measured conflicts, each
+ * noted. `s1h263/Court25` and `s10h263/Court15`, `s10h300/Court15` are enrolled here, cured of their defect pins; the s10
+ * Court18 rows' Unclassified Edges are cured, and their conflict alone stays.
+ *
+ * **Journal decision 264 (WP-C1)**: `s5h250/Court34`, `s5h263/Court34` and `s5h300/Court34` are enrolled here, cured of
+ * their Cheek pins (4, 2 and 2 Cheeks) by the removal of the two-pitch sub-rule; their conflicts fall from 11, 6 and 6 to
+ * 5, 2 and 2.
+ */
+export const GABLE_RISE_CONFLICTS: PinRecord<SeededKey<CourtName>, readonly string[]> = {
+  // Re-pinned by journal decision 220: was "n=(0.000000, 1.000000, 0.000000) d=200.000: Wall storey 1 wall 2 (part 8) over Gable storey 0 wall 14 (part 3)".
+  // Re-pinned by journal decisions 243 to 245 (WP-L2): 1 conflict to 2.
+  // Re-pinned by the holed roof (holed roof decision 48): 2 conflicts to 3, F69's count read off the true roof's triangles, its ids renumbered.
+  // Measured against 9c0389a (2 conflicts there, 3 here; BSA.D327): on y = 200, 1 row to 2, the Wall storey 1 and Gable storey 0 raw triangles overlap by 11,303.3 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's1h250/Court14': ["Court14: n=(0.000000, -1.000000, 0.000000) d=-100.000: Wall storey 1 wall 0 (part 7) over Gable storey 0 wall 1 (part 3)","Court14: n=(0.000000, 1.000000, 0.000000) d=200.000: Wall storey 1 wall 2 (part 7) over Gable storey 0 wall 13 (part 3)","Court14: n=(0.000000, 1.000000, 0.000000) d=200.000: Wall storey 1 wall 2 (part 7) over Gable storey 0 wall 13 (part 5)"],
+  // Re-pinned by journal decision 220: was "... over Gable storey 0 wall 10 (part 3)".
+  // Re-pinned by journal decisions 243 to 245 (WP-L2): the same 1 conflict, read off other parts.
+  // Re-pinned by the holed roof (holed roof decision 48): 1 conflict to 2, F69's count read off the true roof's triangles, its ids renumbered.
+  // Measured against 9c0389a (1 conflict there, 2 here; BSA.D327): on y = 700, 0 rows to 1, the Wall storey 1 and Gable storey 0 raw triangles overlap by 2,500 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's1h250/Court25': ["Court25: n=(0.000000, 1.000000, 0.000000) d=700.000: Wall storey 1 wall 5 (part 8) over Gable storey 0 wall 6 (part 4)","Court25: n=(1.000000, 0.000000, 0.000000) d=100.000: Wall storey 1 wall 1 (part 8) over Gable storey 0 wall 9 (part 5)"],
+  // Enrolled by journal decisions 243 to 245 (WP-L2): its Cell/ShellEdge throw is cured, and it is clean but for this conflict.
+  // Re-pinned by the holed roof (holed roof decision 48): 1 conflict to 2, F69's count read off the true roof's triangles, its ids renumbered.
+  // Measured against 9c0389a (1 conflict there, 2 here; BSA.D327): on y = 700, 0 rows to 1, the Wall storey 1 and Gable storey 0 raw triangles overlap by 2,500 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's1h263/Court25': ["Court25: n=(0.000000, 1.000000, 0.000000) d=700.000: Wall storey 1 wall 5 (part 8) over Gable storey 0 wall 6 (part 4)","Court25: n=(1.000000, 0.000000, 0.000000) d=100.000: Wall storey 1 wall 1 (part 8) over Gable storey 0 wall 9 (part 5)"],
+  // Re-pinned by journal decision 220, as s1h250.
+  // Re-pinned by journal decisions 243 to 245 (WP-L2): 1 conflict to 2.
+  // Re-pinned by the holed roof (holed roof decision 48): 2 conflicts to 3, F69's count read off the true roof's triangles, its ids renumbered.
+  // Measured against 9c0389a (2 conflicts there, 3 here; BSA.D327): on y = 200, 1 row to 2, the Wall storey 1 and Gable storey 0 raw triangles overlap by 11,303.3 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's1h263/Court14': ["Court14: n=(0.000000, -1.000000, 0.000000) d=-100.000: Wall storey 1 wall 0 (part 7) over Gable storey 0 wall 1 (part 3)","Court14: n=(0.000000, 1.000000, 0.000000) d=200.000: Wall storey 1 wall 2 (part 7) over Gable storey 0 wall 13 (part 3)","Court14: n=(0.000000, 1.000000, 0.000000) d=200.000: Wall storey 1 wall 2 (part 7) over Gable storey 0 wall 13 (part 5)"],
+  // Re-pinned by journal decision 220, as s1h250.
+  // Re-pinned by journal decisions 243 to 245 (WP-L2): 1 conflict to 2.
+  // Re-pinned by the holed roof (holed roof decision 48): 2 conflicts to 3, F69's count read off the true roof's triangles, its ids renumbered.
+  // Measured against 9c0389a (2 conflicts there, 3 here; BSA.D327): on y = 200, 1 row to 2, the Wall storey 1 and Gable storey 0 raw triangles overlap by 11,303.3 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's1h300/Court14': ["Court14: n=(0.000000, -1.000000, 0.000000) d=-100.000: Wall storey 1 wall 0 (part 7) over Gable storey 0 wall 1 (part 3)","Court14: n=(0.000000, 1.000000, 0.000000) d=200.000: Wall storey 1 wall 2 (part 7) over Gable storey 0 wall 13 (part 3)","Court14: n=(0.000000, 1.000000, 0.000000) d=200.000: Wall storey 1 wall 2 (part 7) over Gable storey 0 wall 13 (part 5)"],
+  // Re-pinned by journal decision 220, as s1h250.
+  // Re-pinned by journal decisions 243 to 245 (WP-L2): the same 1 conflict, read off other parts.
+  // Re-pinned by the holed roof (holed roof decision 48): 1 conflict to 2, F69's count read off the true roof's triangles, its ids renumbered.
+  // Measured against 9c0389a (1 conflict there, 2 here; BSA.D327): on y = 700, 0 rows to 1, the Wall storey 1 and Gable storey 0 raw triangles overlap by 2,500 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's1h300/Court25': ["Court25: n=(0.000000, 1.000000, 0.000000) d=700.000: Wall storey 1 wall 5 (part 8) over Gable storey 0 wall 6 (part 4)","Court25: n=(1.000000, 0.000000, 0.000000) d=100.000: Wall storey 1 wall 1 (part 8) over Gable storey 0 wall 9 (part 5)"],
+  // Enrolled by journal decision 220: 2 conflicts to 3.
+  // Re-pinned by journal decisions 243 to 245 (WP-L2): 3 conflicts to 2.
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  // Re-pinned by the holed hip solid standing from the floor (ISSUE-building-shell-all-gable-courtyard-tuck.md): the same conflicts; only a winning Wall's part id moved, the hip solid carrying the wall prism's Wall faces again (a part id is provenance only).
+  's2h250/Court14': ["Court14: n=(-1.000000, 0.000000, 0.000000) d=-450.000: Wall storey 1 wall 10 (part 7) over Gable storey 0 wall 10 (part 4)","Court14: n=(1.000000, 0.000000, 0.000000) d=150.000: Wall storey 1 wall 8 (part 7) over Gable storey 0 wall 8 (part 3)"],
+  // Enrolled by journal decision 220: 2 conflicts to 3.
+  // Re-pinned by the holed roof (holed roof decision 48): 3 conflicts to 2, F69's count read off the true roof's triangles, its ids renumbered.
+  // Measured against 9c0389a (3 conflicts there, 2 here; BSA.D327): on x = 250, 1 row to 0, the Wall storey 1 and Gable storey 0 raw triangles overlap by 5,773.5 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's2h250/Court3': ["Court3: n=(0.000000, 1.000000, 0.000000) d=350.000: Wall storey 1 wall 2 (part 6) over Gable storey 0 wall 11 (part 2)","Court3: n=(1.000000, 0.000000, 0.000000) d=250.000: Wall storey 2 wall 1 (part 10) over Gable storey 1 wall 3 (part 9)"],
+  // Enrolled by journal decision 220: 1 conflict to 2.
+  // Re-pinned by the holed roof (holed roof decision 48): 2 conflicts to 1, F69's count read off the true roof's triangles, its ids renumbered.
+  // Measured against 9c0389a (2 conflicts there, 1 here; BSA.D327): on y = 250, 1 row to 0, the Wall storey 1 and Gable storey 0 raw triangles overlap by 8,477.5 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's2h250/Court29': ["Court29: n=(-1.000000, 0.000000, 0.000000) d=-150.000: Wall storey 1 wall 5 (part 5) over Gable storey 0 wall 7 (part 3)"],
+  // Enrolled by journal decision 220: 2 conflicts to 3.
+  // Re-pinned by journal decisions 243 to 245 (WP-L2): 3 conflicts to 2.
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  // Re-pinned by the holed hip solid standing from the floor (ISSUE-building-shell-all-gable-courtyard-tuck.md): the same conflicts; only a winning Wall's part id moved, the hip solid carrying the wall prism's Wall faces again (a part id is provenance only).
+  's2h300/Court14': ["Court14: n=(-1.000000, 0.000000, 0.000000) d=-450.000: Wall storey 1 wall 10 (part 7) over Gable storey 0 wall 10 (part 4)","Court14: n=(1.000000, 0.000000, 0.000000) d=150.000: Wall storey 1 wall 8 (part 7) over Gable storey 0 wall 8 (part 3)"],
+  // Enrolled by journal decision 220: 1 conflict to 2.
+  // Re-pinned by the holed roof (holed roof decision 48): 2 conflicts to 1, F69's count read off the true roof's triangles, its ids renumbered.
+  // Measured against 9c0389a (2 conflicts there, 1 here; BSA.D327): on y = 250, 1 row to 0, the Wall storey 1 and Gable storey 0 raw triangles overlap by 8,477.5 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's2h300/Court29': ["Court29: n=(-1.000000, 0.000000, 0.000000) d=-150.000: Wall storey 1 wall 5 (part 5) over Gable storey 0 wall 7 (part 3)"],
+  // Enrolled by journal decision 264 (WP-C1): its 4 Cheeks are cured, and it is clean but for these conflicts (11 before, unpinned).
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  // Re-pinned by the holed hip solid standing from the floor (ISSUE-building-shell-all-gable-courtyard-tuck.md): the same conflicts; only a winning Wall's part id moved, the hip solid carrying the wall prism's Wall faces again (a part id is provenance only).
+  's5h250/Court34': ["Court34: n=(-1.000000, 0.000000, 0.000000) d=0.000: Wall storey 1 wall 10 (part 6) over Gable storey 0 wall 10 (part 3)","Court34: n=(-1.000000, 0.000000, 0.000000) d=0.000: Wall storey 1 wall 11 (part 6) over Gable storey 0 wall 10 (part 3)","Court34: n=(-1.000000, 0.000000, 0.000000) d=0.000: Wall storey 1 wall 9 (part 6) over Gable storey 0 wall 9 (part 2)","Court34: n=(1.000000, 0.000000, 0.000000) d=600.000: Wall storey 1 wall 5 (part 6) over Gable storey 0 wall 5 (part 2)","Court34: n=(1.000000, 0.000000, 0.000000) d=600.000: Wall storey 2 wall 1 (part 10) over Gable storey 1 wall 5 (part 7)"],
+  // Enrolled by journal decision 264 (WP-C1): its 2 Cheeks are cured, and it is clean but for these conflicts (6 before, unpinned).
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  // Re-pinned by the holed hip solid standing from the floor (ISSUE-building-shell-all-gable-courtyard-tuck.md): 2 conflicts to 1, F69's count: each moved row's raw overlap is unmoved, measured, and the union's triangles on its plane are not.
+  // Measured against 9c0389a (2 conflicts there, 1 here; BSA.D327): on x = 600, 1 row to 0, the Wall storey 2 and Gable storey 1 raw triangles overlap by 13,032.2 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's5h263/Court34': ["Court34: n=(-1.000000, 0.000000, 0.000000) d=0.000: Wall storey 1 wall 10 (part 6) over Gable storey 0 wall 10 (part 3)"],
+  // Enrolled by journal decision 264 (WP-C1), as s5h263.
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  // Re-pinned by the holed hip solid standing from the floor (ISSUE-building-shell-all-gable-courtyard-tuck.md): 2 conflicts to 1, F69's count: each moved row's raw overlap is unmoved, measured, and the union's triangles on its plane are not.
+  // Measured against 9c0389a (2 conflicts there, 1 here; BSA.D327): on x = 600, 1 row to 0, the Wall storey 2 and Gable storey 1 raw triangles overlap by 13,032.2 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's5h300/Court34': ["Court34: n=(-1.000000, 0.000000, 0.000000) d=0.000: Wall storey 1 wall 10 (part 6) over Gable storey 0 wall 10 (part 3)"],
+  // Re-pinned by the holed roof (holed roof decision 48): 3 conflicts to 2, F69's count read off the true roof's triangles, its ids renumbered.
+  // Measured against 9c0389a (3 conflicts there, 2 here; BSA.D327): on y = 750, 1 row to 0, the Wall storey 1 and Gable storey 0 raw triangles overlap by 7,535.5 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's7h250/Court22': ["Court22: n=(0.000000, -1.000000, 0.000000) d=-100.000: Wall storey 1 wall 4 (part 7) over Gable storey 0 wall 1 (part 2)","Court22: n=(0.000000, -1.000000, 0.000000) d=-100.000: Wall storey 2 wall 0 (part 10) over Gable storey 1 wall 4 (part 9)"],
+  // Re-pinned by the holed roof (holed roof decision 48): 2 conflicts to 2, F69's count read off the true roof's triangles, its ids renumbered.
+  // Measured against 9c0389a (2 conflicts there, 2 here; BSA.D327): on y = 100, 0 rows to 1, the Wall storey 1 and Gable storey 0 raw triangles overlap by 17,681.3 cm2 at both; on y = 750, 1 row to 0, the Wall storey 1 and Gable storey 0 raw triangles overlap by 7,535.5 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's7h263/Court22': ["Court22: n=(0.000000, -1.000000, 0.000000) d=-100.000: Wall storey 1 wall 4 (part 7) over Gable storey 0 wall 1 (part 2)","Court22: n=(0.000000, -1.000000, 0.000000) d=-100.000: Wall storey 2 wall 0 (part 10) over Gable storey 1 wall 4 (part 9)"],
+  // Re-pinned by the holed roof (holed roof decision 48): 3 conflicts to 2, F69's count read off the true roof's triangles, its ids renumbered.
+  // Measured against 9c0389a (3 conflicts there, 2 here; BSA.D327): on y = 750, 1 row to 0, the Wall storey 1 and Gable storey 0 raw triangles overlap by 7,535.5 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's7h300/Court22': ["Court22: n=(0.000000, -1.000000, 0.000000) d=-100.000: Wall storey 1 wall 4 (part 7) over Gable storey 0 wall 1 (part 2)","Court22: n=(0.000000, -1.000000, 0.000000) d=-100.000: Wall storey 2 wall 0 (part 10) over Gable storey 1 wall 4 (part 9)"],
+  // Re-pinned by journal decision 231 (and 233), at all three heights: 1 conflict more. Storey 1's rise [250, 500] on its
+  // y = 50 wall (part 17, capped at storey 2's wall top) lost its limit, the y = 150 wall being gabled along its whole
+  // length, so it runs on to that wall and stands above its gable there. Its back face is then coplanar with storey 2's
+  // wall 6 on y = 150, and the re-tag pass reports that Wall over it: F69's report, as for part 14 on the same plane.
+  // Re-pinned by journal decisions 243 to 245 (WP-L2): the same 15 conflicts, read off other parts.
+  // Re-pinned by the holed roof (holed roof decision 48): 15 conflicts to 16, F69's count read off the true roof's triangles, its ids renumbered.
+  // Re-pinned by the holed hip solid standing from the floor (ISSUE-building-shell-all-gable-courtyard-tuck.md): the same conflicts; only a winning Wall's part id moved, the hip solid carrying the wall prism's Wall faces again (a part id is provenance only).
+  // Measured against 9c0389a (15 conflicts there, 16 here; BSA.D327): on x = 100, 1 row to 2, the Wall storey 1 and Gable storey 0 raw triangles overlap by 13,032.2 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's9h250/Court0': ["Court0: n=(-1.000000, 0.000000, 0.000000) d=-100.000: Wall storey 1 wall 10 (part 9) over Gable storey 0 wall 9 (part 7)","Court0: n=(-1.000000, 0.000000, 0.000000) d=-100.000: Wall storey 1 wall 9 (part 9) over Gable storey 0 wall 9 (part 7)","Court0: n=(-1.000000, 0.000000, 0.000000) d=-100.000: Wall storey 2 wall 7 (part 18) over Gable storey 1 wall 9 (part 16)","Court0: n=(0.000000, -1.000000, 0.000000) d=-250.000: Gable storey 0 wall 12 (part 3) over Gable storey 1 wall 12 (part 12)","Court0: n=(0.000000, -1.000000, 0.000000) d=-250.000: Wall storey 1 wall 12 (part 10) over Gable storey 0 wall 12 (part 3)","Court0: n=(0.000000, -1.000000, 0.000000) d=-50.000: Wall storey 1 wall 1 (part 10) over Gable storey 0 wall 1 (part 5)","Court0: n=(0.000000, -1.000000, 0.000000) d=-50.000: Wall storey 2 wall 0 (part 18) over Gable storey 1 wall 1 (part 14)","Court0: n=(0.000000, 1.000000, 0.000000) d=150.000: Wall storey 1 wall 14 (part 10) over Gable storey 0 wall 14 (part 4)","Court0: n=(0.000000, 1.000000, 0.000000) d=150.000: Wall storey 2 wall 6 (part 18) over Gable storey 1 wall 14 (part 13)","Court0: n=(0.000000, 1.000000, 0.000000) d=150.000: Wall storey 2 wall 6 (part 18) over Gable storey 1 wall 14 (part 14)","Court0: n=(0.000000, 1.000000, 0.000000) d=450.000: Wall storey 2 wall 4 (part 18) over Gable storey 1 wall 6 (part 15)","Court0: n=(1.000000, 0.000000, 0.000000) d=650.000: Wall storey 1 wall 3 (part 9) over Gable storey 0 wall 3 (part 2)","Court0: n=(1.000000, 0.000000, 0.000000) d=650.000: Wall storey 1 wall 4 (part 9) over Gable storey 0 wall 3 (part 2)","Court0: n=(1.000000, 0.000000, 0.000000) d=650.000: Wall storey 1 wall 5 (part 9) over Gable storey 0 wall 3 (part 2)","Court0: n=(1.000000, 0.000000, 0.000000) d=650.000: Wall storey 2 wall 2 (part 18) over Gable storey 1 wall 3 (part 11)","Court0: n=(1.000000, 0.000000, 0.000000) d=650.000: Wall storey 2 wall 3 (part 18) over Gable storey 1 wall 3 (part 11)"],
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  's9h250/Court27': ["Court27: n=(0.000000, -1.000000, 0.000000) d=-150.000: Wall storey 1 wall 0 (part 3) over Gable storey 0 wall 1 (part 2)","Court27: n=(0.000000, -1.000000, 0.000000) d=-150.000: Wall storey 2 wall 0 (part 6) over Gable storey 1 wall 0 (part 5)"],
+  // Re-pinned by journal decision 231, as s9h250.
+  // Re-pinned by journal decisions 243 to 245 (WP-L2): the same 11 conflicts, read off other parts.
+  // Re-pinned by the holed roof (holed roof decision 48): 11 conflicts to 15, F69's count read off the true roof's triangles, its ids renumbered.
+  // Re-pinned by the holed hip solid standing from the floor (ISSUE-building-shell-all-gable-courtyard-tuck.md): 15 conflicts to 11, as at 9c0389a, F69's count: each moved row's raw overlap is unmoved, measured, and the union's triangles on its plane are not.
+  's9h263/Court0': ["Court0: n=(-1.000000, 0.000000, 0.000000) d=-100.000: Wall storey 2 wall 7 (part 18) over Gable storey 1 wall 9 (part 16)","Court0: n=(0.000000, -1.000000, 0.000000) d=-250.000: Wall storey 1 wall 12 (part 10) over Gable storey 0 wall 12 (part 3)","Court0: n=(0.000000, -1.000000, 0.000000) d=-50.000: Wall storey 1 wall 1 (part 10) over Gable storey 0 wall 1 (part 5)","Court0: n=(0.000000, -1.000000, 0.000000) d=-50.000: Wall storey 2 wall 0 (part 18) over Gable storey 1 wall 1 (part 14)","Court0: n=(0.000000, 1.000000, 0.000000) d=150.000: Wall storey 1 wall 14 (part 10) over Gable storey 0 wall 14 (part 4)","Court0: n=(0.000000, 1.000000, 0.000000) d=150.000: Wall storey 2 wall 6 (part 18) over Gable storey 1 wall 14 (part 13)","Court0: n=(0.000000, 1.000000, 0.000000) d=150.000: Wall storey 2 wall 6 (part 18) over Gable storey 1 wall 14 (part 14)","Court0: n=(0.000000, 1.000000, 0.000000) d=450.000: Wall storey 2 wall 4 (part 18) over Gable storey 1 wall 6 (part 15)","Court0: n=(1.000000, 0.000000, 0.000000) d=650.000: Wall storey 1 wall 4 (part 10) over Gable storey 0 wall 3 (part 2)","Court0: n=(1.000000, 0.000000, 0.000000) d=650.000: Wall storey 2 wall 2 (part 18) over Gable storey 1 wall 3 (part 11)","Court0: n=(1.000000, 0.000000, 0.000000) d=650.000: Wall storey 2 wall 3 (part 18) over Gable storey 1 wall 3 (part 11)"],
+  // Re-pinned by the holed roof (holed roof decision 48): 1 conflict to 2, F69's count read off the true roof's triangles, its ids renumbered.
+  // Measured against 9c0389a (1 conflict there, 2 here; BSA.D327): on y = 150, 0 rows to 1, the Wall storey 1 and Gable storey 0 raw triangles overlap by 15,625 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's9h263/Court27': ["Court27: n=(0.000000, -1.000000, 0.000000) d=-150.000: Wall storey 1 wall 0 (part 3) over Gable storey 0 wall 1 (part 2)","Court27: n=(0.000000, -1.000000, 0.000000) d=-150.000: Wall storey 2 wall 0 (part 6) over Gable storey 1 wall 0 (part 5)"],
+  // Re-pinned by journal decision 231, as s9h250.
+  // Re-pinned by journal decisions 243 to 245 (WP-L2): the same 11 conflicts, read off other parts.
+  // Re-pinned by the holed roof (holed roof decision 48): 11 conflicts to 15, F69's count read off the true roof's triangles, its ids renumbered.
+  // Re-pinned by the holed hip solid standing from the floor (ISSUE-building-shell-all-gable-courtyard-tuck.md): 15 conflicts to 11, as at 9c0389a, F69's count: each moved row's raw overlap is unmoved, measured, and the union's triangles on its plane are not.
+  's9h300/Court0': ["Court0: n=(-1.000000, 0.000000, 0.000000) d=-100.000: Wall storey 2 wall 7 (part 18) over Gable storey 1 wall 9 (part 16)","Court0: n=(0.000000, -1.000000, 0.000000) d=-250.000: Wall storey 1 wall 12 (part 10) over Gable storey 0 wall 12 (part 3)","Court0: n=(0.000000, -1.000000, 0.000000) d=-50.000: Wall storey 1 wall 1 (part 10) over Gable storey 0 wall 1 (part 5)","Court0: n=(0.000000, -1.000000, 0.000000) d=-50.000: Wall storey 2 wall 0 (part 18) over Gable storey 1 wall 1 (part 14)","Court0: n=(0.000000, 1.000000, 0.000000) d=150.000: Wall storey 1 wall 14 (part 10) over Gable storey 0 wall 14 (part 4)","Court0: n=(0.000000, 1.000000, 0.000000) d=150.000: Wall storey 2 wall 6 (part 18) over Gable storey 1 wall 14 (part 13)","Court0: n=(0.000000, 1.000000, 0.000000) d=150.000: Wall storey 2 wall 6 (part 18) over Gable storey 1 wall 14 (part 14)","Court0: n=(0.000000, 1.000000, 0.000000) d=450.000: Wall storey 2 wall 4 (part 18) over Gable storey 1 wall 6 (part 15)","Court0: n=(1.000000, 0.000000, 0.000000) d=650.000: Wall storey 1 wall 4 (part 10) over Gable storey 0 wall 3 (part 2)","Court0: n=(1.000000, 0.000000, 0.000000) d=650.000: Wall storey 2 wall 2 (part 18) over Gable storey 1 wall 3 (part 11)","Court0: n=(1.000000, 0.000000, 0.000000) d=650.000: Wall storey 2 wall 3 (part 18) over Gable storey 1 wall 3 (part 11)"],
+  // Re-pinned by the holed roof (holed roof decision 48): 1 conflict to 2, F69's count read off the true roof's triangles, its ids renumbered.
+  // Measured against 9c0389a (1 conflict there, 2 here; BSA.D327): on y = 150, 0 rows to 1, the Wall storey 1 and Gable storey 0 raw triangles overlap by 15,625 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's9h300/Court27': ["Court27: n=(0.000000, -1.000000, 0.000000) d=-150.000: Wall storey 1 wall 0 (part 3) over Gable storey 0 wall 1 (part 2)","Court27: n=(0.000000, -1.000000, 0.000000) d=-150.000: Wall storey 2 wall 0 (part 6) over Gable storey 1 wall 0 (part 5)"],
+  // Re-pinned by journal decisions 243 to 245 (WP-L2): the same 1 conflict, read off other parts.
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  's10h250/Court15': ["Court15: n=(1.000000, 0.000000, 0.000000) d=650.000: Wall storey 1 wall 5 (part 4) over Gable storey 0 wall 2 (part 2)"],
+  // Enrolled by journal decisions 243 to 245 (WP-L2): its cut-piece overshoot is cured (a covered rise is built over it), and it is clean but for this conflict.
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  's10h263/Court15': ["Court15: n=(1.000000, 0.000000, 0.000000) d=650.000: Wall storey 1 wall 5 (part 4) over Gable storey 0 wall 2 (part 2)"],
+  // Enrolled by journal decisions 243 to 245 (WP-L2), as s10h263.
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  's10h300/Court15': ["Court15: n=(1.000000, 0.000000, 0.000000) d=650.000: Wall storey 1 wall 5 (part 4) over Gable storey 0 wall 2 (part 2)"],
+  // Re-pinned by journal decisions 243 to 245 (WP-L2): the same 1 conflict, read off other parts.
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  's10h250/Court18': ["Court18: n=(0.000000, 1.000000, 0.000000) d=400.000: Wall storey 2 wall 2 (part 12) over Gable storey 1 wall 2 (part 11)"],
+  // Re-pinned by journal decisions 243 to 245 (WP-L2): the same 1 conflict, read off other parts.
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  's10h263/Court18': ["Court18: n=(0.000000, 1.000000, 0.000000) d=400.000: Wall storey 2 wall 2 (part 12) over Gable storey 1 wall 2 (part 11)"],
+  // Re-pinned by journal decisions 243 to 245 (WP-L2): the same 1 conflict, read off other parts.
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  's10h300/Court18': ["Court18: n=(0.000000, 1.000000, 0.000000) d=400.000: Wall storey 2 wall 2 (part 12) over Gable storey 1 wall 2 (part 11)"],
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  's11h250/Court35': ["Court35: n=(1.000000, 0.000000, 0.000000) d=600.000: Wall storey 1 wall 2 (part 4) over Gable storey 0 wall 2 (part 2)","Court35: n=(1.000000, 0.000000, 0.000000) d=600.000: Wall storey 2 wall 1 (part 7) over Gable storey 1 wall 2 (part 6)"],
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  's11h263/Court35': ["Court35: n=(1.000000, 0.000000, 0.000000) d=600.000: Wall storey 1 wall 2 (part 4) over Gable storey 0 wall 2 (part 2)","Court35: n=(1.000000, 0.000000, 0.000000) d=600.000: Wall storey 2 wall 1 (part 7) over Gable storey 1 wall 2 (part 6)"],
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  's11h300/Court35': ["Court35: n=(1.000000, 0.000000, 0.000000) d=600.000: Wall storey 1 wall 2 (part 4) over Gable storey 0 wall 2 (part 2)","Court35: n=(1.000000, 0.000000, 0.000000) d=600.000: Wall storey 2 wall 1 (part 7) over Gable storey 1 wall 2 (part 6)"],
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  // Re-pinned by the holed hip solid standing from the floor (ISSUE-building-shell-all-gable-courtyard-tuck.md): the same conflicts; only a winning Wall's part id moved, the hip solid carrying the wall prism's Wall faces again (a part id is provenance only).
+  's12h250/Court2': ["Court2: n=(-1.000000, 0.000000, 0.000000) d=-50.000: Wall storey 1 wall 7 (part 5) over Gable storey 0 wall 7 (part 3)","Court2: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 1 wall 5 (part 5) over Gable storey 0 wall 5 (part 2)","Court2: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 2 wall 2 (part 8) over Gable storey 1 wall 5 (part 6)"],
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  // Re-pinned by the holed hip solid standing from the floor (ISSUE-building-shell-all-gable-courtyard-tuck.md): the same conflicts; only a winning Wall's part id moved, the hip solid carrying the wall prism's Wall faces again (a part id is provenance only).
+  's12h263/Court2': ["Court2: n=(-1.000000, 0.000000, 0.000000) d=-50.000: Wall storey 1 wall 7 (part 5) over Gable storey 0 wall 7 (part 3)","Court2: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 1 wall 5 (part 5) over Gable storey 0 wall 5 (part 2)","Court2: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 2 wall 2 (part 8) over Gable storey 1 wall 5 (part 6)"],
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  // Re-pinned by the holed hip solid standing from the floor (ISSUE-building-shell-all-gable-courtyard-tuck.md): the same conflicts; only a winning Wall's part id moved, the hip solid carrying the wall prism's Wall faces again (a part id is provenance only).
+  's12h300/Court2': ["Court2: n=(-1.000000, 0.000000, 0.000000) d=-50.000: Wall storey 1 wall 7 (part 5) over Gable storey 0 wall 7 (part 3)","Court2: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 1 wall 5 (part 5) over Gable storey 0 wall 5 (part 2)","Court2: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 2 wall 2 (part 8) over Gable storey 1 wall 5 (part 6)"],
 };
 
 /**
- * WP3.6's finding (courtyard.test.ts): roof-gable algorithm B's cut-piece overshoot, `CutOvershootProbe`, with exactly
- * its violations at genus 1.
+ * WP-G2: the split-band cases decision 3 cured that carry conflicts, as `GABLE_RISE_CONFLICTS` holds the courtyards'.
+ * **Journal decision 220 (WP-G4.2)** enrols, from the default run's whole sweeps, the split courtyards that gained F69
+ * conflicts as its accepted cost (`s1h250/SplitCourt13`, `s1h300/SplitCourt13` 4 to 5, `s1h250/SplitCourt14` 1 to 2,
+ * `s1h300/SplitCourt20` 13 to 14, `s2h250/SplitCourt29`, `s2h300/SplitCourt29` 1 to 2), and re-pins
+ * `s13h250/SplitCourt30` (3 to 2).
+ * **Journal decision 264 (WP-C1)** enrols the conflicts of the six split courtyards it gives a Cheek
+ * (`SPLIT_COURTYARD_DEFECTS`): `s1h250/SplitCourt1`, `s1h300/SplitCourt1` (3 to 4), `s2h250/SplitCourt11` (2 to 2, read
+ * off other parts), `s2h300/SplitCourt11` (2 to 1), and re-pins `s2h250/SplitCourt29`, `s2h300/SplitCourt29` (the same 2,
+ * read off other parts).
  */
-export const CUT_OVERSHOOT_DEFECTS: ClassedPin = {
-  residueClass: 'algorithm-B cut-piece overshoot',
-  outcome: [
-    'survivingInternal 1 at (125, 250, 312.546875)',
-    '3 Unclassified Edges: (100, 250, 307.7353515625) to (125, 250, 322.1689453125); (100, 250, 307.7353515625) to (150, 250, 307.7353515625); (125, 250, 322.1689453125) to (150, 250, 307.7353515625)',
-  ],
+export const GABLE_RISE_SPLIT_CONFLICTS: PinRecord<SeededKey<SplitCourtName>, readonly string[]> = {
+  // Enrolled by journal decision 220: 4 conflicts to 5.
+  // Re-pinned by the holed roof (holed roof decision 48): 5 conflicts to 4, F69's count read off the true roof's triangles, its ids renumbered.
+  // Re-pinned by the holed hip solid standing from the floor (ISSUE-building-shell-all-gable-courtyard-tuck.md): 4 conflicts to 5, as at 9c0389a, F69's count: each moved row's raw overlap is unmoved, measured, and the union's triangles on its plane are not.
+  's1h250/SplitCourt13': ["SplitCourt13: n=(-1.000000, 0.000000, 0.000000) d=-450.000: Wall storey 1 wall 13 (part 6) over Gable storey 0 wall 13 (part 2)","SplitCourt13: n=(-1.000000, 0.000000, 0.000000) d=-450.000: Wall storey 2 wall 4 (part 10) over Gable storey 1 wall 13 (part 7)","SplitCourt13: n=(0.000000, -1.000000, 0.000000) d=-350.000: Wall storey 1 wall 12 (part 6) over Gable storey 0 wall 12 (part 4)","SplitCourt13: n=(0.000000, -1.000000, 0.000000) d=-350.000: Wall storey 2 wall 3 (part 10) over Gable storey 1 wall 12 (part 9)","SplitCourt13: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 2 wall 8 (part 10) over Gable storey 1 wall 5 (part 8)"],
+  // Enrolled by journal decision 220: 1 conflict to 2.
+  // Re-pinned by journal decisions 243 to 245 (WP-L2): 2 conflicts to 3.
+  // Re-pinned by the holed roof (holed roof decision 48): 3 conflicts to 2, F69's count read off the true roof's triangles, its ids renumbered.
+  // Measured against 9c0389a (3 conflicts there, 2 here; BSA.D327): on y = 250, 2 rows to 1, the Wall storey 1 and Gable storey 0 raw triangles overlap by 11,774.3 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's1h250/SplitCourt14': ["SplitCourt14: n=(0.000000, -1.000000, 0.000000) d=-100.000: Wall storey 1 wall 0 (part 8) over Gable storey 0 wall 1 (part 3)","SplitCourt14: n=(0.000000, 1.000000, 0.000000) d=250.000: Wall storey 1 wall 2 (part 8) over Gable storey 0 wall 14 (part 5)"],
+  // Enrolled by journal decision 220: 4 conflicts to 5.
+  // Re-pinned by the holed roof (holed roof decision 48): 5 conflicts to 4, F69's count read off the true roof's triangles, its ids renumbered.
+  // Re-pinned by the holed hip solid standing from the floor (ISSUE-building-shell-all-gable-courtyard-tuck.md): 4 conflicts to 5, as at 9c0389a, F69's count: each moved row's raw overlap is unmoved, measured, and the union's triangles on its plane are not.
+  's1h300/SplitCourt13': ["SplitCourt13: n=(-1.000000, 0.000000, 0.000000) d=-450.000: Wall storey 1 wall 13 (part 6) over Gable storey 0 wall 13 (part 2)","SplitCourt13: n=(-1.000000, 0.000000, 0.000000) d=-450.000: Wall storey 2 wall 4 (part 10) over Gable storey 1 wall 13 (part 7)","SplitCourt13: n=(0.000000, -1.000000, 0.000000) d=-350.000: Wall storey 1 wall 12 (part 6) over Gable storey 0 wall 12 (part 4)","SplitCourt13: n=(0.000000, -1.000000, 0.000000) d=-350.000: Wall storey 2 wall 3 (part 10) over Gable storey 1 wall 12 (part 9)","SplitCourt13: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 2 wall 8 (part 10) over Gable storey 1 wall 5 (part 8)"],
+  // Enrolled by journal decision 220: 13 conflicts to 14.
+  // Re-pinned by journal decisions 243 to 245 (WP-L2): the same 14 conflicts, read off other parts.
+  // Re-pinned by the holed roof (holed roof decision 48): 14 conflicts to 13, F69's count read off the true roof's triangles, its ids renumbered.
+  // Measured against 9c0389a (14 conflicts there, 13 here; BSA.D327): on y = 600, 3 rows to 2, the Wall storey 1 and Gable storey 0 raw triangles overlap by 70,000 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's1h300/SplitCourt20': ["SplitCourt20: n=(-1.000000, 0.000000, 0.000000) d=-150.000: Wall storey 1 wall 11 (part 8) over Gable storey 0 wall 7 (part 3)","SplitCourt20: n=(-1.000000, 0.000000, 0.000000) d=-150.000: Wall storey 1 wall 6 (part 8) over Gable storey 0 wall 7 (part 3)","SplitCourt20: n=(-1.000000, 0.000000, 0.000000) d=-150.000: Wall storey 2 wall 3 (part 16) over Gable storey 1 wall 11 (part 13)","SplitCourt20: n=(-1.000000, 0.000000, 0.000000) d=-150.000: Wall storey 2 wall 9 (part 18) over Gable storey 1 wall 6 (part 11)","SplitCourt20: n=(0.000000, -1.000000, 0.000000) d=-600.000: Wall storey 1 wall 7 (part 8) over Gable storey 0 wall 11 (part 2)","SplitCourt20: n=(0.000000, -1.000000, 0.000000) d=-600.000: Wall storey 1 wall 8 (part 8) over Gable storey 0 wall 11 (part 2)","SplitCourt20: n=(0.000000, -1.000000, 0.000000) d=-600.000: Wall storey 2 wall 4 (part 18) over Gable storey 1 wall 7 (part 10)","SplitCourt20: n=(0.000000, -1.000000, 0.000000) d=-600.000: Wall storey 2 wall 5 (part 18) over Gable storey 1 wall 7 (part 10)","SplitCourt20: n=(0.000000, 1.000000, 0.000000) d=700.000: Wall storey 1 wall 4 (part 8) over Gable storey 0 wall 5 (part 2)","SplitCourt20: n=(0.000000, 1.000000, 0.000000) d=700.000: Wall storey 1 wall 5 (part 8) over Gable storey 0 wall 5 (part 2)","SplitCourt20: n=(0.000000, 1.000000, 0.000000) d=700.000: Wall storey 2 wall 7 (part 18) over Gable storey 1 wall 4 (part 10)","SplitCourt20: n=(0.000000, 1.000000, 0.000000) d=700.000: Wall storey 2 wall 8 (part 18) over Gable storey 1 wall 4 (part 10)","SplitCourt20: n=(1.000000, 0.000000, 0.000000) d=750.000: Wall storey 1 wall 2 (part 8) over Gable storey 0 wall 3 (part 5)"],
+  // Enrolled by journal decision 264 (WP-C1), with its Cheek in SPLIT_COURTYARD_DEFECTS: 3 conflicts to 4.
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  's1h250/SplitCourt1': ["SplitCourt1: n=(-1.000000, 0.000000, 0.000000) d=-600.000: Wall storey 1 wall 4 (part 9) over Gable storey 0 wall 13 (part 7)","SplitCourt1: n=(-1.000000, 0.000000, 0.000000) d=-600.000: Wall storey 2 wall 4 (part 14) over Gable storey 1 wall 4 (part 12)","SplitCourt1: n=(1.000000, 0.000000, 0.000000) d=900.000: Wall storey 1 wall 1 (part 9) over Gable storey 0 wall 2 (part 2)","SplitCourt1: n=(1.000000, 0.000000, 0.000000) d=900.000: Wall storey 2 wall 1 (part 14) over Gable storey 1 wall 1 (part 11)"],
+  // Enrolled by journal decision 264 (WP-C1), as s1h250.
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  's1h300/SplitCourt1': ["SplitCourt1: n=(-1.000000, 0.000000, 0.000000) d=-600.000: Wall storey 1 wall 4 (part 9) over Gable storey 0 wall 13 (part 7)","SplitCourt1: n=(-1.000000, 0.000000, 0.000000) d=-600.000: Wall storey 2 wall 4 (part 14) over Gable storey 1 wall 4 (part 12)","SplitCourt1: n=(1.000000, 0.000000, 0.000000) d=900.000: Wall storey 1 wall 1 (part 9) over Gable storey 0 wall 2 (part 2)","SplitCourt1: n=(1.000000, 0.000000, 0.000000) d=900.000: Wall storey 2 wall 1 (part 14) over Gable storey 1 wall 1 (part 11)"],
+  // Enrolled by journal decision 264 (WP-C1), with its Cheek in SPLIT_COURTYARD_DEFECTS: 2 conflicts to 2, read off other parts.
+  // Re-pinned by the holed roof (holed roof decision 48): 2 conflicts to 3, F69's count read off the true roof's triangles, its ids renumbered.
+  // Re-pinned by the holed hip solid standing from the floor (ISSUE-building-shell-all-gable-courtyard-tuck.md): 3 conflicts to 2, as at 9c0389a, F69's count: each moved row's raw overlap is unmoved, measured, and the union's triangles on its plane are not.
+  's2h250/SplitCourt11': ["SplitCourt11: n=(-1.000000, 0.000000, 0.000000) d=0.000: Wall storey 1 wall 7 (part 8) over Gable storey 0 wall 7 (part 3)","SplitCourt11: n=(-1.000000, 0.000000, 0.000000) d=0.000: Wall storey 1 wall 8 (part 8) over Gable storey 0 wall 8 (part 2)"],
+  // Enrolled by journal decision 264 (WP-C1), with its Cheek in SPLIT_COURTYARD_DEFECTS: 2 conflicts to 1.
+  // Re-pinned by the holed roof (holed roof decision 48): 1 conflict to 2, F69's count read off the true roof's triangles, its ids renumbered.
+  // Re-pinned by the holed hip solid standing from the floor (ISSUE-building-shell-all-gable-courtyard-tuck.md): 2 conflicts to 3, F69's count: each moved row's raw overlap is unmoved, measured, and the union's triangles on its plane are not.
+  // Measured against 9c0389a (1 conflict there, 3 here; BSA.D327): on x = 0, 1 row to 2, the Wall storey 1 and Gable storey 0 raw triangles overlap by 75,995.8 cm2 at both; on x = 250, 0 rows to 1, the Wall storey 1 and Gable storey 0 raw triangles overlap by 1,629.0 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's2h300/SplitCourt11': ["SplitCourt11: n=(-1.000000, 0.000000, 0.000000) d=0.000: Wall storey 1 wall 7 (part 7) over Gable storey 0 wall 7 (part 3)","SplitCourt11: n=(-1.000000, 0.000000, 0.000000) d=0.000: Wall storey 1 wall 8 (part 7) over Gable storey 0 wall 8 (part 2)","SplitCourt11: n=(1.000000, 0.000000, 0.000000) d=250.000: Wall storey 1 wall 9 (part 7) over Gable storey 0 wall 9 (part 2)"],
+  // Enrolled by journal decision 220: 1 conflict to 2.
+  // Re-pinned by journal decision 264 (WP-C1), its Cheek in SPLIT_COURTYARD_DEFECTS: the same 2 conflicts, read off other parts.
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  's2h250/SplitCourt29': ["SplitCourt29: n=(-1.000000, 0.000000, 0.000000) d=-150.000: Wall storey 1 wall 5 (part 6) over Gable storey 0 wall 6 (part 4)","SplitCourt29: n=(0.000000, -1.000000, 0.000000) d=-250.000: Wall storey 1 wall 2 (part 6) over Gable storey 0 wall 10 (part 5)"],
+  // Enrolled by journal decision 220: 1 conflict to 2.
+  // Re-pinned by journal decision 264 (WP-C1), as s2h250.
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  's2h300/SplitCourt29': ["SplitCourt29: n=(-1.000000, 0.000000, 0.000000) d=-150.000: Wall storey 1 wall 5 (part 6) over Gable storey 0 wall 6 (part 4)","SplitCourt29: n=(0.000000, -1.000000, 0.000000) d=-250.000: Wall storey 1 wall 2 (part 6) over Gable storey 0 wall 10 (part 5)"],
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  's2h250/SplitCourt10': ["SplitCourt10: n=(1.000000, 0.000000, 0.000000) d=800.000: Wall storey 1 wall 2 (part 5) over Gable storey 0 wall 3 (part 4)","SplitCourt10: n=(1.000000, 0.000000, 0.000000) d=800.000: Wall storey 2 wall 2 (part 8) over Gable storey 1 wall 2 (part 7)"],
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  's2h263/SplitCourt10': ["SplitCourt10: n=(1.000000, 0.000000, 0.000000) d=800.000: Wall storey 1 wall 2 (part 5) over Gable storey 0 wall 3 (part 4)","SplitCourt10: n=(1.000000, 0.000000, 0.000000) d=800.000: Wall storey 2 wall 2 (part 8) over Gable storey 1 wall 2 (part 7)"],
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  's2h300/SplitCourt10': ["SplitCourt10: n=(1.000000, 0.000000, 0.000000) d=800.000: Wall storey 1 wall 2 (part 5) over Gable storey 0 wall 3 (part 4)","SplitCourt10: n=(1.000000, 0.000000, 0.000000) d=800.000: Wall storey 2 wall 2 (part 8) over Gable storey 1 wall 2 (part 7)"],
+  // Enrolled by journal decisions 243 to 245 (WP-L2): its 2 Unclassified Gable-Wall Edges are cured, and it is clean but for these conflicts.
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  's7h250/SplitCourt9': ["SplitCourt9: n=(0.000000, -1.000000, 0.000000) d=-150.000: Wall storey 2 wall 0 (part 11) over Gable storey 1 wall 0 (part 9)","SplitCourt9: n=(1.000000, 0.000000, 0.000000) d=700.000: Gable storey 1 wall 5 (part 10) over Gable storey 2 wall 5 (part 16)","SplitCourt9: n=(1.000000, 0.000000, 0.000000) d=700.000: Wall storey 1 wall 5 (part 7) over Gable storey 0 wall 3 (part 3)","SplitCourt9: n=(1.000000, 0.000000, 0.000000) d=700.000: Wall storey 2 wall 5 (part 13) over Gable storey 1 wall 5 (part 10)"],
+  // Re-pinned by journal decisions 243 to 245 (WP-L2): 1 conflict to 2.
+  // Re-pinned by the holed roof (holed roof decision 48): 2 conflicts to 1, F69's count read off the true roof's triangles, its ids renumbered.
+  // Measured against 9c0389a (2 conflicts there, 1 here; BSA.D327): on x = 950, 1 row to 0, the Wall storey 1 and Gable storey 0 raw triangles overlap by 5,625 cm2 at both. Every raw part pair on the plane overlaps as it did, so only the listing by triangle centroid moved (BSA.F69).
+  's5h250/SplitCourt29': ["SplitCourt29: n=(1.000000, 0.000000, 0.000000) d=950.000: Wall storey 2 wall 2 (part 10) over Gable storey 1 wall 2 (part 9)"],
+  // Re-pinned by journal decision 220: 3 conflicts to 2; "Gable storey 0 wall 14 (part 3) over Gable storey 1 wall 3 (part 10)" is gone.
+  // Re-pinned by journal decisions 243 to 245 (WP-L2): the same 2 conflicts, read off other parts.
+  // Re-pinned by the holed roof (holed roof decision 48): its wall and part ids renumbered (holed roof decision 33), the same conflicts.
+  's13h250/SplitCourt30': ["SplitCourt30: n=(-1.000000, 0.000000, 0.000000) d=-500.000: Wall storey 1 wall 3 (part 6) over Gable storey 0 wall 12 (part 2)","SplitCourt30: n=(1.000000, 0.000000, 0.000000) d=700.000: Wall storey 1 wall 1 (part 6) over Gable storey 0 wall 3 (part 2)"],
 };

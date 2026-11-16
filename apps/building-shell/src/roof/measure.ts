@@ -131,7 +131,6 @@ export function measure(c: Case, b: Building, s: Surface, gridStep = 5): Measure
       }
       continue;
     }
-    if (wall.form === 'cut') continue;
     let apex: {wall: string; h: number; at: Pt} | null = null;
     for (const p of samplesAlong(wall)) {
       if (!b.inside(p)) continue;
@@ -282,7 +281,6 @@ export function measure(c: Case, b: Building, s: Surface, gridStep = 5): Measure
     const pl = b.planes[id];
     m.planesUsed.push(pl.label);
     const walls = pl.walls.map(k => b.walls[k]);
-    if (walls.every(k => k.form === 'cut')) m.planesUndefined.push(`${pl.label} (a cut is not a wall)`);
     if (walls.every(k => k.dead)) m.planesUndefined.push(`${pl.label} (dead wall)`);
   }
 

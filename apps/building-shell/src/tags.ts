@@ -11,12 +11,18 @@ export type {Vec3};
  * Every face kind (spec decision 10), the app's one list (journal decisions 142, N5, and 147, N7): the viewer's legend,
  * the output boundary's validation and the type all read it.
  */
-export const SHELL_KINDS = ['Wall', 'Gable', 'Roof', 'Underside', 'Ground', 'Cheek', 'Internal'] as const;
+export const SHELL_KINDS = ['Wall', 'Gable', 'Roof', 'Underside', 'Ground', 'Cheek', 'Internal', 'Tuck'] as const;
 
 export type ShellKind = typeof SHELL_KINDS[number];
 
-/** Every kind that takes part in re-tagging (spec decision 14): all but Internal. */
-export type RetaggableKind = Exclude<ShellKind, 'Internal'>;
+/**
+ * Journal decision 272: a tuck's layers, which no raw part issues. The tuck pass (`tuck.ts`) labels them after the
+ * re-tag, so the kind takes no part in re-tagging.
+ */
+export type LabelledKind = 'Internal' | 'Tuck';
+
+/** Every kind that takes part in re-tagging (spec decision 14): all but Internal and Tuck. */
+export type RetaggableKind = Exclude<ShellKind, LabelledKind>;
 
 export interface FaceTag {
   kind: ShellKind;
@@ -170,13 +176,14 @@ export function clusterKeyOf(p: Plane3, clusters: PlaneClusters): string {
  * - `(kind, storey, plane)` for Roof, `plane` the storey Building's canonical plane id;
  * - `(kind, storey, oriented vertical plane)` for Wall, Gable and Cheek, so collinear walls are one face; the plane
  *   is keyed by the build's `clusters`;
+ * - `(kind, storey, oriented plane)` for Tuck (journal decision 272), so each layer of a tuck is a face of its own;
  * - `(kind, storey)` for Underside, Ground and Internal.
  * `part` and `wall` are provenance only, and never enter it.
  */
 export function identityKey(t: FaceTag, plane: Plane3, clusters: PlaneClusters): string {
   switch (t.kind) {
     case 'Roof': return `Roof|${t.storey}|p${t.plane}`;
-    case 'Wall': case 'Gable': case 'Cheek': return `${t.kind}|${t.storey}|${clusterKeyOf(plane, clusters)}`;
+    case 'Wall': case 'Gable': case 'Cheek': case 'Tuck': return `${t.kind}|${t.storey}|${clusterKeyOf(plane, clusters)}`;
     case 'Underside': case 'Ground': case 'Internal': return `${t.kind}|${t.storey}`;
   }
 }
@@ -187,7 +194,7 @@ export function identityKey(t: FaceTag, plane: Plane3, clusters: PlaneClusters):
  */
 export const RETAG_RANK: Readonly<Record<RetaggableKind, number>> = {Wall: 0, Gable: 1, Roof: 2, Underside: 3, Ground: 4, Cheek: 5};
 
-export const isRetaggable = (k: ShellKind): k is RetaggableKind => k !== 'Internal';
+export const isRetaggable = (k: ShellKind): k is RetaggableKind => k !== 'Internal' && k !== 'Tuck';
 
 /**
  * Negative when `a` beats `b`. Kind by `RETAG_RANK`, then the lower storey. Two different identities of equal kind
@@ -196,7 +203,7 @@ export const isRetaggable = (k: ShellKind): k is RetaggableKind => k !== 'Intern
  */
 export function retagCompare(a: FaceTag, b: FaceTag): number {
   const ka = a.kind, kb = b.kind;
-  if (!isRetaggable(ka) || !isRetaggable(kb)) throw new Error(`retagCompare: Internal takes no part in re-tagging (${tagLabel(a)} vs ${tagLabel(b)})`);
+  if (!isRetaggable(ka) || !isRetaggable(kb)) throw new Error(`retagCompare: Internal and Tuck take no part in re-tagging (${tagLabel(a)} vs ${tagLabel(b)})`);
   return RETAG_RANK[ka] - RETAG_RANK[kb] || a.storey - b.storey || a.wall - b.wall || a.plane - b.plane;
 }
 

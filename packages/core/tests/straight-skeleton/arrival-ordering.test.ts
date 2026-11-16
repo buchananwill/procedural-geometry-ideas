@@ -1,7 +1,7 @@
 import type {CollisionEvent, CollisionType} from '../../src/straight-skeleton/types';
-import {inArrivalOrder} from '../../src/straight-skeleton/algorithm-complex-cases';
+import {inArrivalOrder, inPlaceOrder} from '../../src/straight-skeleton/event-order';
 import {CollisionTypePriority} from '../../src/straight-skeleton/types';
-import {solveSkeleton} from '../../src/straight-skeleton/algorithm-termination-cases';
+import {solveSkeleton} from '../../src/straight-skeleton/solve-entry';
 import {OFF_EDGE_JITTER_L_SEED_55433} from '@proc-geo/test-fixtures';
 
 /*
@@ -138,6 +138,65 @@ describe('inArrivalOrder: the earlier arrival is resolved first', () => {
         ];
 
         expect(pairs(inArrivalOrder(layer, byEventPriority))).toEqual([[10, 0], [50, 60]]);
+    });
+});
+
+describe('inArrivalOrder with a precedence: it orders within a moment, before the tie-break (BSA.D335)', () => {
+    // The relation the solver hands it is "nearer along a shared bisector"; here it is stated directly, by edge lists.
+    const precedes = (rules: [number[], number[]][]) => (first: CollisionEvent, second: CollisionEvent) =>
+        rules.some(([before, after]) => before.join() === first.collidingEdges.join() && after.join() === second.collidingEdges.join());
+
+    it('places an event that must precede another first, and leaves the rest to the tie-break', () => {
+        const layer = [event(1.0, [21, 22]), event(1.0, [16, 22]), event(1.0, [10, 11])];
+
+        expect(pairs(inArrivalOrder(layer, byEventPriority))).toEqual([[10, 11], [16, 22], [21, 22]]);
+        expect(pairs(inArrivalOrder(layer, byEventPriority, precedes([[[21, 22], [16, 22]]]))))
+            .toEqual([[10, 11], [21, 22], [16, 22]]);
+    });
+
+    it('never reorders across moments: an earlier arrival stays first whatever the relation says', () => {
+        const layer = [event(1.0, [16, 22]), event(2.0, [21, 22])];
+
+        expect(pairs(inArrivalOrder(layer, byEventPriority, precedes([[[21, 22], [16, 22]]]))))
+            .toEqual([[16, 22], [21, 22]]);
+    });
+
+    it('takes the tie-break order where the relation has a cycle, so the order is still total', () => {
+        const layer = [event(1.0, [3, 4]), event(1.0, [1, 2])];
+        const cycle = precedes([[[1, 2], [3, 4]], [[3, 4], [1, 2]]]);
+
+        expect(pairs(inArrivalOrder(layer, byEventPriority, cycle))).toEqual([[1, 2], [3, 4]]);
+    });
+});
+
+describe('inPlaceOrder: events the precedence leaves unordered go by where they meet (BSA.D335 stage 2)', () => {
+    const FLOOR = 1e-6;
+    const at = (x: number, y: number, collidingEdges: number[]) => ({...event(1.0, collidingEdges), position: {x, y}});
+    const inPlace = (layer: CollisionEvent[]) => layer.toSorted(inPlaceOrder(layer, FLOOR));
+
+    it('puts the leftmost first, then the lowest, whatever the edge ids say', () => {
+        const layer = [at(0.3, 0.1, [10, 11]), at(0.1, 0.5, [40, 41]), at(0.1, 0.2, [30, 31])];
+
+        expect(pairs(inPlace(layer))).toEqual([[30, 31], [40, 41], [10, 11]]);
+    });
+
+    it('reads two events within the floor in x as one column, and orders them by y', () => {
+        const layer = [at(0.1 + FLOOR / 2, 0.1, [10, 11]), at(0.1, 0.4, [20, 21])];
+
+        expect(pairs(inPlace(layer))).toEqual([[10, 11], [20, 21]]);
+    });
+
+    it('leaves two events at one point equal, for the edge ids', () => {
+        const layer = [at(0.2, 0.2, [50, 51]), at(0.2 + FLOOR / 4, 0.2 - FLOOR / 4, [20, 21])];
+
+        expect(inPlaceOrder(layer, FLOOR)(layer[0], layer[1])).toBe(0);
+    });
+
+    it('is a function of the event set, not of the order it is handed', () => {
+        const layer = [at(0.3, 0.1, [10, 11]), at(0.1, 0.5, [40, 41]), at(0.1, 0.2, [30, 31]), at(0.2, 0.9, [5, 6])];
+        const permuted = [layer[2], layer[0], layer[3], layer[1]];
+
+        expect(pairs(inPlace(permuted))).toEqual(pairs(inPlace(layer)));
     });
 });
 

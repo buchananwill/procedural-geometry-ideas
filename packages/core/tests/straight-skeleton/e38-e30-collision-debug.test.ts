@@ -186,24 +186,10 @@ describe('e38-e30 Collision Debug', () => {
                     const wsParent = context.widdershinsParent(ie);
                     const e30Edge = context.getEdgeWithId(TARGET_ID);
 
-                    try {
-                        const cwSpan = context.clockwiseSpanExcludingAccepted(cwParent, e30Edge);
-                        const wsSpan = context.clockwiseSpanExcludingAccepted(e30Edge, wsParent);
-                        console.log(`  spanExcludingAccepted(cwParent ext${cwParent.id} -> e${TARGET_ID}): ${cwSpan}`);
-                        console.log(`  spanExcludingAccepted(e${TARGET_ID} -> wsParent ext${wsParent.id}): ${wsSpan}`);
-                        console.log(`  min span: ${Math.min(cwSpan, wsSpan)} (need >= 2)`);
-                    } catch (e) {
-                        console.log(`  spanExcludingAccepted threw: ${e instanceof Error ? e.message : e}`);
-                    }
-
-                    try {
-                        const cwSpanInc = context.clockwiseSpanIncludingAccepted(cwParent, e30Edge);
-                        const wsSpanInc = context.clockwiseSpanIncludingAccepted(e30Edge, wsParent);
-                        console.log(`  spanIncludingAccepted(cwParent ext${cwParent.id} -> e${TARGET_ID}): ${cwSpanInc}`);
-                        console.log(`  spanIncludingAccepted(e${TARGET_ID} -> wsParent ext${wsParent.id}): ${wsSpanInc}`);
-                    } catch (e) {
-                        console.log(`  spanIncludingAccepted threw: ${e instanceof Error ? e.message : e}`);
-                    }
+                    // The neighbour guard reads the wavefront's links now (skeleton wavefront-order spec,
+                    // decision 19); the span it used to count is gone.
+                    console.log(`  parents ext${cwParent.id} / ext${wsParent.id} of e${e30Edge.id}'s striker; link neighbours `
+                        + `cw e${context.wavefront.clockwiseNeighbour[INSTIGATOR_ID]}, ws e${context.wavefront.widdershinsNeighbour[INSTIGATOR_ID]}`);
 
                     // Behind-edge check
                     const parentEdge = context.getEdgeWithInterior(ie);
@@ -220,8 +206,8 @@ describe('e38-e30 Collision Debug', () => {
             const groupWithE38 = inputs.find(inp => inp.interiorEdges.includes(INSTIGATOR_ID));
             if (groupWithE38 && e38Active) {
                 const extParents = context.exteriorParentsOfSubPolygon(groupWithE38.interiorEdges);
-                const collisionLists = createCollisions(groupWithE38.interiorEdges, extParents, context);
-                const flat = collisionLists.flat().sort((a, b) => a.offsetDistance - b.offsetDistance);
+                const flat = createCollisions(groupWithE38.interiorEdges, extParents, context)
+                    .sort((a, b) => a.offsetDistance - b.offsetDistance);
                 if (flat.length > 0) {
                     const bestOffset = flat[0].offsetDistance;
                     console.log(`  Best offset in group: ${bestOffset.toFixed(6)}`);
@@ -401,29 +387,12 @@ describe('e38-e30 Collision Debug', () => {
                 console.log(`  isReflex: ${context.isReflexEdge(ie)}`);
                 console.log(`  rank: ${context.edgeRank(INSTIGATOR_ID)} ${context.edgeRank(INSTIGATOR_ID) === 'secondary' ? '<<< REJECTION POINT: secondary rank' : ''}`);
 
-                // Check 4: Span (excluding accepted)
+                // Checks 4 and 5: the neighbour guard, which reads the wavefront's links now (skeleton
+                // wavefront-order spec, decision 19) and is asked of the struck segment after validation.
                 const cwParent = context.clockwiseParent(ie);
                 const wsParent = context.widdershinsParent(ie);
-                try {
-                    const cwSpanExc = context.clockwiseSpanExcludingAccepted(cwParent, e30Edge);
-                    const wsSpanExc = context.clockwiseSpanExcludingAccepted(e30Edge, wsParent);
-                    console.log(`  Span excl accepted (cw ${cwParent.id}->${TARGET_ID}): ${cwSpanExc}`);
-                    console.log(`  Span excl accepted (${TARGET_ID}->ws ${wsParent.id}): ${wsSpanExc}`);
-                    console.log(`  Min: ${Math.min(cwSpanExc, wsSpanExc)} ${Math.min(cwSpanExc, wsSpanExc) < 2 ? '<<< REJECTION POINT: span < 2 (generateSplitEvent path)' : ''}`);
-                } catch (e) {
-                    console.log(`  Span excl accepted threw: ${e instanceof Error ? e.message : e} <<< REJECTION POINT`);
-                }
-
-                // Check 5: Span (including accepted) — used by generateSplitEventFromTheEdgeItself
-                try {
-                    const cwSpanInc = context.clockwiseSpanIncludingAccepted(cwParent, e30Edge);
-                    const wsSpanInc = context.clockwiseSpanIncludingAccepted(e30Edge, wsParent);
-                    console.log(`  Span incl accepted (cw ${cwParent.id}->${TARGET_ID}): ${cwSpanInc}`);
-                    console.log(`  Span incl accepted (${TARGET_ID}->ws ${wsParent.id}): ${wsSpanInc}`);
-                    console.log(`  Min: ${Math.min(cwSpanInc, wsSpanInc)} ${Math.min(cwSpanInc, wsSpanInc) < 2 ? '<<< REJECTION POINT: span < 2 (fromTheEdgeItself path)' : ''}`);
-                } catch (e) {
-                    console.log(`  Span incl accepted threw: ${e instanceof Error ? e.message : e} <<< REJECTION POINT`);
-                }
+                console.log(`  parents ext${cwParent.id} / ext${wsParent.id}; link neighbours `
+                    + `cw e${context.wavefront.clockwiseNeighbour[INSTIGATOR_ID]}, ws e${context.wavefront.widdershinsNeighbour[INSTIGATOR_ID]}`);
 
                 // Check 6: Which exterior edges are accepted in the span?
                 console.log('\n  Accepted edges between cwParent and e30:');
@@ -537,7 +506,7 @@ describe('e38-e30 Collision Debug', () => {
                 const validates = context.validateSplitReachesEdge(
                     INSTIGATOR_ID, TARGET_ID, {distance: directOffset, weight: 1, uncertainty: 0});
                 console.log(`validateSplitReachesEdge(offset=${directOffset.toFixed(6)}): ${validates}`);
-                if (!validates) {
+                if (validates.length === 0) {
                     console.log('<<< REJECTION at validateSplitReachesEdge for direct-strike (line 226-227)');
 
                     // Deep probe activeExteriorEdgeSegments
@@ -569,17 +538,10 @@ describe('e38-e30 Collision Debug', () => {
             return;
         }
 
-        const wsParent = context.widdershinsParent(ie);
-        const cwSpanInc = context.clockwiseSpanIncludingAccepted(cwParent, e30Edge);
-        const wsSpanInc = context.clockwiseSpanIncludingAccepted(e30Edge, wsParent);
-        console.log(`spanIncludingAccepted(cw ${cwParent.id}->${TARGET_ID}): ${cwSpanInc}`);
-        console.log(`spanIncludingAccepted(${TARGET_ID}->ws ${wsParent.id}): ${wsSpanInc}`);
-        console.log(`min: ${Math.min(cwSpanInc, wsSpanInc)}`);
-
-        if (Math.min(cwSpanInc, wsSpanInc) < 2) {
-            console.log('<<< REJECTION: span < 2 in incenter fallback (line 257)');
-            return;
-        }
+        // The neighbour guard is asked of the struck segment after validation, in the wavefront's links
+        // (skeleton wavefront-order spec, decision 19); the span this replicated is gone.
+        console.log(`link neighbours of e${INSTIGATOR_ID}: cw e${context.wavefront.clockwiseNeighbour[INSTIGATOR_ID]}, `
+            + `ws e${context.wavefront.widdershinsNeighbour[INSTIGATOR_ID]}`);
 
         // Replicate findOffsetViaIncenter
         console.log('\n--- Replicating findOffsetViaIncenter ---');
@@ -656,7 +618,7 @@ describe('e38-e30 Collision Debug', () => {
         const incenterValidates = context.validateSplitReachesEdge(
             INSTIGATOR_ID, TARGET_ID, {distance: incenterOffset, weight: 1, uncertainty: 0});
         console.log(`validateSplitReachesEdge(offset=${incenterOffset.toFixed(6)}): ${incenterValidates}`);
-        if (!incenterValidates) {
+        if (incenterValidates.length === 0) {
             console.log('<<< REJECTION at validateSplitReachesEdge for incenter fallback (line 266)');
         }
     });

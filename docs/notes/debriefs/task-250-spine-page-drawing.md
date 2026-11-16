@@ -1,3 +1,11 @@
+---
+title: "Debrief 0002 — Spine extraction: the page"
+type: workflow
+area: subdivision
+status: archived
+date: 2026-08-17
+---
+
 # Debrief 0002 — Spine extraction: the page
 
 ## Task Summary

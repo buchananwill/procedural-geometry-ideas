@@ -1,8 +1,11 @@
 ---
 title: "Task 240 — Recursive page legibility: ancestor-tinted leaf fills"
-type: debrief
-task: 240
-spec: docs/notes/recursive-subdivision-legibility-decisions.md
+type: workflow
+area: subdivision
+status: archived
+date: 2026-08-17
+# task: 240
+# spec: docs/notes/recursive-subdivision-legibility-decisions.md
 ---
 
 # Task Summary

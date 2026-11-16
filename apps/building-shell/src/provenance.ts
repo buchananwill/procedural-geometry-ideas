@@ -1,10 +1,12 @@
 // Spec decision 23 as amended (journal decisions 130 and 156): wall provenance, which the union otherwise drops. Every
-// Wall and Gable Cell carries the Ring side its raw wall came from, read from the fixture's Ring rectangles and the
-// storey's union walls alone, never from anything inside the mesh. Browser-safe.
+// Wall and Gable Cell carries the Ring side its raw wall came from, read from the fixture's Ring rectangles, the
+// storey's union walls and its covered rises' bands (journal decision 244), never from anything inside the mesh.
+// Browser-safe.
 import {RING_SIDES, ShellFixture, storeyRings} from './fixture.ts';
 import type {ShellFace} from './faces.ts';
 import {WallLine, loopRuns, ringSideLines, storeyLoops} from './ring-forms.ts';
 import {SHELL_TOLERANCE_CM} from './constants.ts';
+import {storeyForms} from './storey.ts';
 
 /**
  * One Cell's provenance: the Ring and the side its raw wall came from. `ringModelIndex` is the Ring's model index (its
@@ -29,18 +31,30 @@ function onFaceLine(l: WallLine, axis: 'x' | 'y', at: number, outward: number): 
 }
 
 /**
- * Journal decisions 130 and 156, F9: the Ring sides visible on a Wall or Gable face's line, along the face's lattice
- * axis `s` (world x on a face facing ±y, world y on one facing ±x, as spec decision 22 lays them). A span is a
- * stretch of a Ring side that lies on one of the storey's union walls, the visible stretch; where several Rings' sides
- * coincide there, the lowest index wins (decision 128's total order), the same rule as the wall's form. A Wall Cell
- * lies on such a stretch; a Gable Cell beyond them takes the nearest (`sourceAt`). Empty for every other kind.
- * One reader per fixture, so each storey's union walls are traced once.
+ * The stretches of a storey's lines where a Ring side shows: its union walls, and the bands of its covered rises (journal
+ * decision 244, gable rise decision 14). A covered rise stands on a stretch of a Ring side that a neighbouring Ring covers
+ * at plate level (journal decision 243, rule 3), so its Gable face lies where no union wall does; its band is that face's
+ * visible stretch, and the Ring and side that claim it are its source, whether or not the line holds a union wall.
+ */
+export function visibleStretches(fixture: ShellFixture, storey: number): WallLine[] {
+  const rings = storeyRings(fixture, storey);
+  const covered = storeyForms(rings).covered.map(({line, rise}): WallLine => ({axis: line.axis, at: line.at, n: line.n, lo: rise.lo, hi: rise.hi}));
+  return [...storeyLoops(rings.map(r => r.ring.rect)).flatMap(loopRuns), ...covered];
+}
+
+/**
+ * Journal decisions 130 and 156, F9, and 244: the Ring sides visible on a Wall or Gable face's line, along the face's
+ * lattice axis `s` (world x on a face facing ±y, world y on one facing ±x, as spec decision 22 lays them). A span is a
+ * stretch of a Ring side that lies on one of the storey's visible stretches (`visibleStretches`: its union walls and its
+ * covered rises' bands); where several Rings' sides coincide there, the lowest index wins (decision 128's total order),
+ * the same rule as the wall's form and as a claimed band's. A Wall Cell lies on such a stretch; a Gable Cell beyond them
+ * takes the nearest (`sourceAt`). Empty for every other kind. One reader per fixture, so each storey is traced once.
  */
 export function makeSourceSpans(fixture: ShellFixture): (face: ShellFace) => SourceSpan[] {
   const walls = new Map<number, WallLine[]>();
   const wallsOf = (storey: number): WallLine[] => {
     let w = walls.get(storey);
-    if (!w) { w = storeyLoops(storeyRings(fixture, storey).map(r => r.ring.rect)).flatMap(loopRuns); walls.set(storey, w); }
+    if (!w) { w = visibleStretches(fixture, storey); walls.set(storey, w); }
     return w;
   };
   return face => {
@@ -56,7 +70,8 @@ export function makeSourceSpans(fixture: ShellFixture): (face: ShellFace) => Sou
       return RING_SIDES.flatMap((side, k) => {
         const l = lines[side];
         if (!onFaceLine(l, axis, at, outward)) return [];
-        // Only the stretches of the side that lie on a union wall (journal decision 156, F9).
+        // Only the stretches of the side that lie on a union wall (journal decision 156, F9) or a covered rise's band
+        // (journal decision 244).
         return visible.flatMap(w => {
           const lo = Math.max(l.lo, w.lo), hi = Math.min(l.hi, w.hi);
           return hi > lo ? [{lo, hi, source: {ringModelIndex: index, side: k}}] : [];

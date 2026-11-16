@@ -12,7 +12,7 @@ const describeIfRequested = OUT ? describe : describe.skip;
 describeIfRequested('full-grid sweep harness', () => {
     jest.setTimeout(60 * 60 * 1000);
 
-    it.each(['corpus', 'fine', 'offedge', 'alongedge', 'ladder', 'regular'])('sweeps %s', group => {
+    it.each(['corpus', 'fine', 'offedge', 'alongedge', 'ladder', 'regular', 'holed'])('sweeps %s', group => {
         runSweep(`${OUT}-${group}.json`, group);
     });
 

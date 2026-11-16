@@ -4,7 +4,7 @@ import {collideEdges, checkSharedParents} from '@proc-geo/core';
 
 setSkeletonLogLevel('debug');
 import {DUCK_OCTAGON_FAILS, DUCK_OCTAGON_PASSES, MOORHEN_FAILS, MOORHEN_PASSES} from '@proc-geo/test-fixtures';
-import {handleCollisionEvent} from '@proc-geo/core';
+import {handleCollisionEvent, LayerLinks} from '@proc-geo/core';
 import {stepAlgorithm} from '@proc-geo/core';
 import {tryToAcceptExteriorEdge} from '@proc-geo/core';
 import type {AlgorithmStepInput, CollisionEvent} from '@proc-geo/core';
@@ -433,7 +433,8 @@ describe('Moorhen Octagon Debug', () => {
         // Simulate handling
         console.log('\n=== handleCollisionEvent result ===');
         const acceptedBefore = [...context.acceptedEdges];
-        const bisectionParams = handleCollisionEvent(collision, context);
+        // One event of a layer that is never settled.
+        const bisectionParams = handleCollisionEvent(collision, context, new LayerLinks(context));
         const acceptedAfter = [...context.acceptedEdges];
 
         console.log(`  bisectionParams count: ${bisectionParams.length}`);

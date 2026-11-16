@@ -1,192 +1,133 @@
 import {
     AlgorithmStepInput,
-    AlgorithmStepOutput, Arrival, BisectionParams, CollisionEvent, CollisionTypePriority,
-    StraightSkeletonSolverContext, Vector2
+    Arrival, BisectionParams, CollisionEvent, ResolvableEvent,
+    StraightSkeletonSolverContext,
 } from "./types";
-import {compareArrivals, findOrComputeCollision, priceHeadOnPair} from "./collision-helpers";
-import {ARRIVAL_MOMENT_ULPS, HELD_SIMULTANEITY_WINDOW, mergeDisplacementUncertainty} from "./constants";
-import {rotateCw90} from "./core-functions";
-import {applyDegenerateClosure, climbTerminalLadder} from "./algorithm-termination-cases";
+import {byArrival, compareArrivals, findOrComputeCollision, priceHeadOnPair, timeOf} from "./collision-helpers";
+import {HELD_SIMULTANEITY_WINDOW} from "./constants";
+import {
+    byEdgeIds,
+    compareEdgeIdLists,
+    comparePriority,
+    earliestArrivalMoment,
+    inArrivalOrder,
+    inPlaceOrder,
+    nearerAlongSharedBisector,
+} from "./event-order";
+import {applyDegenerateClosure, climbTerminalLadder} from "./terminal-ladder";
 import handleCollisionEvent from "./collision-handling";
+import {bisectWithParams} from "./algorithm-helpers";
+import {chargeSitingResidual, coincidentEventPositions} from "./coincident-events";
 import {
-    bisectWithParams,
-    tryToAcceptExteriorEdge
-} from "./algorithm-helpers";
+    asWholeEvents,
+    bisectionsOfWholeMerge,
+    pairwiseLayerRefusal,
+    WholeEvents,
+    wholeLayerRefusal,
+    WholeMerge,
+    withThirdFronts,
+} from "./whole-events";
+import {closeFlatRings} from "./flat-rings";
+import {retireBisectors, ringsAmong, ringsOfWavefront} from "./wavefront-links";
 import {
-    bisectionsForMerge,
-    clusterCoincidentMerges,
-    coincidentEventPositions,
-    mergesShareAnEdge,
-    ringsOfSubPolygon
-} from "./coincident-events";
+    birthsClosedAtOneNode,
+    droppableBirths,
+    LayerLinks,
+    linkBirth,
+    partitionArc,
+    settleLayerLinks,
+} from "./layer-links";
+import {componentsOfRings} from "./ring-components";
+import {refuseStep} from "./step-scope";
+import {formatRing} from "./verdict";
 
 /**
- * Lexicographic over two edge-id lists, a shorter prefix first.
+ * The partition bisectors a layer will bear, in the order it bears them: sorted by arc, with nested re-reports
+ * of one split removed.
  *
- * The canonical tie-break for events that a floating-point offset cannot separate. `collidingEdges`
- * identifies an event by the edges taking part in it, which is a property of the polygon's own
- * topology, so two distinct events at one offset are ordered by something no placement can move.
+ * EXPORTED FOR ITS OWN TEST, not for other callers — see `wavefront-order.test.ts`.
  */
-function compareEdgeIdLists(first: number[], second: number[]): number {
-    for (let index = 0; index < Math.min(first.length, second.length); index++) {
-        if (first[index] !== second[index]) {
-            return first[index] - second[index];
+export function selectPartitionEvents(layer: LayerLinks, partitionEvents: BisectionParams[]): BisectionParams[] {
+    /* Clover Leaf Example:
+
+    Partition Pair 1:  [[0,4], [4,0]]
+    Partition Pair 2:  [[4,8], [8,4]]
+    Partition Pair 3:  [[8,0], [0,8]]
+
+    Outcome we want is: [[0,4], [4,8], [8,0]]
+
+    Rule is: sort by the arc of bisection, then clockwise bisection.
+    Arc of bisection, on one loop = (end - start + length) % length
+
+     * */
+    // THE ORDER IS THE ARC ROUND THE PENDING BISECTOR'S RING (skeleton join-and-divide spec, decisions 25 to 27):
+    // `partitionArc` sums the gaps between consecutive clockwise parents round the ring, a gap within one loop
+    // counted in clockwise steps and a gap between two loops as 1. An id interval `(ws − cw + n) mod n` has no
+    // meaning across loops; on one loop the arc telescopes to exactly that span. This order decides no child step —
+    // the rings do — but it is the order the partition bisectors are BORN in, and it chooses which of two
+    // same-start, same-source re-reports survives. Ring size is not a substitute: it leaves out the closed edges
+    // inside the arc and renumbers the births (16 digests, BSA.F96).
+    const arcs = new Map(partitionEvents.map(params => [params, partitionArc(layer, params)] as const));
+    const arcOf = (params: BisectionParams) => arcs.get(params)!;
+    // NO ACCEPTED-PARENT FILTER (skeleton edge-acceptance spec, decision 7). Acceptance changes only at step
+    // boundaries, and at the last one every parent of every birth of this layer was named by a then-live bisector,
+    // so no partition event here can name an accepted edge. A silently refused birth breaks its ring, so
+    // `addBisectionEdge`'s throw is the guard, and such a birth is a step failure.
+    const sorted = partitionEvents
+        .toSorted((params1, params2) => {
+            const arcDelta = arcOf(params1) - arcOf(params2);
+            if (arcDelta !== 0) {
+                return arcDelta;
+            }
+
+            return params1.clockwiseExteriorEdgeIndex - params2.clockwiseExteriorEdgeIndex;
+        });
+
+    // Same-start events are nested re-reports of ONE split only when they share the split node:
+    // each re-report widens the widdershins claim past a parent it cannot see, so the smallest
+    // span is the tightest claim and wins. Same-start events from DIFFERENT split nodes are
+    // distinct simultaneous splits of that exterior edge — two reflex bisectors splitting it at
+    // different points in one layer — and every one of them partitions the polygon, so all
+    // survive. Which child each survivor's bisector lands in is not a question of spans: the child
+    // steps are the rings the layer left.
+    //
+    // AND A RE-REPORT IS DROPPED ONLY WHERE THE LINKS AGREE IT IS ONE (BSA.F97 finding 1, BSA.D293). Two
+    // splits sited at one point share their node, so their bisectors on the struck edge's far side share a
+    // start and a source and look like a re-report; they are two splits, and dropping either leaves its two
+    // neighbours with parents that do not meet. `droppableBirths` keeps any such candidate: a run of candidates
+    // goes only where the parents on either side of it meet. On every roster each drop goes with a whole ring of
+    // dropped births.
+    const keptSourcesByStart = new Map<number, Set<number>>();
+    const duplicates = new Set<BisectionParams>();
+    for (const partitionEvent of sorted) {
+        const start = partitionEvent.clockwiseExteriorEdgeIndex;
+        let sources = keptSourcesByStart.get(start);
+        if (sources === undefined) {
+            sources = new Set();
+            keptSourcesByStart.set(start, sources);
         }
-    }
-    return first.length - second.length;
-}
-
-/*
- * THE MOMENT BAR — {@link ARRIVAL_MOMENT_ULPS}, ulps of the larger offset within which two arrivals are
- * ONE moment of the arithmetic (census S29). It lived here as `SIMULTANEOUS_ARRIVAL_ULPS` and moved to
- * `constants.ts` under C8 spec T26, value unchanged, because the offset projection's simultaneous-set
- * partition (S30) asks the same question and now spends the same bar.
- *
- * A REPRESENTATION BAR, NOT A GEOMETRIC TOLERANCE. Its only job is to stop the arithmetic's own
- * rounding from being read as causal order: two arrivals that are equal in exact arithmetic are
- * computed through different intersections and land a few ulps apart, and the two reciprocal reports
- * of ONE arrival ({@link createCollisions} reports every pair from both directions) agree to within
- * an ulp. Anything wider would be a claim about geometry, and every such claim in this package
- * belongs to a constant with a measurement behind it.
- *
- * SIXTY-FOUR, with the corpus's two live populations on either side of it. On
- * `OFF_EDGE_JITTER_L_SEED_55433`'s collapsing 4-ring the four candidate pairings arrive 2.52e-11 to
- * 7.07e-11 apart on offsets of 2.93e-1 — between 3.9e5 and 1.1e6 ulps, four orders above this bar.
- * The rounding noise it exists to absorb sits at one to a few ulps, six orders below it. Both
- * populations are asserted as ratios in `arrival-ordering.test.ts`.
- */
-
-/**
- * Order one layer's events by ARRIVAL, breaking exact simultaneity with `tieBreak`.
- *
- * STRICT LINEAR CAUSALITY IS THE SOLVER'S MODEL (journal decision 102): where two arrivals are
- * separated at all, the earlier one is resolved first, and the wavefront it terminates cannot be
- * consumed by an event that had not happened yet. The fallback below used to sort a whole layer by
- * priority and edge id alone, which threw the offsets away — and because each event here CONSUMES
- * its edges, that was a PAIRING rule, not a display order: on `(seed 55433)` a collapsing 4-ring
- * whose true pairing arrives 2.52e-11 ahead of its rival was paired by edge id instead, so the arm
- * tip closed on the wrong two of its four walls and left its surviving ridge between the wrong
- * parents. What that cost downstream is the fold population — 24 region-boundary folds across three
- * fixtures before this ordering, 4 on one fixture after it, with both reflex Ls leaving it outright
- * (`region-boundary-folds.test.ts`) — and six of the plus's ten failing near-floor jitter cells.
- *
- * IT DOES NOT CURE THE DUPLICATE RIDGE, and saying so is the point. Both pairings leave TWO
- * bisectors spanning that ridge, so I5's count on this fixture is unmoved; the two collapse nodes
- * are 3.9e-6 apart in unit space and should not both exist, which is journal decision 101's
- * tolerance defect and not this one. Pairing decides which walls the ridge belongs to; it cannot
- * decide whether the ridge should have been a point.
- *
- * EXPORTED FOR ITS OWN TEST, not for other callers — see `arrival-ordering.test.ts`.
- *
- * THE TIE-BREAK KEEPS ITS PROPER SCOPE. Decision 65's lexicographic ordering exists so that events
- * a floating-point offset CANNOT separate are still resolved in an order no placement can move —
- * node identity must not turn on an ulp. That argument is about genuine simultaneity, so it applies
- * within {@link ARRIVAL_MOMENT_ULPS} and nowhere else.
- *
- * MOMENTS BY SINGLE LINKAGE, over an already offset-ascending list, so the result is a total order
- * rather than a sort under a non-transitive "close enough" predicate. (The coincidence clustering in
- * `coincident-events.ts` used the same single linkage until journal decision 155 made it anchored;
- * this partition is at the 64-ulp representation bar, S29, which C8 spec T26 keeps as it is.)
- */
-export function inArrivalOrder(
-    events: CollisionEvent[],
-    tieBreak: (first: CollisionEvent, second: CollisionEvent) => number,
-): CollisionEvent[] {
-    // W-spec W24, W25: ordered by ARRIVAL, division-free. At unit weights `compareArrivals(a, b, 0)`
-    // is the sign of `a.offsetDistance - b.offsetDistance` with ties reported as zero, so the stable
-    // sort delivers exactly today's order.
-    const byOffset = events.toSorted((e1, e2) => compareArrivals(e1.arrival, e2.arrival, 0));
-
-    const moments: number[] = [];
-    let moment = 0;
-    for (let index = 0; index < byOffset.length; index++) {
-        if (index > 0 && !areSimultaneousArrivals(byOffset[index - 1].arrival, byOffset[index].arrival)) {
-            moment++;
+        if (sources.has(partitionEvent.source)) {
+            duplicates.add(partitionEvent);
+            continue;
         }
-        moments.push(moment);
+
+        sources.add(partitionEvent.source);
     }
-
-    return byOffset
-        .map((event, index) => ({event, moment: moments[index]}))
-        .toSorted((a, b) => a.moment !== b.moment ? a.moment - b.moment : tieBreak(a.event, b.event))
-        .map(entry => entry.event);
-}
-
-/**
- * W-spec W25: the 64-ulp bar, cross-multiplied. `|d₁·w₂ − d₂·w₁|` against the bar times the larger
- * of the two products — the exact restatement of the same window on `d₁/w₁` versus `d₂/w₂`, with no
- * division. At unit weights both products are by `1.0` and the verdict is today's.
- */
-function areSimultaneousArrivals(first: Arrival, second: Arrival): boolean {
-    const left = first.distance * second.weight;
-    const right = second.distance * first.weight;
-    const magnitude = Math.max(Math.abs(left), Math.abs(right));
-    return Math.abs(left - right) <= ARRIVAL_MOMENT_ULPS * Number.EPSILON * magnitude;
-}
-
-/**
- * The events of the EARLIEST arrival moment in `events` — the first single-linkage run of
- * {@link ARRIVAL_MOMENT_ULPS} over the offset-ascending list, and nothing after it.
- *
- * THE MOMENT, NOT THE LAYER. `collisionsToHandle` is an `fp_compare` window on the best offset: an
- * ABSOLUTE 1e-8 on offsets of order 1e-1, so roughly 1e8 ulps wide. Everything inside it is resolved
- * in one step, and each interior event CONSUMES its edges — so a window that wide is a claim that
- * arrivals up to eight orders apart in the wavefront clock happened together. Journal decision 102
- * says the opposite: the pairing winner is the lower offset, always, and an event cannot consume a
- * wavefront that had not arrived yet. This narrows the window to the moment the ulp bar can actually
- * defend, and only where the whole-event resolution has already refused the layer.
- *
- * It is the same bar, the same single linkage and the same accepted chaining cost as
- * {@link inArrivalOrder}'s moment partition — this is that partition's first class, taken alone.
- */
-function earliestArrivalMoment(events: CollisionEvent[]): CollisionEvent[] {
-    const byOffset = events.toSorted((e1, e2) => compareArrivals(e1.arrival, e2.arrival, 0));
-
-    for (let index = 1; index < byOffset.length; index++) {
-        if (!areSimultaneousArrivals(byOffset[index - 1].arrival, byOffset[index].arrival)) {
-            return byOffset.slice(0, index);
-        }
+    if (duplicates.size === 0) {
+        return sorted;
     }
-    return byOffset;
-}
-
-/** The inward perpendicular distance of `point` from wall `wallId`'s supporting line, through its stored source. */
-function distanceFromWallLine(point: Vector2, wallId: number, context: StraightSkeletonSolverContext): number {
-    const normal = rotateCw90(context.getEdgeWithId(wallId).basisVector);
-    const source = context.sourcePosition(wallId);
-    return normal.x * (point.x - source.x) + normal.y * (point.y - source.y);
+    const droppable = droppableBirths(layer, [...duplicates]);
+    return sorted.filter(partitionEvent => !duplicates.has(partitionEvent) || !droppable.has(partitionEvent));
 }
 
 /**
- * A NODE CARRIES WHERE IT WAS PUT (journal-5 decisions 170 and 171(c)): raise `nodeId`'s position budget to
- * the largest equi-time residual, at the node, of the bisectors it emits — {@link mergeDisplacementUncertainty}
- * for each one's two parents. ONE TERM, TWO SITES, because both sites take ONE release: the coincidence
- * clustering sites a group of meetings at its MEDOID (decision 157's release, below the floor the solver is
- * not obliged to tell them apart), and every bisector born there reads its clock from the node's distance to
- * its clockwise parent, so wherever the node is off that bisector's own locus the reading carries the residual
- * to the bisector's next meeting. The whole-event merge pays it (decision 170); so does a split re-pointed by
- * `coincidentEventPositions` (decision 171(c)).
- *
- * THE RESIDUAL, NOT THE DISTANCE MOVED. The budget answers for the disagreement between the emitted bisector's
- * two parent clocks at the node, and the residual IS that disagreement, exactly. The distance from a member's
- * own point to the medoid is not a bound on it in either direction: a displacement ALONG the bisector's locus
- * moves no clock and costs nothing, and one across it moves both parents' distances, by up to twice itself at
- * unit weights. So the distance would overcharge the first and could undercharge the second.
+ * Every event the step's bisectors can resolve, instigator by instigator in `interiorEdges`' order: each bisector against
+ * every other, and a primary reflex bisector against `exteriorParents` too. A phantom or out-of-bounds event is priced
+ * and dropped here, so the layer sees resolvable events only.
  */
-function chargeSitingResidual(nodeId: number, bisections: BisectionParams[], context: StraightSkeletonSolverContext): void {
-    const position = context.graph.nodes[nodeId].position;
-    context.positionUncertainties[nodeId] = Math.max(
-        context.positionUncertainties[nodeId] ?? 0,
-        ...bisections.map(params => mergeDisplacementUncertainty(
-            distanceFromWallLine(position, params.clockwiseExteriorEdgeIndex, context),
-            context.weightOf(params.clockwiseExteriorEdgeIndex),
-            distanceFromWallLine(position, params.widdershinsExteriorEdgeIndex, context),
-            context.weightOf(params.widdershinsExteriorEdgeIndex))));
-}
-
-export function createCollisions(interiorEdges: number[], exteriorParents: number[], context: StraightSkeletonSolverContext): CollisionEvent[][] {
-    return interiorEdges.map(e1 => {
-        const list: (CollisionEvent | null)[] = [];
+export function createCollisions(interiorEdges: number[], exteriorParents: number[], context: StraightSkeletonSolverContext): ResolvableEvent[] {
+    return interiorEdges.flatMap(e1 => {
+        const list: CollisionEvent[] = [];
         const edgeData = context.getInteriorWithId(e1)
         const checkExteriorCollisions = context.isReflexEdge(edgeData) && context.edgeRank(edgeData.id) === 'primary'
         list.push(...interiorEdges.flatMap(e2 => findOrComputeCollision(e1, e2, context)));
@@ -195,51 +136,139 @@ export function createCollisions(interiorEdges: number[], exteriorParents: numbe
             list.push(...exteriorParents.flatMap(e2 => findOrComputeCollision(e1, e2, context)))
         }
 
-        return list.filter((event): event is CollisionEvent => {
-            return !!event && CollisionTypePriority[event.eventType] < 3;
-        })
-    })
-        .filter(list => list.length > 0);
+        return list.filter((event): event is ResolvableEvent => event.eventType === 'interiorPair'
+            || event.eventType === 'interiorNonAdjacent' || event.eventType === 'interiorAgainstExterior');
+    });
 }
 
-export function handleInteriorNGon(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
+/**
+ * THE ORDER OF A LAYER'S CHILD STEPS (skeleton wavefront-order spec, decision 13; join-and-divide spec, decision 17),
+ * because child order numbers what later steps create. Each group of bisectors is one child, listing its members in the
+ * order they were gathered (`outgoing`); children are ordered by their claim, the earliest partition event whose
+ * bisector the child holds, then by the position of their first member. A group is a ring on a step of one ring and a
+ * component on a step of several.
+ */
+function orderChildren(
+    groups: readonly number[][],
+    outgoing: readonly number[],
+    partitionBirths: readonly number[],
+): AlgorithmStepInput[] {
+    const position = new Map(outgoing.map((id, index) => [id, index]));
+    const partitionIndex = new Map(partitionBirths.map((id, index) => [id, index] as const));
+    return groups
+        .map(group => {
+            const members = group.toSorted((a, b) => position.get(a)! - position.get(b)!);
+            return {members, claim: Math.min(...members.map(id => partitionIndex.get(id) ?? Infinity))};
+        })
+        .toSorted((a, b) => a.claim !== b.claim
+            ? a.claim - b.claim
+            : position.get(a.members[0])! - position.get(b.members[0])!)
+        .map(child => ({interiorEdges: child.members}));
+}
+
+/**
+ * THE CHILD STEPS OF A STEP OF SEVERAL RINGS: ITS COMPONENTS (join-and-divide spec, decisions 10 to 17). `rings` are the rings the layer left
+ * over the step's outgoing bisectors (`outgoing`, in the order they were gathered), less any closed flat; they are
+ * classified and grouped by {@link componentsOfRings} at `layerTime`, and each component — an outer ring and the inner
+ * rings inside it — is one child, in the order {@link orderChildren} gives.
+ */
+function componentsAsChildren(
+    context: StraightSkeletonSolverContext,
+    rings: number[][],
+    outgoing: number[],
+    partitionBirths: number[],
+    layerTime: number,
+    born: ReadonlySet<number>,
+): AlgorithmStepInput[] {
+    const components = componentsOfRings(context, rings, layerTime, born);
+    return orderChildren(components.map(component => [component.outer, ...component.inner].flat()), outgoing,
+        partitionBirths);
+}
+
+/**
+ * THE GENERIC STEP: one layer of three bisectors or more, as its phases in the order they run. Each phase reads what
+ * the ones before it wrote, and the order is load-bearing: no event is resolved before the layer's event set is final
+ * and every refusal of it has been asked, and no bisector is born before every event has been resolved.
+ *
+ *  1. {@link createCollisions}: every event the step's bisectors can resolve.
+ *  2. {@link layerWindow}: the layer, the prefix of those events within the held window of the earliest.
+ *  3. {@link terminalLadderLayer}, only where there is no event: a closure that finishes the step, or a completion that
+ *     becomes the layer.
+ *  4. {@link resolveLayerEvents}: the layer resolved whole, narrowed to its earliest moment where it cannot be, with
+ *     each merge's third-front meeting attached on a step of several rings.
+ *  5. {@link refuseUnsettledLayer}: on a step of several rings, what the simultaneous-rings spec still refuses.
+ *  6. {@link resolvePairwise} or {@link resolveWhole}: every event resolved, each one's bisections linked as pending
+ *     births in the layer.
+ *  7. {@link bearBirths}: the births borne, their pending links replaced by their ids, and the layer settled.
+ *  8. {@link childrenOfSeveralRings} or {@link childrenOfOneRing}: the child steps.
+ */
+export function handleInteriorNGon(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepInput[] {
+    // THE GUARD IS "AT LEAST THREE": a step of two bisectors is the pair's. The thrown text's "Greater than 3" is not
+    // the rule; the test below is.
     if (input.interiorEdges.length < 3) {
         throw new Error("Greater than 3 edges required for generic step handling.")
     }
 
-    const result: AlgorithmStepOutput = {
-        childSteps: []
-    };
+    // THE LAYER'S LINK STATE (skeleton wavefront-order spec), owned by this call and dying with it: the events below
+    // link the bisectors they bear as pending births in it, which are replaced by their ids as they are created in
+    // `bearBirths`, and the layer is settled there.
+    const layer = new LayerLinks(context);
 
+    // THE STEP'S RINGS ARE THE LINKS' RINGS, ALWAYS (skeleton join-and-divide spec, decision 1), read at the layer's
+    // start. Every step of a single-loop solve is a step of one ring. A step of several rings — an outline and the
+    // holes inside it — resolves a vertex event across two rings whole (simultaneous-rings spec, decisions 3 to 8),
+    // refuses by name what it does not settle (decisions 20 to 22), and leaves its components as children
+    // (join-and-divide spec, decisions 10 to 17; simultaneous-rings decision 12).
+    const rings = ringsOfWavefront(context, input.interiorEdges);
 
+    // THE STEP'S EXTERIOR PARENTS, DUPLICATES INCLUDED (join-and-divide spec, decision 7). An edge bounding two
+    // segments of one step is listed twice, and its two reports of one split are one event: the first resolved
+    // retires the instigator.
     const exteriorParents = context.exteriorParentsOfSubPolygon(input.interiorEdges);
 
+    const collisions = createCollisions(input.interiorEdges, exteriorParents, context);
+    let window = layerWindow(collisions);
+    if (collisions.length === 0) {
+        const completion = terminalLadderLayer(context, input.interiorEdges, rings, layer);
+        if (completion === null) {
+            return [];
+        }
+        window = [completion];
+    }
 
-    // Generate all currently valid collision events
-    const collisionLists: CollisionEvent[][] = createCollisions(input.interiorEdges, exteriorParents, context)
+    const {events, resolution} = resolveLayerEvents(context, rings, window);
+    refuseUnsettledLayer(context, rings, events, resolution);
+    const borne = resolution === null
+        ? resolvePairwise(context, events, layer)
+        : resolveWhole(context, events, resolution, layer);
+    const {outgoing, partitionBirths} = bearBirths(context, layer, input.interiorEdges, borne);
+    return rings.length > 1
+        ? childrenOfSeveralRings(context, input.interiorEdges, events, outgoing, partitionBirths)
+        : childrenOfOneRing(context, outgoing, partitionBirths);
+}
 
-    // W-spec W24: the layer window, on arrivals. `bestArrival` is the earliest by the same
-    // comparator, and the window is compared against it, ANCHORED on the earliest arrival (journal
-    // decision 155) and stated per pair (C8 spec T13). Census S22: the window is HELD at 1e-8
-    // (`HELD_SIMULTANEITY_WINDOW`) — its move to the solve's `simultaneityWindow` (δ, T12) hit T37's
-    // STOPs, measured by toggle; see the constant. At unit weights every product is by `1.0` and this
-    // is `fp_compare(offset, bestOffset, 1e-8) <= 0` on an offset-ascending list.
-    //
-    // REGISTER C12 MEASURED THE PER-PAIR FORM HERE WITH THE COMPLETE ERROR MODEL (journal-5 decision 167)
-    // AND IT STOPPED — see "THE WINDOW AND THE BOX" in constants.ts. Two readings of "every arrival within
-    // the per-pair window of the earliest" were measured. FILTERING the whole list admits a later arrival
-    // with a wide budget while refusing an earlier one of the SAME EDGE with a narrow budget: on `Off-edge
-    // Jitter Plus (seed 7919)` the ring [22, 25, 26, 43, 45] took 26 × 43 (4.07e-11 after the earliest,
-    // budget 2.79e-11) into the layer with 25 × 45 (budget 1.52e-11) and left 22 × 43 (2.29e-11 after it,
-    // budget 2.2e-15) out, and a direction violation appeared. The PREFIX form — this loop's own shape,
-    // cut at the first refusal — removes that, but still resolves a wide-budget arrival with the earliest
-    // while a narrow-budget arrival of the same edges, unorderable against it, is left out: `Off-edge Jitter
-    // Plus`, k = 9, seed 23757 took 164 × 229 (8.6e-11 after a split, budget 9.5e-10) with the split and
-    // left 164 × 237 (2.8e-12 later still, budget 1.1e-11), and its strips came out 1.1% short.
-    const collisionsToHandle: CollisionEvent[] = [];
+/**
+ * THE LAYER: the prefix of `collisions`, in arrival order, within `HELD_SIMULTANEITY_WINDOW` of the earliest.
+ *
+ * W-spec W24: the layer window, on arrivals. `bestArrival` is the earliest by the same
+ * comparator, and the window is compared against it, ANCHORED on the earliest arrival (journal
+ * decision 155) and stated per pair (C8 spec T13). The window is the held 1e-8
+ * (`HELD_SIMULTANEITY_WINDOW`, census S22), not the solve's `simultaneityWindow` (δ, T12): see the
+ * constant for the measured STOPs that hold it. At unit weights every product is by `1.0` and this
+ * is `fp_compare(offset, bestOffset, 1e-8) <= 0` on an offset-ascending list.
+ *
+ * THE LAYER IS A PREFIX, CUT AT THE FIRST ARRIVAL OUTSIDE THE WINDOW, NEVER A FILTER OF THE WHOLE LIST.
+ * A filter under a per-pair window admits a later arrival with a wide budget while refusing an earlier
+ * one of the same edge with a narrow budget, and the step then wires against causality. The per-pair
+ * window with the complete error model (journal-5 decision 167) is not spent here: even as a prefix it
+ * resolves a wide-budget arrival with the earliest while leaving out a narrow-budget arrival of the same
+ * edges that is unorderable against it. Measured: tolerance-derivation-measurement-record.md, "Measurement record",
+ * "The per-pair layer window, filtered and as a prefix".
+ */
+function layerWindow(collisions: readonly ResolvableEvent[]): ResolvableEvent[] {
+    const collisionsToHandle: ResolvableEvent[] = [];
     let bestArrival: Arrival | undefined;
-    const flattenedCollisions = collisionLists.flat()
-        .toSorted((e1, e2) => compareArrivals(e1.arrival, e2.arrival, 0))
+    const flattenedCollisions = collisions.toSorted(byArrival);
 
     for (const flattenedCollision of flattenedCollisions) {
         if (bestArrival === undefined || compareArrivals(flattenedCollision.arrival, bestArrival, 0) < 0) {
@@ -254,306 +283,383 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         }
 
     }
+    return collisionsToHandle;
+}
 
-    if (collisionLists.length === 0) {
-        // THE TERMINAL LADDER (journal decision 145), the same one the pair and the triangle climb:
-        // an n-gon whose live edges produce no event is a generalisation of the triangle that does,
-        // and it was refused the same handling only because the terminal cases were first
-        // characterised too simply. The throw below stands ONLY where no rung applies and no
-        // candidate pair exists.
-        const rung = climbTerminalLadder(context, input.interiorEdges);
-        if (rung === undefined) {
-            throw new Error("Unable to generate any collisions from graph context. Skeleton remains incomplete.");
-        }
-        if (rung.rung === 'closure') {
-            applyDegenerateClosure(context, input.interiorEdges, rung.position);
-            exteriorParents.forEach(e => tryToAcceptExteriorEdge(context, e));
-            return result;
-        }
-        // THE COMPLETION, IN THE N-GON'S OWN TERMS: the named pair's head-on event is priced as
-        // `collideInteriorEdges` prices a head-on verdict and becomes the layer, so it is resolved by
-        // exactly the machinery below — whole-event merge or pairwise fallback, bisections emitted
-        // for the surviving arcs, children partitioned — as any found event would be.
-        collisionsToHandle.push(priceHeadOnPair(
-            context.getInteriorWithId(rung.completion.firstId),
-            context.getInteriorWithId(rung.completion.secondId),
-            context));
+/**
+ * A STEP THAT PRODUCED NO EVENT: the completion event that becomes its layer, or `null` when a closure finished the
+ * step, its layer settled.
+ *
+ * A STEP OF SEVERAL RINGS WITH NO EVENT NEVER CLIMBS THE TERMINAL LADDER; it is refused (join-and-divide spec,
+ * decision 23). Its closures and its coaxial completion are statements about one live set, and would pair bisectors of
+ * different rings.
+ *
+ * THE TERMINAL LADDER (journal decision 145), the same one the pair and the triangle climb:
+ * an n-gon whose live edges produce no event is a generalisation of the triangle that does,
+ * and takes the same handling. The throw below stands ONLY where no rung applies and no
+ * candidate pair exists.
+ */
+function terminalLadderLayer(
+    context: StraightSkeletonSolverContext,
+    interiorEdges: number[],
+    rings: readonly number[][],
+    layer: LayerLinks,
+): ResolvableEvent | null {
+    if (rings.length > 1) {
+        refuseStep(context, 'multi-ring-step-refused', `a step of ${rings.length} rings `
+            + `(${rings.map(ring => formatRing(ring)).join(', ')}) produced no event.`);
     }
 
-    // Handle collisions
-    const collapseEvents: BisectionParams[] = [];
-    let partitionEvents: BisectionParams[] = [];
+    const rung = climbTerminalLadder(context, interiorEdges);
+    if (rung === undefined) {
+        throw new Error("Unable to generate any collisions from graph context. Skeleton remains incomplete.");
+    }
+    if (rung.rung === 'closure') {
+        // No acceptance here: exterior edges are accepted at the step boundary only (skeleton edge-acceptance
+        // spec, decision 6).
+        applyDegenerateClosure(context, interiorEdges, rung.position);
+        settleLayerLinks(layer);
+        return null;
+    }
+    // THE COMPLETION, IN THE N-GON'S OWN TERMS: the named pair's head-on event is priced as
+    // `collideInteriorEdges` prices a head-on verdict and becomes the layer, so it is resolved by
+    // exactly the phases after this one — whole-event merge or pairwise fallback, bisections emitted
+    // for the surviving arcs, children partitioned — as any found event would be.
+    return priceHeadOnPair(
+        context.getInteriorWithId(rung.completion.firstId),
+        context.getInteriorWithId(rung.completion.secondId),
+        context);
+}
 
-    const recordBisections = (bisectionList: BisectionParams[]) => {
+/**
+ * THE LAYER'S FINAL EVENT SET AND HOW IT IS RESOLVED: `window` resolved whole ({@link asWholeEvents}), or else its
+ * earliest arrival moment, resolved whole where it can be; `resolution` is `null` where neither can, and the events go
+ * to the pairwise fallback. On a step of several rings a resolution carries each merge's third-front meeting.
+ *
+ * Every interior-to-interior collision at this offset that shares a collision point is one
+ * vertex event, not several. Resolve each such event whole — terminate all its arrivals on
+ * one node, then emit one bisector per surviving arc — before touching the next. Handling
+ * the reported pairs individually is what leaves the ring inconsistent on symmetric input,
+ * where a single point can absorb every edge at once.
+ *
+ * THE RINGS ARE THE WAVEFRONT'S, READ FROM ITS LINKS (skeleton wavefront-order spec, decision 20; skeleton
+ * join-and-divide spec, decision 1), `rings`. A ring is never keyed on a unique widdershins parent: every joined
+ * ring breaks that key (BSA.F91).
+ *
+ * WHEN THE WHOLE-EVENT RESOLUTION REFUSES THE LAYER, THE ANSWER IS A NARROWER LAYER — NOT A
+ * PAIRWISE ONE. Journal decision 102: strict linear causality, the earliest arrival wins, and it
+ * governs how many events one step CONSUMES as well as the order they are read in. `window`
+ * ({@link layerWindow}) is an `fp_compare` window — an absolute 1e-8 on offsets of order 1e-1, some
+ * 1e8 ulps wide — so resolving all of it pairwise would consume arrivals a million ulps apart in the
+ * wavefront clock as though they were simultaneous. A refused layer is one wavefront closing at two
+ * points a few render floors apart: resolved in one step, both closures fire and each emits its own
+ * bisector into the corridor between them, where a ridge admits one, and a three-way arrival paired
+ * two at a time wires its leftover backwards. Narrowed to the earliest moment, the earlier closure
+ * resolves alone and the later one is RECOMPUTED next step against the wavefront the first one left,
+ * so the third arrival of a three-way event terminates on the node the first two built.
+ *
+ * ONLY WHERE THE WHOLE-EVENT RESOLUTION HAS ALREADY REFUSED, and that restraint is load-bearing:
+ * narrowing unconditionally breaks the k-way hubs this file's clustering exists for — the
+ * reciprocal reports of one 48-way convergence are not within the ulp bar of each other (F27).
+ * Measured: solver-coincidence-and-terminal-cases-decisions.md, "Measurement record", "Narrowing a
+ * refused layer to its earliest arrival moment".
+ *
+ * The two nodes still exist and are still a few floors apart. That separation is real structure
+ * (journal decision 92 / F26a) and contracting it is downstream's business, not the solver's.
+ *
+ * A layer resolved whole on a step of several rings reads its third-front meetings here, before anything changes, so
+ * a meeting that stays refused is refused by {@link refuseUnsettledLayer} before anything changes (flat-ring and
+ * third-front spec, decisions 30 and 43).
+ */
+function resolveLayerEvents(
+    context: StraightSkeletonSolverContext,
+    rings: number[][],
+    window: ResolvableEvent[],
+): {events: ResolvableEvent[]; resolution: WholeEvents | null} {
+    let events = window;
+    let resolution = asWholeEvents(context, rings, events);
+    if (resolution === null) {
+        events = earliestArrivalMoment(window);
+        resolution = asWholeEvents(context, rings, events);
+    }
+    if (rings.length > 1 && resolution !== null) {
+        resolution = withThirdFronts(context, resolution, events);
+    }
+    return {events, resolution};
+}
+
+/**
+ * WHAT STAYS REFUSED, ONCE THE LAYER'S EVENT SET IS FINAL AND BEFORE ITS FIRST EVENT IS RESOLVED (simultaneous-
+ * rings spec, decisions 20 to 22), so a refused layer changes no link, node or acceptance. Asked only on a step of
+ * several rings (decision 1): on one ring every merge lies on the ring and nothing here can fire. Refuses the step by
+ * name, or returns.
+ */
+function refuseUnsettledLayer(
+    context: StraightSkeletonSolverContext,
+    rings: number[][],
+    events: ResolvableEvent[],
+    resolution: WholeEvents | null,
+): void {
+    if (rings.length <= 1) {
+        return;
+    }
+    const verdict = resolution !== null
+        ? wholeLayerRefusal(resolution)
+        : pairwiseLayerRefusal(context, rings, events);
+    if (!verdict.ok) {
+        refuseStep(context, 'simultaneous-across-rings', `rings `
+            + `${rings.map(ring => formatRing(ring)).join(', ')}: ${verdict.reason} Events of different rings `
+            + `coincide in this layer in a form the simultaneous-rings spec refuses by name.`);
+    }
+}
+
+/**
+ * THE PAIRWISE FALLBACK: each event resolved by {@link handleCollisionEvent}, in the order below; returns each one's
+ * bisections, in that order.
+ *
+ * THE PAIRWISE FALLBACK IS A PAIRING RULE. Each event here consumes its two edges, so whichever
+ * reported pair is handled first is the pair the ring collapses on and every rival report of
+ * those edges returns empty. That makes arrival order load-bearing, not cosmetic. It only ever
+ * sees ONE arrival moment, so the pairing it decides is between arrivals no offset separates.
+ * Within it, a meeting nearer along a bisector both events lie on goes first (BSA.D335), and the
+ * tie-break decides only what that leaves unordered: priority, then place (`inPlaceOrder`, BSA.D335
+ * stage 2), and the edge ids only between events that meet at one point.
+ */
+function resolvePairwise(
+    context: StraightSkeletonSolverContext,
+    events: ResolvableEvent[],
+    layer: LayerLinks,
+): BisectionParams[][] {
+    const byPlace = inPlaceOrder(events, context.perceptualFloor);
+    const byPriorityThenPlace = (e1: CollisionEvent, e2: CollisionEvent) => {
+        const priority = comparePriority(e1, e2);
+        if (priority !== 0) {
+            return priority;
+        }
+        return byPlace(e1, e2) || compareEdgeIdLists(e1.collidingEdges, e2.collidingEdges);
+    };
+    return inArrivalOrder(events, byPriorityThenPlace, nearerAlongSharedBisector(events, context))
+        .map(event => handleCollisionEvent(event, context, layer));
+}
+
+/**
+ * THE LAYER RESOLVED WHOLE: every merge, in the resolution's order ({@link resolveWholeMerge}), then every split
+ * ({@link resolveSplits}); returns each one's bisections, in that order.
+ *
+ * NO CONCURRENCY GATE HERE. A gate would resolve an arrival set to one node only where its PARENT set
+ * is concurrent — full rank and residual under a bar — because a least-squares node over a
+ * non-concurrent parent set is on none of the pairwise bisector loci (F32/F39). Over the corpus every
+ * merge resolved here is concurrent to well inside `EQUIDISTANCE_BAR`, and the one rank-deficient set
+ * is a two-arrival head-on corridor closure whose position comes from the collision itself, which a
+ * rank test would refuse wrongly. The rank-2 pairs — the 29/30 class — never reach this branch as one
+ * set: the narrowing ({@link resolveLayerEvents}) separates them into two arrival moments, so they
+ * resolve as two nodes joined by one ridge, which is what the rank-2 ruling prescribes, reached by
+ * causality instead of by a rank predicate. The gate is unbuilt because the corpus offers nothing to
+ * convict it on, in the manner of journal decision 107(b). Measured:
+ * solver-coincidence-and-terminal-cases-decisions.md, "Measurement record", "Concurrency of the merges
+ * resolved whole".
+ */
+function resolveWhole(
+    context: StraightSkeletonSolverContext,
+    events: ResolvableEvent[],
+    resolution: WholeEvents,
+    layer: LayerLinks,
+): BisectionParams[][] {
+    const merges = resolution.merges.map(whole => resolveWholeMerge(context, events, whole, layer));
+    return [...merges, ...resolveSplits(context, events, layer)];
+}
+
+/**
+ * ONE MERGE RESOLVED WHOLE: its arrivals terminated at one node and accepted, its bisections borne there, its arrivals
+ * retired, and its node charged for its siting. Returns its bisections; none where fewer than two of its edges arrive.
+ */
+function resolveWholeMerge(
+    context: StraightSkeletonSolverContext,
+    events: ResolvableEvent[],
+    whole: WholeMerge,
+    layer: LayerLinks,
+): BisectionParams[] {
+    const {merge, thirdFront} = whole;
+    const arrivals = merge.edgeIds.filter(edgeId => !context.isAccepted(edgeId));
+    if (arrivals.length < 2) {
+        return [];
+    }
+
+    // The merge's node carries the largest position budget among the events it gathers (journal-5
+    // decision 167): its position is one of theirs (the medoid), and it answers for all of them.
+    const positionUncertainty = Math.max(0, ...events
+        .filter(event => merge.edgeIds.includes(event.collidingEdges[0])
+            && merge.edgeIds.includes(event.collidingEdges[1]))
+        .map(event => event.positionUncertainty));
+    const node = context.terminateEdgesAtPoint(arrivals, merge.position, positionUncertainty);
+    context.acceptAll(arrivals);
+    // A VERTEX EVENT ACROSS TWO RINGS bears the two bisectors of its two runs' cycle, and a merge on a third front
+    // the wall's cut in place of its facing gap ({@link bisectionsOfWholeMerge}). A merge across rings had its
+    // runs read at the layer's start, and merges are resolved first and share no edge, so every arrival is
+    // still unaccepted here (simultaneous-rings decision 16). A third front's splits are void in
+    // {@link resolveSplits}, their instigators consumed here.
+    const bisections = bisectionsOfWholeMerge(whole, arrivals, node.id, context, layer);
+    if (thirdFront?.resolution.ok === true) {
+        context.probe?.thirdFrontResolved?.(context, merge.edgeIds, thirdFront.resolution.value.segment.exteriorEdge);
+    }
+    // The arrivals leave the wavefront, once each gap has been linked from them.
+    retireBisectors(context, arrivals);
+    // AND IT CARRIES WHERE IT WAS PUT (journal-5 decision 170): the medoid siting is decision 157's
+    // release, and its cost downstream is each emitted bisector's equi-time residual at the node.
+    // The node's budget is the larger of the members' pricing budget above and the largest residual
+    // over the bisectors it emits — {@link chargeSitingResidual}.
+    chargeSitingResidual(node.id, bisections, context);
+    return bisections;
+}
+
+/**
+ * THE SPLITS OF A LAYER RESOLVED WHOLE, each by {@link handleCollisionEvent} at its sited position, in edge-id order;
+ * returns each one's bisections, in that order.
+ *
+ * Splits of one layer landing on one point are ONE vertex event, and this is where they are
+ * told so. `handleCollisionEvent` places a node at whatever position it is handed, so two
+ * simultaneous splits a fraction of the render floor apart, each at its own position, would build
+ * two nodes joined by a degenerate pair of bisectors. Only the POSITION is resolved here; each split
+ * still emits its own bisections, and `findOrAddNode` does the joining.
+ *
+ * THE SPLITS ARE SITED IN EDGE-ID ORDER, so events an offset cannot separate are still resolved in an order
+ * that is a function of the events themselves. Each one CREATES A NODE, so an order the offsets decide makes
+ * node identity turn on an ulp: in offset order `Golf Cart`'s two simultaneous splits of its top edge (journal
+ * F12) swap ids under a translation of 1e3, the defect decision 65 records for the ellipses' mirror pair. Edge ids are
+ * integers from the polygon's own vertex order and carry no arithmetic. Every event here is a split, of one
+ * priority, so priority decides nothing among them.
+ */
+function resolveSplits(
+    context: StraightSkeletonSolverContext,
+    events: ResolvableEvent[],
+    layer: LayerLinks,
+): BisectionParams[][] {
+    const splitEvents = events
+        .filter(event => event.eventType === 'interiorAgainstExterior')
+        .toSorted(byEdgeIds);
+    const splitPositions = coincidentEventPositions(splitEvents, context.perceptualFloor);
+
+    // A RE-POINTED SPLIT PAYS FOR THE MOVE, AS A MERGE DOES (journal-5 decision 171(c)). Its node is
+    // sited at the group's medoid, not at its own meeting, so the bisectors it emits inherit that
+    // node's residual on their parents' clocks — {@link chargeSitingResidual}, the merge's term. Only
+    // an event actually moved is charged: at its own point a split's residual is its own pricing's
+    // rounding, which its position budget already answers for, and the medoid member is not moved.
+    return splitEvents.map((event, index) => {
+        const sited = splitPositions[index];
+        const bisections = handleCollisionEvent({...event, position: sited}, context, layer);
+        if (bisections.length > 0 && (sited.x !== event.position.x || sited.y !== event.position.y)) {
+            chargeSitingResidual(bisections[0].source, bisections, context);
+        }
+        return bisections;
+    });
+}
+
+/**
+ * THE LAYER'S BIRTHS, BORNE. `borne` is every event's bisections in the order the events were resolved: an event that
+ * bore more than one partitions, and one that bore one collapses. Returns the step's outgoing bisectors (its members
+ * still unaccepted, then the partition births, then the collapse births) and the partition births, indexed as the
+ * partition events {@link selectPartitionEvents} kept. The layer is settled before it returns.
+ *
+ * NO ACCEPTANCE HERE (skeleton edge-acceptance spec, decision 5): exterior edges are accepted at the step
+ * boundary only, where nothing is pending. Under that rule no reader in this step can observe an acceptance
+ * made here: every parent of every birth below was named by a then-live bisector at the last boundary, and every
+ * other in-step reader asks only of edges its own live bisectors name. The edge is accepted at the next boundary.
+ */
+function bearBirths(
+    context: StraightSkeletonSolverContext,
+    layer: LayerLinks,
+    stepMembers: readonly number[],
+    borne: readonly BisectionParams[][],
+): {outgoing: number[]; partitionBirths: number[]} {
+    const collapseEvents: BisectionParams[] = [];
+    const partitionEvents: BisectionParams[] = [];
+    for (const bisectionList of borne) {
         if (bisectionList.length > 1) {
             partitionEvents.push(...bisectionList)
         } else {
             collapseEvents.push(...bisectionList)
         }
-    };
-
-    // THE TIE-BREAK FOR SIMULTANEOUS ARRIVALS, and only for those: priority, then the colliding edge
-    // ids, so events an offset cannot separate are still resolved in an order that is a function of
-    // the events themselves. `toSorted` is stable, so priority alone left equal-priority events in
-    // the order the offset sort delivered them — and offsets that are equal in exact arithmetic
-    // differ by an ulp once the input is placed elsewhere in the plane. Each event handled here
-    // CREATES A NODE, so that made node identity turn on an ulp: `Golf Cart`'s two simultaneous
-    // splits of its top edge (journal F12) swapped ids under a translation of 1e3, the same defect
-    // decision 65 records for the ellipses' mirror pair. Edge ids are integers taken from the
-    // polygon's own vertex order and carry no arithmetic at all.
-    //
-    // It is NOT a layer ordering. Passed to `inArrivalOrder`, it decides only within one moment of
-    // the wavefront clock; separated arrivals are ordered by their offsets (decision 102).
-    const byEventPriority = (e1: CollisionEvent, e2: CollisionEvent) => {
-        const priority = CollisionTypePriority[e1.eventType] - CollisionTypePriority[e2.eventType];
-        if (priority !== 0) {
-            return priority;
-        }
-        return compareEdgeIdLists(e1.collidingEdges, e2.collidingEdges);
-    };
-
-    // Every interior-to-interior collision at this offset that shares a collision point is one
-    // vertex event, not several. Resolve each such event whole — terminate all its arrivals on
-    // one node, then emit one bisector per surviving arc — before touching the next. Handling
-    // the reported pairs individually is what leaves the ring inconsistent on symmetric input,
-    // where a single point can absorb every edge at once.
-    const rings = ringsOfSubPolygon(input.interiorEdges, context);
-
-    /**
-     * These events resolved as WHOLE vertex events, or `null` when they cannot be.
-     *
-     * A merge is only resolvable as a whole if all its arrivals lie on one wavefront ring, and no
-     * two merges may claim the same edge — a bisector arrives somewhere once, so an edge in two
-     * merges means the first merge resolved would consume it and strand the second. Deciding both
-     * for every merge before mutating anything keeps the answer all-or-nothing, rather than leaving
-     * half a set resolved two different ways.
-     */
-    const asWholeEvents = (events: CollisionEvent[]) => {
-        if (rings === null) {
-            return null;
-        }
-        const candidates = clusterCoincidentMerges(
-            events.filter(event => event.eventType === 'interiorPair' || event.eventType === 'interiorNonAdjacent'),
-            context.perceptualFloor,
-        );
-        const ringOfMerge = candidates.map(merge =>
-            rings.find(ring => merge.edgeIds.every(edgeId => ring.includes(edgeId))));
-
-        if (ringOfMerge.some(ring => ring === undefined) || mergesShareAnEdge(candidates)) {
-            return null;
-        }
-        return {merges: candidates, ringOfMerge: ringOfMerge as number[][]};
-    };
-
-    // WHEN THE WHOLE-EVENT RESOLUTION REFUSES THE LAYER, THE ANSWER IS A NARROWER LAYER — NOT A
-    // PAIRWISE ONE. Journal decision 102: strict linear causality, the earliest arrival wins. That
-    // ruling was applied to the ORDER events are read in and not to how many of them one step
-    // CONSUMES, and the gap between those two is this defect. `collisionsToHandle` above is an
-    // `fp_compare` window — an absolute 1e-8 on offsets of order 1e-1, some 1e8 ulps wide — and the
-    // pairwise fallback used to resolve all of it, so arrivals a million ulps apart in the wavefront
-    // clock were consumed as though they were simultaneous.
-    //
-    // WHAT THAT COST, MEASURED. Every refusal on this corpus is an edge claimed by two merges at
-    // once, and every one of those is one wavefront closing at two points a few render floors apart
-    // at offsets a few hundredths of an ulp-moment apart — a near-degenerate ring, not a
-    // simultaneous event. Resolved whole, BOTH closures fire in one step and each emits its own
-    // bisector into the corridor between them, where a ridge admits one; on `(seed 55433, k=4)` a
-    // three-way arrival is paired two at a time and the leftover wires backwards (that fixture's
-    // pinned direction violation, `wavefront-causality.test.ts`, and this narrowing's own
-    // conviction). Narrowed to the earliest moment, the earlier closure resolves alone and the later
-    // one is RECOMPUTED next step against the wavefront the first one left, so the third arrival of
-    // a three-way event terminates on the node the first two built.
-    //
-    // ONLY WHERE THE WHOLE-EVENT RESOLUTION HAS ALREADY REFUSED, and that restraint is load-bearing:
-    // narrowing unconditionally breaks the k-way hubs this file's clustering exists for — the
-    // reciprocal reports of one 48-way convergence are not within the ulp bar of each other — and
-    // was measured at over thirty failures across ten suites, F27's finding restated.
-    //
-    // The two nodes still exist and are still a few floors apart. That separation is real structure
-    // (journal decision 92 / F26a) and contracting it is downstream's business, not the solver's.
-    let eventsToResolve = collisionsToHandle;
-    let resolution = asWholeEvents(eventsToResolve);
-    if (resolution === null) {
-        eventsToResolve = earliestArrivalMoment(collisionsToHandle);
-        resolution = asWholeEvents(eventsToResolve);
     }
 
-    // THE PAIRWISE FALLBACK IS A PAIRING RULE. Each event here consumes its two edges, so whichever
-    // reported pair is handled first is the pair the ring collapses on and every rival report of
-    // those edges returns empty. That makes arrival order load-bearing, not cosmetic. It now only
-    // ever sees ONE arrival moment, so the pairing it decides is between arrivals no offset separates.
-    if (resolution === null) {
-        inArrivalOrder(eventsToResolve, byEventPriority)
-            .map(event => handleCollisionEvent(event, context))
-            .forEach(recordBisections)
-    } else {
-        // NO CONCURRENCY GATE HERE, AND THE MEASUREMENT IS WHY. The tolerance audit's placed-node
-        // spec would resolve an arrival set to one node only where its PARENT set is concurrent —
-        // full rank and residual under a bar — and refuse loudly otherwise, because a least-squares
-        // node over a non-concurrent parent set is on none of the pairwise bisector loci (F32/F39).
-        // Swept over the 346 merges this branch actually resolves across the corpus: 253 carry three
-        // distinct oriented normals, 88 carry four, four are the high-degree hubs (10/16/32/48), and
-        // the worst concurrency residual anywhere is 5.56e-12 — three orders inside `EQUIDISTANCE_BAR`,
-        // with 344 of the 346 at machine zero. Exactly ONE set is rank-deficient: a two-arrival
-        // head-on corridor closure on `(seed 7919)` whose position comes from the collision itself
-        // and whose residual is 2.8e-17, which is the case a rank test would have refused wrongly.
-        //
-        // The pairs the audit measured as rank-2 — the 29/30 class — never reach this branch as one
-        // set at all: the narrowing above separates them into two arrival moments, so they resolve
-        // as two nodes joined by one ridge, which is what the rank-2 ruling prescribes, reached by
-        // causality instead of by a rank predicate. The gate is therefore unbuilt because the corpus
-        // offers nothing to convict it on, in the manner of journal decision 107(b).
-        resolution.merges.forEach((merge, index) => {
-            const arrivals = merge.edgeIds.filter(edgeId => !context.isAccepted(edgeId));
-            if (arrivals.length < 2) {
-                return;
-            }
-
-            // The merge's node carries the largest position budget among the events it gathers (journal-5
-            // decision 167): its position is one of theirs (the medoid), and it answers for all of them.
-            const positionUncertainty = Math.max(0, ...eventsToResolve
-                .filter(event => merge.edgeIds.includes(event.collidingEdges[0])
-                    && merge.edgeIds.includes(event.collidingEdges[1]))
-                .map(event => event.positionUncertainty));
-            const node = context.terminateEdgesAtPoint(arrivals, merge.position, positionUncertainty);
-            context.acceptAll(arrivals);
-            const bisections = bisectionsForMerge(resolution.ringOfMerge[index], {position: merge.position, edgeIds: arrivals}, node.id, context);
-            // AND IT CARRIES WHERE IT WAS PUT (journal-5 decision 170): the medoid siting is decision 157's
-            // release, and its cost downstream is each emitted bisector's equi-time residual at the node.
-            // The node's budget is the larger of the members' pricing budget above and the largest residual
-            // over the bisectors it emits — {@link chargeSitingResidual}.
-            chargeSitingResidual(node.id, bisections, context);
-            recordBisections(bisections)
-        })
-
-        // Splits of one layer landing on one point are ONE vertex event, and this is where they are
-        // told so. `handleCollisionEvent` places a node at whatever position it is handed, so two
-        // simultaneous splits a fraction of the render floor apart used to build two nodes joined by
-        // a degenerate pair of bisectors. Only the POSITION is resolved here; each split still emits
-        // its own bisections, and `findOrAddNode` does the joining.
-        const splitEvents = eventsToResolve
-            .filter(event => event.eventType === 'interiorAgainstExterior')
-            .toSorted(byEventPriority);
-        const splitPositions = coincidentEventPositions(splitEvents, context.perceptualFloor);
-
-        // A RE-POINTED SPLIT PAYS FOR THE MOVE, AS A MERGE DOES (journal-5 decision 171(c)). Its node is
-        // sited at the group's medoid, not at its own meeting, so the bisectors it emits inherit that
-        // node's residual on their parents' clocks — {@link chargeSitingResidual}, the merge's term. Only
-        // an event actually moved is charged: at its own point a split's residual is its own pricing's
-        // rounding, which its position budget already answers for, and the medoid member is not moved.
-        splitEvents.forEach((event, index) => {
-            const sited = splitPositions[index];
-            const bisections = handleCollisionEvent({...event, position: sited}, context);
-            if (bisections.length > 0 && (sited.x !== event.position.x || sited.y !== event.position.y)) {
-                chargeSitingResidual(bisections[0].source, bisections, context);
-            }
-            recordBisections(bisections);
-        });
-    }
-
-    exteriorParents.forEach(e => tryToAcceptExteriorEdge(context, e))
+    // A RING MADE ONLY OF THIS LAYER'S BIRTHS, ALL AT ONE NODE, CLOSES THERE AND NONE OF IT IS BORN (skeleton
+    // edge-acceptance spec, decision 32):
+    // it has no extent. It is the residue of a vertex event resolved pairwise, two births with each other's parents
+    // at the node where their shared face has just closed. Read from the links and the source node alone.
+    const closedAtOneNode = birthsClosedAtOneNode(layer);
+    const unborn = (params: BisectionParams) => !closedAtOneNode.has(params);
 
     // Collapse/partition into child
-    /* Clover Leaf Example:
+    const finalPartitionEvents = selectPartitionEvents(layer, partitionEvents.filter(unborn));
 
-    Partition Pair 1:  [[0,4], [4,0]]
-    Partition Pair 2:  [[4,8], [8,4]]
-    Partition Pair 3:  [[8,0], [0,8]]
+    const allOutgoingInteriorEdges = [...stepMembers.filter(e => !context.isAccepted(e))]
 
-    Outcome we want is: [[0,4], [4,8], [8,0]]
+    // Each bisector is linked where its event left its pending birth, the moment it has an id.
+    const bear = (params: BisectionParams): number => {
+        const id = bisectWithParams(context, params);
+        linkBirth(layer, params, id);
+        return id;
+    };
 
-    Rule is: sort by span of bisection, then clockwise bisection.
-    Span of bisection = (end - start + length) % length
+    // NO ACCEPTED-PARENT FILTER ON EITHER KIND OF BIRTH (skeleton edge-acceptance spec, decision 7). None can fire
+    // under the boundary rule, and a silently refused birth breaks its ring: `addBisectionEdge`'s throw is the
+    // guard, so a birth with a finished parent becomes a step failure.
+    // Indexed as `finalPartitionEvents`: the bisector each partition event bore.
+    const partitionBirths = finalPartitionEvents.map(bear);
+    allOutgoingInteriorEdges.push(...partitionBirths)
 
-     * */
-    const partitionSpan = (params: BisectionParams) => {
-        return (params.widdershinsExteriorEdgeIndex - params.clockwiseExteriorEdgeIndex + context.graph.numExteriorNodes) % context.graph.numExteriorNodes
+    allOutgoingInteriorEdges.push(...collapseEvents.filter(unborn).map(bear))
+
+    // Every pending birth that was never born — a re-report the dedupe dropped, or a ring closed at one node — is
+    // spliced out of its ring (skeleton wavefront-order spec).
+    settleLayerLinks(layer);
+
+    return {outgoing: allOutgoingInteriorEdges, partitionBirths};
+}
+
+/**
+ * A STEP OF SEVERAL RINGS LEAVES ITS COMPONENTS (join-and-divide spec, decisions 10 to 17), whatever its
+ * layer did: a join leaves one ring where there were two, a divide two outer rings, and a layer of both
+ * whatever its rings make, by the one rule. The rings are classified at the time of the layer's earliest
+ * arrival, a bisector born in it standing at its source node.
+ */
+function childrenOfSeveralRings(
+    context: StraightSkeletonSolverContext,
+    stepMembers: readonly number[],
+    events: readonly ResolvableEvent[],
+    outgoing: number[],
+    partitionBirths: number[],
+): AlgorithmStepInput[] {
+    const layerTime = timeOf(events.reduce((earliest, event) =>
+        compareArrivals(event.arrival, earliest.arrival, 0) < 0 ? event : earliest).arrival);
+    const members = new Set(stepMembers);
+    const born = new Set(outgoing.filter(id => !members.has(id)));
+    // A FLAT RING IS A FINISHED PIECE OF SKELETON, closed here and never classified (flat-ring and third-front spec,
+    // decisions 7 to 10 and 27); every other ring the layer left goes to its component unchanged. The rings are read
+    // once: closing a flat ring writes no link outside it, and each ring it closes is one of these, whole.
+    const left = ringsAmong(context, outgoing);
+    const closed = closeFlatRings(context, left, layerTime, born);
+    return componentsAsChildren(context, left.filter(ring => !closed.has(ring[0])),
+        outgoing.filter(id => !closed.has(id)), partitionBirths, layerTime, born);
+}
+
+/**
+ * THE CHILD STEPS OF A STEP OF ONE RING: the step's outgoing bisectors as one child where the layer bore no partition;
+ * else THE RINGS THE LAYER LEFT (skeleton wavefront-order spec, decision 19). A child is never an id interval
+ * holding both parents of each of its bisectors: a ring need not be an interval of ids — on the stage-off
+ * along-edge cells an interval assignment shatters a true ring into one-edge children (BSA.F95) — and a ring
+ * joined from two loops is no interval at all (BSA.F91).
+ *
+ * The children are in {@link orderChildren}'s order, because child order numbers what later steps create
+ * (wavefront-order spec, decision 13). On every solve of the corpus, the sweep and the census that completes, every
+ * child of every partitioning layer is exactly one ring (the spec's part A measurement).
+ */
+function childrenOfOneRing(
+    context: StraightSkeletonSolverContext,
+    outgoing: number[],
+    partitionBirths: number[],
+): AlgorithmStepInput[] {
+    if (partitionBirths.length === 0) {
+        return [{interiorEdges: outgoing}];
     }
-    partitionEvents = partitionEvents.filter(params => !context.isAccepted(params.widdershinsExteriorEdgeIndex) && !context.isAccepted(params.clockwiseExteriorEdgeIndex))
-        .toSorted((params1, params2) => {
-            const spanDelta = partitionSpan(params1) - partitionSpan(params2);
-            if (spanDelta !== 0) {
-                return spanDelta;
-            }
-
-            return params1.clockwiseExteriorEdgeIndex - params2.clockwiseExteriorEdgeIndex;
-        });
-
-    // Same-start events are nested re-reports of ONE split only when they share the split node:
-    // each re-report widens the widdershins claim past a parent it cannot see, so the smallest
-    // span is the tightest claim and wins. Same-start events from DIFFERENT split nodes are
-    // distinct simultaneous splits of that exterior edge — two reflex bisectors splitting it at
-    // different points in one layer — and every one of them partitions the polygon, so all
-    // survive. A survivor's span may then nest inside a sibling's (the middle child of a double
-    // split has no exact circular range, only a tightest one that covers an outer child whole),
-    // which the span-ascending order above resolves: the assignment below gives an edge to the
-    // FIRST child span containing both its parents, so the narrowest claim always wins.
-    const keptSourcesByStart = new Map<number, Set<number>>();
-    const finalPartitionEvents: BisectionParams[] = [];
-    for (const partitionEvent of partitionEvents) {
-        const start = partitionEvent.clockwiseExteriorEdgeIndex;
-        let sources = keptSourcesByStart.get(start);
-        if (sources === undefined) {
-            sources = new Set();
-            keptSourcesByStart.set(start, sources);
-        }
-        if (sources.has(partitionEvent.source)) {
-            continue;
-        }
-
-        sources.add(partitionEvent.source);
-        finalPartitionEvents.push(partitionEvent)
-    }
-
-    const allOutgoingInteriorEdges = [...input.interiorEdges.filter(e => !context.isAccepted(e))]
-
-    allOutgoingInteriorEdges.push(...finalPartitionEvents
-        .filter(params => !context.isAccepted(params.widdershinsExteriorEdgeIndex)
-            && !context.isAccepted(params.clockwiseExteriorEdgeIndex))
-        .map(params => {
-            return bisectWithParams(context, params)
-        }))
-
-    // Both bounding parents must still be live. An accepted parent has no wavefront left to
-    // bisect, and `clockwiseSpanExcludingAccepted` refuses to measure a span that touches one,
-    // so admitting a half-accepted collapse throws instead of producing an edge.
-    allOutgoingInteriorEdges.push(
-        ...collapseEvents.filter(params => !context.isAccepted(params.widdershinsExteriorEdgeIndex)
-            && !context.isAccepted(params.clockwiseExteriorEdgeIndex))
-            .map(params => bisectWithParams(context, params))
-    )
-
-    if (finalPartitionEvents.length === 0) {
-        result.childSteps.push({interiorEdges: allOutgoingInteriorEdges})
-
-        return result;
-    }
-
-    result.childSteps = finalPartitionEvents.map(() => ({interiorEdges: []}))
-
-    const N = context.graph.numExteriorNodes;
-    for (const interiorEdge of allOutgoingInteriorEdges) {
-        const { clockwise: cwParent, widdershins: wsParent } = context.parentEdges(interiorEdge);
-
-        let success = false;
-
-        for (let i = 0; i < finalPartitionEvents.length; i++) {
-            const event = finalPartitionEvents[i];
-            const cwInSpan = (cwParent.id - event.clockwiseExteriorEdgeIndex + N) % N;
-            const wsInSpan = (wsParent.id - event.clockwiseExteriorEdgeIndex + N) % N;
-            const spanSize = (event.widdershinsExteriorEdgeIndex - event.clockwiseExteriorEdgeIndex + N) % N;
-            if (cwInSpan <= spanSize && wsInSpan <= spanSize) {
-                const partitionSet = result.childSteps[i];
-                partitionSet.interiorEdges.push(interiorEdge);
-                success = true;
-                break;
-            }
-        }
-
-        if (!success) {
-            throw new Error(`Unable to play interior edge ${interiorEdge} in any span: ${finalPartitionEvents.flatMap(e => [e.clockwiseExteriorEdgeIndex, e.widdershinsExteriorEdgeIndex])}`)
-        }
-    }
-
-    return result;
+    return orderChildren(ringsAmong(context, outgoing), outgoing, partitionBirths);
 }

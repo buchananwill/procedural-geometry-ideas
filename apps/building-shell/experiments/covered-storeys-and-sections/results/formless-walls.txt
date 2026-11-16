@@ -1,0 +1,38 @@
+--- A. the reported input through readInput: Ring 0 formless on all four sides, Ring 1 Pitched at 30
+Ring 0 (model index 0) side 0 (S) is solved None but wins the union wall y = 0 [0, 1000] on storey 0, where its form is undefined (journal decision 140)
+Ring 0 (model index 0) side 1 (E) is solved None but wins the union wall x = 1000 [0, 1000] on storey 0, where its form is undefined (journal decision 140)
+Ring 0 (model index 0) side 2 (N) is solved None but wins the union wall y = 1000 [0, 1000] on storey 0, where its form is undefined (journal decision 140)
+Ring 0 (model index 0) side 3 (W) is solved None but wins the union wall x = 0 [0, 1000] on storey 0, where its form is undefined (journal decision 140)
+--- A2. a single formless side (N), the other three Pitched
+Ring 0 (model index 0) side 2 (N) is solved None but wins the union wall y = 1000 [0, 1000] on storey 0, where its form is undefined (journal decision 140)
+--- A3. partial cover: a Ring 1 strip over the W side of Ring 0; only W is formless
+Ring 0 (model index 0) side 3 (W) is solved None but wins the union wall x = 0 [0, 1000] on storey 0, where its form is undefined (journal decision 140)
+--- B. the C++ fallback replayed as a fixture: Ring 0 hip at 45, Ring 1 hip at each pitch, 1000 square
+Ring1@22.5: maxZ=750.00 roofFacesByStorey=[[0,4],[1,4]] faces={"Wall":8,"Ground":1,"Roof":8} internal=0 unclassified=0 cheeks=0 conflicts=0
+Ring1@25: maxZ=750.00 roofFacesByStorey=[[0,4],[1,4]] faces={"Wall":8,"Ground":1,"Roof":8} internal=0 unclassified=0 cheeks=0 conflicts=0
+Ring1@26.5: maxZ=750.00 roofFacesByStorey=[[0,4],[1,4]] faces={"Wall":8,"Ground":1,"Roof":8} internal=0 unclassified=0 cheeks=0 conflicts=0
+Ring1@26.6: maxZ=750.38 roofFacesByStorey=[[1,4]] faces={"Wall":8,"Ground":1,"Roof":4} internal=0 unclassified=0 cheeks=0 conflicts=0
+Ring1@30: maxZ=788.67 roofFacesByStorey=[[1,4]] faces={"Wall":8,"Ground":1,"Roof":4} internal=0 unclassified=0 cheeks=0 conflicts=0
+Ring1@45: maxZ=1000.00 roofFacesByStorey=[[1,4]] faces={"Wall":8,"Ground":1,"Roof":4} internal=0 unclassified=0 cheeks=0 conflicts=0
+Ring1@60: maxZ=1366.03 roofFacesByStorey=[[1,4]] faces={"Wall":8,"Ground":1,"Roof":4} internal=0 unclassified=0 cheeks=0 conflicts=0
+--- C. Ring 0 hip at the SAME pitch as Ring 1
+both@22.5: maxZ=707.11 roofFacesByStorey=[[1,4]] faces={"Wall":8,"Ground":1,"Roof":4} internal=0 unclassified=0 cheeks=0 conflicts=0
+both@30: maxZ=788.67 roofFacesByStorey=[[1,4]] faces={"Wall":8,"Ground":1,"Roof":4} internal=0 unclassified=0 cheeks=0 conflicts=0
+both@45: maxZ=1000.00 roofFacesByStorey=[[1,4]] faces={"Wall":8,"Ground":1,"Roof":4} internal=0 unclassified=0 cheeks=0 conflicts=0
+both@60: maxZ=1366.03 roofFacesByStorey=[[1,4]] faces={"Wall":8,"Ground":1,"Roof":4} internal=0 unclassified=0 cheeks=0 conflicts=0
+--- D. footprint scale with Ring 1 at 30 over a 45 fallback
+1000: maxZ=788.67 roofFacesByStorey=[[1,4]] faces={"Wall":8,"Ground":1,"Roof":4} internal=0 unclassified=0 cheeks=0 conflicts=0
+1100: maxZ=817.54 roofFacesByStorey=[[1,4]] faces={"Wall":8,"Ground":1,"Roof":4} internal=0 unclassified=0 cheeks=0 conflicts=0
+1200: maxZ=850.00 roofFacesByStorey=[[0,4],[1,4]] faces={"Wall":8,"Ground":1,"Roof":8} internal=0 unclassified=0 cheeks=0 conflicts=0
+1500: maxZ=1000.00 roofFacesByStorey=[[0,4],[1,4]] faces={"Wall":8,"Ground":1,"Roof":8} internal=0 unclassified=0 cheeks=0 conflicts=0
+2000: maxZ=1250.00 roofFacesByStorey=[[0,4],[1,4]] faces={"Wall":8,"Ground":1,"Roof":8} internal=0 unclassified=0 cheeks=0 conflicts=0
+--- E. Ring 1 gabled E and W at 22.5 over a 45 hip
+maxZ=750.00 roofFacesByStorey=[[0,4],[1,2]] faces={"Wall":8,"Ground":1,"Roof":6,"Gable":2} internal=0 unclassified=0 cheeks=0 conflicts=0
+and with Ring 0 taking the same forms:
+maxZ=707.11 roofFacesByStorey=[[1,2]] faces={"Wall":8,"Ground":1,"Roof":2,"Gable":2} internal=0 unclassified=0 cheeks=0 conflicts=2
+--- F. the upper storey overhangs every side of the lower (covered, with no coincident upper wall)
+Ring1@22.5: maxZ=750.00 roofFacesByStorey=[[0,4],[1,4]] faces={"Wall":8,"Ground":1,"Roof":8,"Underside":1} internal=0 unclassified=0 cheeks=0 conflicts=0
+Ring1@30: maxZ=846.41 roofFacesByStorey=[[1,4]] faces={"Wall":8,"Ground":1,"Underside":1,"Roof":4} internal=0 unclassified=0 cheeks=0 conflicts=0
+Ring1@45: maxZ=1100.00 roofFacesByStorey=[[1,4]] faces={"Wall":8,"Ground":1,"Underside":1,"Roof":4} internal=0 unclassified=0 cheeks=0 conflicts=0
+--- G. roster: Rings wholly covered by one Ring on the storey above
+roster size 32

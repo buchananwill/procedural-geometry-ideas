@@ -22,8 +22,7 @@ import {place} from './placement-helpers';
  * only in exact arithmetic — in floating point they disagree in the last bits. So the stored order
  * chose which of several near-equal numbers a node's offset was re-derived as, and an order that
  * moved with the placement made that a placement-dependent answer. Nothing else reads the order:
- * `hasInteriorLoop` walks `inEdges` as an exhaustive reachability search, whose verdict cannot
- * depend on traversal order, and the three dashboard readers union it with `outEdges` to draw.
+ * the three dashboard readers union it with `outEdges` to draw.
  *
  * THE FIX AND WHAT PINS IT
  *

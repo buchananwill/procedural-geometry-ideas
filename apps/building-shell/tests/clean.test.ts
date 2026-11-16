@@ -3,10 +3,11 @@
 import {describe, expect, it} from 'vitest';
 import {CLEAN_MAX_MOVE_CM, CLEAN_TOLERANCE_CM, NO_CLEAN, cleanMesh, float32Ulp, meetMargin, meshOf} from '../src/clean.ts';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
-import {SHELL_FIXTURES, ShellFixture, ring} from '../src/fixture.ts';
+import {SHELL_FIXTURES, ShellFixture, internalRings, ring} from '../src/fixture.ts';
 import {getManifold} from '../src/manifold.ts';
 import type {ShellMesh} from '../src/mesh.ts';
-import {ShellUnion, partManifold, triArea, unionShell} from '../src/union.ts';
+import {planChecked, storeyForms} from '../src/storey.ts';
+import {ShellUnion, partManifold, triArea, unionPlans, unionShell} from '../src/union.ts';
 import {dist3, pointAt} from '../src/vec3.ts';
 import {SNAP_STEPS_PER_CM} from '../src/weld.ts';
 import {CAP_CHAIN_SEED, randomFixtures, seededFixture} from './robustness-fixtures.ts';
@@ -19,6 +20,21 @@ const NEAR_PAIRS: ShellFixture = {
 };
 /** Random fixture 14: its union leaves a cap 3.3e-4 cm high on a storey-0 hip, and no short edge. */
 const CAP = randomFixtures(1, 80)[14];
+
+/**
+ * CAP's union as the cleaning first met it, every Ring planned. Its cap is Ring 1's hip, which lies wholly inside Ring
+ * 0, so since journal decisions 261 and 262 the solve drops Ring 1 and `unionShell` meets no cap: each storey is
+ * planned here from all its Rings, as `planStorey` planned it before the drop.
+ */
+async function capUnion(): Promise<ShellUnion> {
+  const wasm = await getManifold();
+  const storeys = [...new Set(CAP.rings.flatMap(r => Array.from({length: r.storeys}, (_, k) => r.baseStorey + k)))].sort((a, b) => a - b);
+  const plans = storeys.map(n => {
+    const rings = CAP.rings.flatMap((ring, index) => (ring.baseStorey <= n && n < ring.baseStorey + ring.storeys ? [{index, ring}] : []));
+    return planChecked(CAP.name, n, n * CAP.storeyHeight, (n + 1) * CAP.storeyHeight, storeyForms(rings).building);
+  });
+  return unionPlans(wasm, CAP.name, plans);
+}
 
 /** The union's mesh before the cleaning, taken again from the parts `unionShell` kept. */
 async function rawUnion(u: ShellUnion): Promise<ShellMesh> {
@@ -98,7 +114,8 @@ describe('cleanMesh', () => {
   });
 
   it('flips a cap away, every triangle left on its tag\'s plane', async () => {
-    const u = await unionShell(CAP);
+    expect(internalRings(CAP)).toEqual([1]);
+    const u = await capUnion();
     const raw = await rawUnion(u);
     expect(u.clean).toMatchObject({merged: 0, flipped: 1});
     expect(cleanMesh(raw).stats.flipped).toBe(1);

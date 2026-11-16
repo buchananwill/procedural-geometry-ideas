@@ -17,17 +17,19 @@ const kindOf = (kind: FaceTag['kind'], storey: number) => (t: FaceTag): boolean 
 const robustnessCases = (h: number): ShellFixture[] => [...sweepFixtures(h), ...randomFixtures(1, 80, h)];
 
 /**
- * The cases the imprint cuts, as measured. At 300 cm: the five a corner probe found mislabelled (P36.089u, P39.376u,
- * P49.583u, P55.984u, Fuzz47), and P30.380u and P31.937u, whose straddling triangles the centroid happened to tag
- * right. At 250: P45.085u and Fuzz47. Among the fixtures, NarrowUpperStoreyGabled alone (F41).
+ * The cases the imprint cuts, as measured. At 300 cm: the four a corner probe found mislabelled (P36.089u, P39.376u,
+ * P49.583u, P55.984u), and P30.380u and P31.937u, whose straddling triangles the centroid happened to tag right. At
+ * 250: P45.085u. Among the fixtures, NarrowUpperStoreyGabled alone (F41). Fuzz47 was cut at both heights until gable
+ * rise decision 3 (WP-G2, journal decision 206) made its contested wall a hip with a rise: it needs no cut now, and its
+ * test below holds that.
  */
 const IMPRINTED: Record<number, string[]> = {
-  300: ['Fuzz47', 'P30.380u', 'P31.937u', 'P36.089u', 'P39.376u', 'P49.583u', 'P55.984u'],
-  250: ['Fuzz47', 'P45.085u'],
+  300: ['P30.380u', 'P31.937u', 'P36.089u', 'P39.376u', 'P49.583u', 'P55.984u'],
+  250: ['P45.085u'],
 };
 
-/** The 300 cm cases the corner probe found mislabelled (journal decision 111). */
-const REGRESSIONS = ['P36.089u', 'P39.376u', 'P49.583u', 'P55.984u', 'Fuzz47'];
+/** The 300 cm cases the corner probe found mislabelled (journal decision 111), Fuzz47 apart since WP-G2. */
+const REGRESSIONS = ['P36.089u', 'P39.376u', 'P49.583u', 'P55.984u'];
 
 /** The region invariant's verdict on the same union with the imprint left out: cleaned, then re-tagged as it stands. */
 async function withoutImprint(u: ShellUnion): Promise<string[]> {
@@ -101,6 +103,20 @@ describe('the corner probe\'s mislabelled cases (journal decision 111): named re
     const u = await unionShell(f);
     expect((await withoutImprint(u)).some(v => v.includes('straddles'))).toBe(true);
     expect(u.imprint.split).toBeGreaterThan(0);
+    expect(u.closed).toBe(true);
+    expect(winningRegionViolations(u)).toEqual([]);
+  });
+
+  // WP-G2 (gable rise decision 3, journal decision 206): Fuzz47's contested wall, a whole-wall gable until then, is a hip
+  // with a rise. The straddle the imprint cut was on that gable; the rise leaves none, so nothing is cut, and every
+  // triangle still lies within one region.
+  it('Fuzz47: builds a rise where its contested gable stood, needs no imprint cut, and every triangle lies within one region', async () => {
+    const f = all.find(c => c.name === 'Fuzz47');
+    if (!f) throw new Error('no robustness case Fuzz47');
+    const u = await unionShell(f);
+    expect(u.plans.some(p => p.rises?.length)).toBe(true);
+    expect(u.imprint.added).toBe(0);
+    expect((await withoutImprint(u)).some(v => v.includes('straddles'))).toBe(false);
     expect(u.closed).toBe(true);
     expect(winningRegionViolations(u)).toEqual([]);
   });

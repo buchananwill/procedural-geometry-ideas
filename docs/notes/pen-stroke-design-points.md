@@ -1,3 +1,11 @@
+---
+title: "Pen Stroke to Spline Explorer: Design Points"
+type: commentary
+area: dashboard
+status: archived
+date: 2026-07-24
+---
+
 # Pen Stroke → Spline Explorer — Design Points
 
 Running log of design points dictated by Will, one per turn. Questions held until end.

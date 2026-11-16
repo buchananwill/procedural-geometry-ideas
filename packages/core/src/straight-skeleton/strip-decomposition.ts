@@ -1,5 +1,8 @@
-import type {SkeletonSolveResult, StraightSkeletonGraph, Vector2} from './types';
+import type {SkeletonLoop, SkeletonSolveResult, StraightSkeletonGraph, Vector2} from './types';
+import {SkeletonDirection} from './types';
 import {computeNodeOffsets, requireProjectableResult} from './offset-projection';
+import {adjacentExteriorEdge, loopOfExteriorEdge} from './graph-helpers';
+import {signedArea} from './planar-geometry';
 
 /**
  * Decomposition of a solved block into street-facing strips.
@@ -22,16 +25,15 @@ import {computeNodeOffsets, requireProjectableResult} from './offset-projection'
  *
  * ## `depth` is a TIME (W-spec W5, W41)
  *
- * The clip is unchanged in form and every number in it moved together: the face-point "offsets" are
- * the times {@link computeNodeOffsets} now returns, `offset <= depth` compares two times, and the
- * crossing interpolation stays linear because a wavefront vertex moves along its bisector at a
- * constant velocity, so its time is an affine function of the distance travelled.
+ * Every number in the clip is a time: the face-point "offsets" are the times {@link computeNodeOffsets}
+ * returns, `offset <= depth` compares two times, and the crossing interpolation is linear because a
+ * wavefront vertex moves along its bisector at a constant velocity, so its time is an affine function
+ * of the distance travelled.
  *
  * WHAT THE CALLER MUST READ DIFFERENTLY UNDER WEIGHTS: the physical setback the strip cuts on edge
  * `e` is `w_e · depth`, not `depth`. A four-metre road on a unit-weight edge is
  * `normaliseLength(normalisation, 4) / 1`; the same `depth` on an edge at speed 3 cuts twelve
- * metres. That is what asking for weights asks for. At unit weights the two readings are one number
- * and no existing caller changes.
+ * metres. That is what asking for weights asks for. At unit weights the two readings are one number.
  *
  * ## Policy is injected, never inferred
  *
@@ -49,12 +51,12 @@ import {computeNodeOffsets, requireProjectableResult} from './offset-projection'
  * THE STRIP LAYER'S TOLERANCES — ONE PER ROLE, NOT ONE NUMBER FOR FOUR SPACES
  * ----------------------------------------------------------------------------
  *
- * These were a single `EPSILON = 1e-9` documented as "slack for comparing an offset against the
- * clip depth" and applied, additionally, to a scale-relative length, to a parametric fraction and
- * to a cross product. Four quantities in four spaces sharing one name is exactly the confusion
- * journal decision 105 rules out: the number could not be moved for one role without silently
- * moving three others, and the comment described only the first. Split under decision 104, VALUES
- * UNCHANGED — the split is of the name, not of the bar.
+ * Four bars, one per quantity and space: a time, a scale-relative length, a parametric fraction and a
+ * cross product. They share the value `1e-9` and nothing else. Each has its own name because one name
+ * read in four spaces is the confusion RSA.D105 rules out (one predicate basis: a value never gets two
+ * verdicts by the path that reached it): a shared number could not move for one role without silently
+ * moving the other three. Every inline tolerance is a named constant with its claim stated where it
+ * lives (RSA.D104).
  *
  * {@link SEGMENT_CROSS_SINE_EPSILON} is the form the ruling asks the rest of the solver to reach:
  * a polynomial sign test scaled by its operands' magnitudes, so no normalisation and no division
@@ -71,7 +73,7 @@ import {computeNodeOffsets, requireProjectableResult} from './offset-projection'
  * relative. Claim: a face point within this of the clip depth is ON the clip contour, and admitting
  * it is what stops the clip manufacturing a zero-length edge out of rounding residue.
  *
- * UNDER WEIGHTS IT IS AT LEAST AS WIDE IN DISTANCE AS IT WAS (W-spec W4, W41). Weights are
+ * UNDER WEIGHTS IT IS AT LEAST AS WIDE IN DISTANCE AS IN TIME (W-spec W4, W41). Weights are
  * normalised to minimum one, so a time is at most the distance it came from and this window covers
  * at least `CLIP_DEPTH_EPSILON` of caller-space distance on every edge — on the fastest edge, up to
  * the weight ratio times more (at most `maxWeightRatio(δ)`, C8 spec T22). It is a degeneracy admission,
@@ -103,7 +105,7 @@ const CUT_FRACTION_EPSILON = 1e-9;
  * Slack on the CROSS PRODUCT of two segments, applied as `ε × |a| × |b|` — a sine bar written
  * without a division.
  *
- * THE EXEMPLAR OF THE RULED FORM (journal decision 105). Scaling the polynomial by both operands'
+ * THE EXEMPLAR OF THE RULED FORM (RSA.D105: division-free relative form). Scaling the polynomial by both operands'
  * magnitudes, instead of normalising the operands and comparing, makes the one number mean one
  * angle at every segment length, and it does so without the division that amplifies float noise
  * without bound as either operand tends to zero. See {@link segmentsProperlyCross} for the measured
@@ -123,8 +125,8 @@ export interface Strip {
      * `sliceStrip` is given — it carries no graph and no solve — and the parcel march has to solve
      * `v · n = w` per face to follow the same seams the skeleton drew. Without it the slicer would
      * march an unweighted skeleton across a weighted strip and put its cuts on arcs that are not
-     * there. All ones for an unweighted solve, which is every solve the recursion driver makes
-     * (arc decision 118).
+     * there. All ones for an unweighted solve, which is every solve the recursion driver makes:
+     * weights apply to the root solve only, and sub-region solves run at unit weight (RSA.D118).
      */
     supportingEdgeWeights: number[];
     /**
@@ -140,6 +142,10 @@ export interface Strip {
      * connected. Holes appear only when a `sameLogicalStreet` policy merges enough of the boundary
      * for the strip to close a loop around a piece of the offset contour, which in the limit is the
      * "one street all the way round" case. Usually empty.
+     *
+     * A SOLVE WITH HOLES ADDS ONE MORE SOURCE OF THEM (skeleton loop-consumers spec, decision 17): a run that
+     * covers a whole hole loop is a band round that hole, and its inner contour is the hole's own wall. `sliceStrip`
+     * returns such a strip whole, as it returns every strip with a hole.
      */
     holes: Vector2[][];
     /** The street-facing polyline: the supporting edges, in order. */
@@ -209,6 +215,9 @@ export interface StripOptions {
      * merge transitively, and merging repeats until every strip's frontage reaches this length,
      * so the guarantee is on the strip, not just the single edge.
      *
+     * ON A SOLVE WITH HOLES IT WORKS PER LOOP (skeleton loop-consumers spec, decision 12): no merge crosses
+     * from one loop to another, and the floor below is two strips per loop.
+     *
      * One guard: merging never reduces the decomposition below two strips, because a single
      * all-edge strip always closes a loop around the offset contour — the `holes` strip
      * `sliceStrip` cannot cut. The floor is necessary, not sufficient: at extreme thresholds
@@ -222,7 +231,10 @@ export interface StripOptions {
      * Are these two adjacent exterior edges the same logical street?
      *
      * Called once per adjacent pair, `(i, i + 1)` around the boundary including the wrap from last
-     * back to first. Default: never merge, giving one strip per exterior edge. Applied before
+     * back to first. ON A SOLVE WITH HOLES, once per exterior edge of every loop, paired with the next
+     * edge of ITS OWN loop, the wrap taken inside the loop: a run never holds edges of two loops
+     * (skeleton loop-consumers spec, decision 11). Default: never merge, giving one strip per exterior
+     * edge of every loop. Applied before
      * {@link minEdgeLength}, which then merges whole runs rather than single edges.
      */
     sameLogicalStreet?: (edgeIdA: number, edgeIdB: number) => boolean;
@@ -243,7 +255,7 @@ export interface StripOptions {
      * Reflex junctions also exceed the tolerance but are never reshaped: the seam bisects the
      * corner wedge, so at a reflex junction it leaves the vertex more than 90° from either edge
      * and the seam apex projects behind the vertex — no valid perpendicular cut exists. The
-     * reflex arm is parked with that finding (decision 16; see the reflex-arm characterisation
+     * reflex arm is parked with that finding (parcel-quality brief, decision 16; see the reflex-arm characterisation
      * tests).
      *
      * Ignored when {@link classifyCorner} is supplied: an explicit policy is the expert override.
@@ -290,30 +302,6 @@ function samePoint(a: Vector2, b: Vector2): boolean {
     return a.x === b.x && a.y === b.y;
 }
 
-/**
- * Signed area, positive counter-clockwise, negative clockwise.
- *
- * Terms are taken relative to the ring's own first vertex. The shoelace sum is invariant
- * under translation, so this is mathematically identical to summing over absolute
- * coordinates, but it does not lose the answer to cancellation for a ring far from the
- * origin: absolute terms are of order D^2 for a ring at distance D, so they carry an error
- * of about D^2 * 2^-52 against a true area of only A, and the sign is lost once
- * D > sqrt(A) * 6.7e7.
- */
-function signedArea(ring: Vector2[]): number {
-    if (ring.length === 0) {
-        return 0;
-    }
-    const origin = ring[0];
-    let total = 0;
-    for (let i = 0; i < ring.length; i++) {
-        const a = ring[i];
-        const b = ring[(i + 1) % ring.length];
-        total += (a.x - origin.x) * (b.y - origin.y) - (b.x - origin.x) * (a.y - origin.y);
-    }
-    return total / 2;
-}
-
 function dropRepeatedVertices(ring: Vector2[]): Vector2[] {
     const kept: Vector2[] = [];
     for (const vertex of ring) {
@@ -342,7 +330,7 @@ interface Neighbour {
  * between the same pair of nodes is kept once, since the second copy would only add a zero-area
  * sliver and would break the angular ordering the face walk depends on.
  *
- * ONLY THE FALLBACK USES THIS NOW — see {@link traceFace}.
+ * Only the fallback face walk uses this — see {@link traceFace}.
  */
 function buildAdjacency(graph: StraightSkeletonGraph): Map<number, Neighbour[]> {
     const adjacency = new Map<number, Neighbour[]>();
@@ -396,7 +384,8 @@ function buildAdjacency(graph: StraightSkeletonGraph): Map<number, Neighbour[]> 
  * polygon is stored clockwise, so seeding with an exterior edge in boundary order yields that edge's
  * skeleton face, traced clockwise.
  *
- * THE FALLBACK, NOT THE RULE — see {@link traceFace} for what replaced it and why.
+ * THE FALLBACK, NOT THE RULE — see {@link traceFace} for the rule, and for why an angular walk cannot
+ * be trusted to choose a face.
  */
 function traceFaceByGeometry(
     adjacency: Map<number, Neighbour[]>, start: number, second: number, limit: number,
@@ -440,7 +429,7 @@ function traceFaceByGeometry(
  *
  * An interior edge the solver never terminated has no target and cannot bound anything, so it is
  * left out. So is a self-loop: the degenerate-closure path deliberately retires a surplus bisector
- * as an arc from a node to itself (see `algorithm-termination-cases.ts`), which bounds no area and
+ * as an arc from a node to itself (see `terminal-ladder.ts`), which bounds no area and
  * would only stall the walk.
  */
 function faceIncidence(graph: StraightSkeletonGraph, edgeId: number): Map<number, number[]> {
@@ -512,39 +501,32 @@ function nextByAngle(
 /**
  * The face of exterior edge `edgeId`, as the node ids around it starting from the edge's own source.
  *
- * ORDERED BY PARENTAGE FIRST, GEOMETRY ONLY WHERE PARENTAGE TIES (journal decision 77, 2026-08-28).
- * This used to walk the whole skeleton as a planar graph, taking the sharpest clockwise turn
- * available at every node, and that is a question the arithmetic cannot always answer: on
- * `OFF_EDGE_JITTER_L_SEED_15838` a corridor whose two walls are each split by a near-floor jittered
- * vertex produces a `[2,7]` bisector leaving node 24 **5.2e-6 radians** from the `[1,7]` spine
- * leaving the same node — a three-ten-thousandths-of-a-degree wedge whose side is decided at the
- * eleventh decimal place. The walk took the wrong branch, the faces of the two opposing walls fused
- * into one ring, that ring was reported once for each of them, and the strips overlapped the polygon
- * by 60% of its own area while every existing invariant held. Restricting each step to the edges
- * that name this face's exterior edge as a parent removes the question: at that node exactly one of
- * the two branches bounds this face, and which one is a fact about the parent pairs rather than
- * about an angle.
+ * ORDERED BY PARENTAGE FIRST, GEOMETRY ONLY WHERE PARENTAGE TIES (RSA.D77). A walk of the whole
+ * skeleton as a planar graph, taking the sharpest clockwise turn at every node, asks a question the
+ * arithmetic cannot always answer: on `OFF_EDGE_JITTER_L_SEED_15838` a corridor whose two walls are
+ * each split by a near-floor jittered vertex produces a `[2,7]` bisector leaving node 24
+ * **5.2e-6 radians** from the `[1,7]` spine leaving the same node — a three-ten-thousandths-of-a-degree
+ * wedge whose side is decided at the eleventh decimal place. An angular walk takes the wrong branch
+ * there: the faces of the two opposing walls fuse into one ring, that ring is reported once for each
+ * of them, and the strips overlap the polygon by 60% of its own area while every other invariant
+ * holds. Restricting each step to the edges that name this face's exterior edge as a parent removes
+ * the question: at that node exactly one of the two branches bounds this face, and which one is a
+ * fact about the parent pairs rather than about an angle.
  *
  * A NODE WITH NO ONWARD FACE EDGE IS A BRIDGE END, not a failure: the walk turns back down the edge
- * it arrived on, which is what a face traversal of a graph with a bridge does, and what the angular
- * walk did here too.
+ * it arrived on, which is what a face traversal of a graph with a bridge does.
  *
  * WHEN PARENTAGE DOES NOT DESCRIBE A CLOSED FACE, THE SKELETON IS WRONG THERE, and the walk falls
  * back to {@link traceFaceByGeometry} rather than throwing — turning a known wrong answer into an
  * exception thrown at every consumer of it helps nobody. What makes such a face visible is the
- * corpus-wide tiling identity in `strip-tiling.test.ts`, and now also I4 in
- * `graph-index-invariants.test.ts`, which asks the same question of the graph directly: can the two
- * ends of this exterior edge be joined by a walk across its own bisectors?
+ * corpus-wide tiling identity in `strip-tiling.test.ts`, and I4 in `graph-index-invariants.test.ts`,
+ * which asks the same question of the graph directly: can the two ends of this exterior edge be
+ * joined by a walk across its own bisectors?
  *
- * RE-SPECIMENED 2026-08-28 (journal decision 90). `COLLINEAR_DUMBBELL` was the specimen — its
- * shared supporting lines left the face of edge 3 bounded by two disjoint chains, one ending at the
- * far LEFT of the shape and one at the far RIGHT, because the bar had no midline for either chain to
- * reach. That is fixed and the dumbbell no longer reaches this branch. THE BRANCH IS STILL LIVE, and
- * measured rather than assumed: replacing it with a throw fails three tests across
+ * THE FALLBACK IS LIVE: replacing it with a throw fails three tests across
  * `recursive-subdivision.test.ts` and `silhouette-invariance.test.ts`, on SUB-REGIONS cut from the
  * near-floor off-edge jitter fixtures — seed 15838 at merge group 4, seed 55433 at merge group 3,
- * and the k=4 seed at two depths. Those are the live defect of journal decision 67, and they are
- * this branch's specimen now.
+ * and the k=4 seed at two depths, the open near-floor jitter defect (RSA.D67).
  */
 function traceFace(
     graph: StraightSkeletonGraph,
@@ -587,10 +569,10 @@ function traceFace(
 /**
  * The point at skeleton TIME `depth` on the arc between two face vertices.
  *
- * LINEAR IN TIME, WHICH IS WHY THE INTERPOLATION IS UNCHANGED (W-spec W41). The arc between two
- * face vertices is one bisector, and a wavefront vertex travels along its bisector at a constant
- * velocity, so its position is an affine function of the clock. Fractions of a time span therefore
- * land exactly where fractions of a distance span used to, and at unit weights they are the same
+ * LINEAR IN TIME, SO THE INTERPOLATION IS LINEAR (W-spec W41). The arc between two face vertices is
+ * one bisector, and a wavefront vertex travels along its bisector at a constant velocity, so its
+ * position is an affine function of the clock. A fraction of a time span therefore lands exactly
+ * where the same fraction of the distance span lands, and at unit weights the two are the same
  * fractions of the same numbers.
  *
  * Cached per node pair, in a canonical order, so that the two faces either side of an arc are handed
@@ -789,37 +771,56 @@ function sharpestClockwiseTurn(
     return best;
 }
 
-/** Group exterior edges into maximal runs of consecutive edges belonging to the same logical street. */
-function groupIntoRuns(edgeCount: number, sameLogicalStreet: (a: number, b: number) => boolean): number[][] {
-    if (edgeCount === 0) {
+/**
+ * Group exterior edges into maximal runs of consecutive edges belonging to the same logical street.
+ *
+ * PER LOOP, AND A RUN NEVER HOLDS EDGES OF TWO LOOPS (skeleton loop-consumers spec, decision 11). Each loop of the
+ * graph's loop table is grouped on its own, with the wrap taken inside the loop: `sameLogicalStreet(e, next)` is
+ * called once per exterior edge, `next` being `adjacentExteriorEdge(graph, e, Clockwise)`, so a hole's last edge is
+ * asked about its own first edge and never about the next loop's. The runs are concatenated in loop order. On one
+ * loop the calls are `(i, i + 1)` in boundary order with the wrap from the last edge to the first, as
+ * {@link StripOptions.sameLogicalStreet} documents.
+ */
+function groupIntoRuns(graph: StraightSkeletonGraph, sameLogicalStreet: (a: number, b: number) => boolean): number[][] {
+    return graph.loops.flatMap(loop => groupLoopIntoRuns(graph, loop, sameLogicalStreet));
+}
+
+/** One loop's runs: the single-loop rule on exterior ids `start .. start + count − 1`, wrapping within the loop. */
+function groupLoopIntoRuns(
+    graph: StraightSkeletonGraph,
+    {start, count}: SkeletonLoop,
+    sameLogicalStreet: (a: number, b: number) => boolean,
+): number[][] {
+    if (count === 0) {
         return [];
     }
-    if (edgeCount === 1) {
-        return [[0]];
+    if (count === 1) {
+        return [[start]];
     }
 
     const mergedWithNext: boolean[] = [];
-    for (let edgeId = 0; edgeId < edgeCount; edgeId++) {
-        mergedWithNext.push(sameLogicalStreet(edgeId, (edgeId + 1) % edgeCount));
+    for (let local = 0; local < count; local++) {
+        const edgeId = start + local;
+        mergedWithNext.push(sameLogicalStreet(edgeId, adjacentExteriorEdge(graph, edgeId, SkeletonDirection.Clockwise)));
     }
     if (mergedWithNext.every(merged => merged)) {
-        return [[...Array(edgeCount).keys()]];
+        return [Array.from({length: count}, (_unused, local) => start + local)];
     }
 
-    let firstEdge = 0;
-    for (let edgeId = 0; edgeId < edgeCount; edgeId++) {
-        if (!mergedWithNext[(edgeId - 1 + edgeCount) % edgeCount]) {
-            firstEdge = edgeId;
+    let firstLocal = 0;
+    for (let local = 0; local < count; local++) {
+        if (!mergedWithNext[(local - 1 + count) % count]) {
+            firstLocal = local;
             break;
         }
     }
 
     const runs: number[][] = [];
     let run: number[] = [];
-    for (let step = 0; step < edgeCount; step++) {
-        const edgeId = (firstEdge + step) % edgeCount;
-        run.push(edgeId);
-        if (!mergedWithNext[edgeId]) {
+    for (let step = 0; step < count; step++) {
+        const local = (firstLocal + step) % count;
+        run.push(start + local);
+        if (!mergedWithNext[local]) {
             runs.push(run);
             run = [];
         }
@@ -847,10 +848,18 @@ function exteriorScale(graph: StraightSkeletonGraph): number {
     return diagonal > 0 ? diagonal : 1;
 }
 
+/**
+ * The node after exterior edge `edgeId`: the edge's own target (skeleton loop-consumers spec, decision 2). On one
+ * loop that is node `(edgeId + 1) % n`; on a holed graph a loop's last edge ends at that loop's own first node.
+ */
+function exteriorEdgeEnd(graph: StraightSkeletonGraph, edgeId: number): number {
+    return graph.edges[edgeId].target!;
+}
+
 /** Length of one exterior edge of the solved graph. */
 function exteriorEdgeLength(graph: StraightSkeletonGraph, edgeId: number): number {
     const from = graph.nodes[edgeId].position;
-    const to = graph.nodes[(edgeId + 1) % graph.numExteriorNodes].position;
+    const to = graph.nodes[exteriorEdgeEnd(graph, edgeId)].position;
     return Math.hypot(to.x - from.x, to.y - from.y);
 }
 
@@ -874,10 +883,25 @@ function exteriorEdgeLength(graph: StraightSkeletonGraph, edgeId: number): numbe
  * envelope edge by decision 13 of the parcel-quality brief.
  *
  * Straightness is measured as `|angle − π|`, which is invariant under conjugating the angle to
- * `2π − θ` — this pass therefore never depended on the orientation of `interiorAngleAt`, and the
- * 2026-08-09 orientation fix to that function provably changed nothing here.
+ * `2π − θ`, so this pass does not depend on the orientation of `interiorAngleAt`.
+ *
+ * PER LOOP, WITH THE FLOOR OF TWO RUNS PER LOOP (skeleton loop-consumers spec, decision 12). No junction lies between
+ * two loops, so a merge cannot cross one, and a loop's merges move nothing on another loop: running each loop's runs
+ * through the merge on its own is the greedy order restricted to that loop. A single run on a hole loop would be the
+ * band that closes round the hole, the `holes` strip `sliceStrip` will not cut, which is the floor's reason on the
+ * outline too. `runs` is {@link groupIntoRuns}' output, every loop's runs contiguous and in loop order; on one loop
+ * this is the greedy merge over the whole boundary.
  */
 function mergeShortRuns(graph: StraightSkeletonGraph, runs: number[][], minEdgeLength: number): number[][] {
+    const runsOfLoop = graph.loops.map((): number[][] => []);
+    for (const run of runs) {
+        runsOfLoop[loopOfExteriorEdge(graph, run[0])].push(run);
+    }
+    return runsOfLoop.flatMap(loopRuns => mergeShortRunsOfLoop(graph, loopRuns, minEdgeLength));
+}
+
+/** The greedy merge, on the runs of one loop: they form that loop's cycle, so the wrap is inside the loop. */
+function mergeShortRunsOfLoop(graph: StraightSkeletonGraph, runs: number[][], minEdgeLength: number): number[][] {
     const merged = runs.map(run => [...run]);
     const lengths = merged.map(
         run => run.reduce((total, edgeId) => total + exteriorEdgeLength(graph, edgeId), 0));
@@ -920,7 +944,7 @@ function mergeShortRuns(graph: StraightSkeletonGraph, runs: number[][], minEdgeL
 function frontageOf(graph: StraightSkeletonGraph, run: number[]): Vector2[] {
     const frontage = [graph.nodes[run[0]].position];
     for (const edgeId of run) {
-        frontage.push(graph.nodes[(edgeId + 1) % graph.numExteriorNodes].position);
+        frontage.push(graph.nodes[exteriorEdgeEnd(graph, edgeId)].position);
     }
     return frontage;
 }
@@ -941,6 +965,14 @@ function polylineLength(polyline: Vector2[]): number {
  * the result is one strip per exterior edge — the finest α-strip decomposition — and the β-strip
  * correction is the identity.
  *
+ * EVERY LOOP OF A SOLVE WITH HOLES (skeleton loop-consumers spec, decisions 13 and 14). With default
+ * options the result has `numExteriorNodes` strips, and strip `i` has `supportingEdgeIds` `[i]` and
+ * `frontage` from edge `i`'s source to its own target: one face per exterior edge of every loop, its
+ * frontage on that edge. A hole edge's strip is its face, clipped, clockwise like every other; its
+ * frontage runs counter-clockwise round the hole. A caller maps its own walls to exterior ids through
+ * `result.loopMaps[k].edgeToEdge`. The tiling identity counts the offset rings signed: the strips plus
+ * the outer rings less the rings round holes give the outline's area less the holes'.
+ *
  * Boundary behaviour:
  * - `depth === 0` gives every strip an empty `boundary`; the whole polygon is still outside them.
  * - `depth >= computeMaxOffset(result)` means the offset contour has vanished. The clip then removes
@@ -948,7 +980,8 @@ function polylineLength(polyline: Vector2[]): number {
  *   polygon. That is the limiting case of the general statement, not a special one: strips plus
  *   offset rings always tile the polygon, and past the maximum offset there are no rings.
  *
- * @throws if `depth` is negative, or the solve is incomplete or has no solver context.
+ * @throws if `depth` is negative, or the solve is incomplete or has no solver context, or a graph with a context has
+ *   no loop table.
  */
 export function computeStrips(result: SkeletonSolveResult, options: StripOptions): Strip[] {
     requireProjectableResult(result, 'computeStrips');
@@ -973,6 +1006,16 @@ export function computeStrips(result: SkeletonSolveResult, options: StripOptions
     if (edgeCount === 0) {
         return [];
     }
+    // THE RUNS ARE GROUPED PER LOOP (skeleton loop-consumers spec, decision 11), so a graph with no loop table
+    // would get no strips at all, and silently. No solve produces one: every result with a context carries one loop per ring, and a merged graph's
+    // `loops: []` has no context and is refused above. So it is a hand-built result, and it is refused by name
+    // (BSA.D316).
+    if (graph.loops.length === 0) {
+        throw new Error(
+            `computeStrips requires the graph's loop table, but result.graph.loops is empty while result.context is ` +
+            `set. Every solve with a context records one loop per ring (the outline, then each hole); a result built ` +
+            `by hand must carry it, [{start: 0, count: numExteriorNodes}] for a single ring.`);
+    }
 
     const nodeOffsets = computeNodeOffsets(result);
     const adjacency = buildAdjacency(graph);
@@ -990,7 +1033,7 @@ export function computeStrips(result: SkeletonSolveResult, options: StripOptions
         clippedFaces.push(clipFaceToDepth(face, depth, crossingAt));
     }
 
-    let runs = groupIntoRuns(edgeCount, options.sameLogicalStreet ?? (() => false));
+    let runs = groupIntoRuns(graph, options.sameLogicalStreet ?? (() => false));
     if (minEdgeLength !== undefined && minEdgeLength > 0) {
         runs = mergeShortRuns(graph, runs, minEdgeLength);
     }
@@ -1020,22 +1063,41 @@ export function computeStrips(result: SkeletonSolveResult, options: StripOptions
     return strips;
 }
 
-/** The corners between consecutive strips, in strip order, when there are at least two strips. */
-function cornersBetweenStrips(strips: Strip[], edgeCount: number): Corner[] {
-    if (strips.length < 2) {
-        return [];
+/**
+ * The corners between consecutive strips, PER LOOP (skeleton loop-consumers spec, decision 15): one between each pair
+ * of consecutive strips of a loop, wrapping inside the loop, so no corner joins two loops. A loop that is one strip
+ * has no corner, as `strips.length < 2` gives on one loop. Visited in loop order, then strip order; the strip indices
+ * keep indexing the whole array, and `vertexNode` is the incoming edge's own target. The strips are
+ * {@link groupIntoRuns}' runs, each loop's contiguous and in loop order. On one loop these are the corners between
+ * consecutive strips, the last strip's wrapping to the first.
+ */
+function cornersBetweenStrips(graph: StraightSkeletonGraph, strips: Strip[]): Corner[] {
+    const corners: Corner[] = [];
+    let first = 0;
+    while (first < strips.length) {
+        const loop = loopOfExteriorEdge(graph, strips[first].supportingEdgeIds[0]);
+        let end = first + 1;
+        while (end < strips.length && loopOfExteriorEdge(graph, strips[end].supportingEdgeIds[0]) === loop) {
+            end++;
+        }
+        const count = end - first;
+        if (count >= 2) {
+            for (let index = first; index < end; index++) {
+                const nextIndex = first + (index - first + 1) % count;
+                const strip = strips[index];
+                const incomingEdgeId = strip.supportingEdgeIds[strip.supportingEdgeIds.length - 1];
+                corners.push({
+                    previousStripIndex: index,
+                    nextStripIndex: nextIndex,
+                    vertexNode: exteriorEdgeEnd(graph, incomingEdgeId),
+                    incomingEdgeId,
+                    outgoingEdgeId: strips[nextIndex].supportingEdgeIds[0],
+                });
+            }
+        }
+        first = end;
     }
-    return strips.map((strip, index) => {
-        const next = strips[(index + 1) % strips.length];
-        const incomingEdgeId = strip.supportingEdgeIds[strip.supportingEdgeIds.length - 1];
-        return {
-            previousStripIndex: index,
-            nextStripIndex: (index + 1) % strips.length,
-            vertexNode: (incomingEdgeId + 1) % edgeCount,
-            incomingEdgeId,
-            outgoingEdgeId: next.supportingEdgeIds[0],
-        };
-    });
+    return corners;
 }
 
 /**
@@ -1043,19 +1105,22 @@ function cornersBetweenStrips(strips: Strip[], edgeCount: number): Corner[] {
  *
  * The polygon is wound clockwise, so the interior lies to the right of travel and the interior angle
  * is measured by turning clockwise from the outgoing direction back to the reversed incoming one.
+ *
+ * ON EVERY LOOP, WITH THE SAME FORMULA (skeleton loop-consumers spec, decision 16): the outline is clockwise and every
+ * hole counter-clockwise, so the building lies to the right of travel on every exterior edge. The vertex and the far
+ * end are read as the edges' own targets.
  */
 function interiorAngleAt(graph: StraightSkeletonGraph, incomingEdgeId: number, outgoingEdgeId: number): number {
-    const edgeCount = graph.numExteriorNodes;
-    const vertex = graph.nodes[(incomingEdgeId + 1) % edgeCount].position;
+    const vertex = graph.nodes[exteriorEdgeEnd(graph, incomingEdgeId)].position;
     const before = graph.nodes[incomingEdgeId].position;
-    const after = graph.nodes[(outgoingEdgeId + 1) % edgeCount].position;
+    const after = graph.nodes[exteriorEdgeEnd(graph, outgoingEdgeId)].position;
 
     const toBefore = Math.atan2(before.y - vertex.y, before.x - vertex.x);
     const toAfter = Math.atan2(after.y - vertex.y, after.x - vertex.x);
     // The clockwise sweep from the outgoing direction back to the reversed incoming one is
-    // `toAfter - toBefore` under this module's clockwise winding. The subtraction was inverted
-    // until 2026-08-09 and reported the conjugate `2π − θ`; the characterisation tests in
-    // strip-decomposition.test.ts now guard the corrected orientation.
+    // `toAfter - toBefore` under this module's clockwise winding. The reversed subtraction reports
+    // the conjugate `2π − θ`; the characterisation tests in strip-decomposition.test.ts guard the
+    // orientation.
     let angle = toAfter - toBefore;
     while (angle <= 0) {
         angle += Math.PI * 2;
@@ -1071,7 +1136,7 @@ function interiorAngleAt(graph: StraightSkeletonGraph, incomingEdgeId: number, o
  *
  * A corner qualifies when its deviation from straight, `|θ − π|`, exceeds the tolerance — the
  * seam's visible tilt is half that deviation, so this is a bound on how mitred a border may look —
- * and the junction is convex: the reflex arm is geometrically vacuous (decision 16, see the
+ * and the junction is convex: the reflex arm is geometrically vacuous (parcel-quality brief, decision 16, see the
  * reflex-arm characterisation tests), so the gate states outright what the transfer guards would
  * otherwise refuse case by case. The region goes to the strip with the longer frontage, Vanegas'
  * StreetLength rule: the corner lot fronts the main street, and the side street's strip stops
@@ -1096,17 +1161,16 @@ function applyCornerCorrection(result: SkeletonSolveResult, strips: Strip[], opt
     }
 
     const {graph} = result;
-    const edgeCount = graph.numExteriorNodes;
     const frontageLengths = strips.map(strip => polylineLength(strip.frontage));
     const edgeLength = (edgeId: number): number => exteriorEdgeLength(graph, edgeId);
-    // Decision 12: no transfer may leave its donor's frontage below the strip-level minimum. When
+    // Parcel-quality brief, decision 12: no transfer may leave its donor's frontage below the strip-level minimum. When
     // no minimum is configured, a scale-relative epsilon still refuses the degenerate transfers
     // that would collapse a frontage to (numerically) nothing.
     const minFrontage = options.minEdgeLength !== undefined && options.minEdgeLength > 0
         ? options.minEdgeLength
         : exteriorScale(graph) * FRONTAGE_SCALE_FRACTION;
 
-    for (const corner of cornersBetweenStrips(strips, edgeCount)) {
+    for (const corner of cornersBetweenStrips(graph, strips)) {
         const previous = strips[corner.previousStripIndex];
         const next = strips[corner.nextStripIndex];
         const assignment = classifyCorner({
@@ -1203,8 +1267,8 @@ function cutPointOnEdge(anchor: Vector2, far: Vector2, apex: Vector2): Vector2 |
  * unit of a 2D cross product — because the corner-cut chord this guards *ends on* a boundary
  * segment by construction: the cut is `anchor + fraction · run`, which lands within a few ulps of
  * the frontage line, on a side chosen by rounding residue alone. Under exact-zero comparisons that
- * residue made `cutStaysInside` refuse or accept identical geometry at random — the Awkward
- * Heptagon's v0 corner kept its mitre for exactly this reason. A sine of 1e-9 is far below any
+ * residue makes `cutStaysInside` refuse or accept identical geometry at random — the Awkward
+ * Heptagon's v0 corner keeps its mitre that way. A sine of 1e-9 is far below any
  * real crossing and far above any rounding residue, so the tolerance separates the two cleanly.
  */
 function segmentsProperlyCross(a1: Vector2, a2: Vector2, b1: Vector2, b2: Vector2): boolean {
@@ -1353,7 +1417,7 @@ function transferCorner(
             : [...previous.frontage.slice(0, -(1 + transferred)), cut];
         if (polylineLength(survivingFrontage) < minFrontage) {
             // A shallower apex pulls the foot back toward the vertex, so retreating can still
-            // satisfy the decision-12 floor where this depth could not.
+            // satisfy the frontage floor (parcel-quality brief, decision 12) where this depth could not.
             continue;
         }
         chosen = {apexIndex, cut, transferred, survivingFrontage};

@@ -1,0 +1,31 @@
+
+== dormer [400,600] wall 45 gable 45
+  closed=true genus=0 cheeks=0 internal=0 unclassified=0 conflicts=0 cells=530
+  edge kinds: Eaves=5 ExternalCorner=4 GroundLine=4 WallPlate=1 Hip=4 Valley=2 Ridge=2 Verge=2
+  face kinds: Gable,Ground,Roof,Roof,Roof,Roof,Roof,Roof,Wall,Wall,Wall,Wall
+  top at y=0.5: 350:250.5 410:260.0 500:350.0 590:260.0 650:250.5
+  top at y=50: 350:300.0 410:300.0 500:350.0 590:300.0 650:300.0
+  top at y=99: 350:349.0 410:349.0 500:350.0 590:349.0 650:349.0
+  top at y=150: 350:400.0 410:400.0 500:400.0 590:400.0 650:400.0
+  gable cells=6 sources={"ringModelIndex":0,"side":0}
+
+== dormer [330,610] wall 30 gable 45
+  closed=true genus=0 cheeks=0 internal=0 unclassified=0 conflicts=0 cells=555
+  edge kinds: Eaves=5 ExternalCorner=4 GroundLine=4 WallPlate=1 Hip=4 Valley=2 Ridge=2 Verge=2
+  face kinds: Gable,Ground,Roof,Roof,Roof,Roof,Roof,Roof,Wall,Wall,Wall,Wall
+  top at y=0.5: 280:250.3 340:260.0 470:390.0 600:260.0 660:250.3
+  top at y=50: 280:278.9 340:278.9 470:390.0 600:278.9 660:278.9
+  top at y=99: 280:307.2 340:307.2 470:390.0 600:307.2 660:307.2
+  top at y=150: 280:336.6 340:336.6 470:390.0 600:336.6 660:336.6
+  gable cells=15 sources={"ringModelIndex":0,"side":0}
+
+== dormer [800,1000] wall 45 gable 45
+  closed=true genus=0 cheeks=0 internal=0 unclassified=0 conflicts=1 cells=528
+  conflict: dormer [800,1000] wall 45 gable 45: n=(0.707107, 0.000000, 0.707107) d=883.883: Roof storey 0 plane 1 (part 1) over Roof storey 0 plane 5 (part 2)
+  edge kinds: ExternalCorner=4 GroundLine=4 Eaves=4 WallPlate=1 Hip=4 Valley=1 Ridge=2 RoofSeam=1 Verge=2
+  face kinds: Gable,Ground,Roof,Roof,Roof,Roof,Roof,Roof,Wall,Wall,Wall,Wall
+  top at y=0.5: 750:250.5 810:260.0 900:350.0 990:260.0 1050:-Infinity
+  top at y=50: 750:300.0 810:300.0 900:350.0 990:260.0 1050:-Infinity
+  top at y=99: 750:349.0 810:349.0 900:350.0 990:260.0 1050:-Infinity
+  top at y=150: 750:400.0 810:400.0 900:350.0 990:260.0 1050:-Infinity
+  gable cells=6 sources={"ringModelIndex":0,"side":0}

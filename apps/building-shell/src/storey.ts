@@ -2,15 +2,14 @@
 // (spec decisions 2 to 11). Parts are never pre-unioned: the one union is `union.ts`'s.
 import type {Mesh, Vec2} from 'manifold-3d';
 import {SHELL_TOLERANCE_CM} from './constants.ts';
-import {selectCut, spliceCourtyard} from './courtyard.ts';
 import {ShellFixture, StoreyRing, storeyRings} from './fixture.ts';
 import {Wasm} from './manifold.ts';
-import {selPicks, storeyLoops, tanDeg, unionWallForms, wallSel} from './ring-forms.ts';
+import {UnionWall, storeyLoops, unionWallForms, wallSel} from './ring-forms.ts';
+import {CoveredRise, RisePiece, claimedWalls, risePieces} from './rise.ts';
 import {Piece, RoofParts, solveRoofParts} from './roof/algoB.ts';
-import {
-  Building, Comp, Plane, Pt, Sel, Wall, buildFromRects, finishBuilding, planeAt, polyArea, wallLabel,
-} from './roof/model.ts';
-import {PlanRefusal, errorMessage} from './errors.ts';
+import {Building, Comp, Plane, Pt, Wall, buildFromLoops, ccwLoop, compLoops, planeAt} from './roof/model.ts';
+import {alongX, atAlong, bboxReach} from './roof/wall-line.ts';
+import {relabelled} from './errors.ts';
 import {LocalTag, PartlessTag, Plane3, ShellTags, Vec3, addFace, samePlane} from './tags.ts';
 import {TriIndices, TriSoup, WeldStats, triCross, weldAndSnap} from './weld.ts';
 import {add3, dot3, scale3, sub3} from './vec3.ts';
@@ -24,7 +23,15 @@ export interface StoreyPlan {
   plate: number;
   building: Building;
   roof: RoofParts;
+  /**
+   * Gable rise decision 8: the storey's rises, each one more gable piece beside `roof.pieces`, never part of the roof
+   * solve. Set by `planStorey`; absent on a plan built from a Building alone.
+   */
+  rises?: RisePiece[];
 }
+
+/** Every gable piece a storey builds: its own, then its rises' (gable rise decision 8). */
+export const storeyPieces = (plan: StoreyPlan): Piece[] => [...plan.roof.pieces, ...(plan.rises ?? []).map(r => r.piece)];
 
 export type PartKind = 'wallPrism' | 'hip' | 'gable';
 
@@ -48,76 +55,62 @@ export interface PartContext {
 
 export const makePartContext = (wasm: Wasm, tags: ShellTags): PartContext => ({wasm, tags, parts: []});
 
-/** Solves one storey's roof. A skeleton refusal is a hard error naming the label and storey (journal decision 51). */
+/**
+ * Solves one storey's roof. A skeleton refusal is a hard error naming the label and storey (journal decision 51), an
+ * `IslandRefusal` still, with its fields.
+ */
 export function planBuilding(label: string, storey: number, floor: number, plate: number, building: Building): StoreyPlan {
   let roof: RoofParts;
   try {
     roof = solveRoofParts(building, {far: 'plane'});
   } catch (e) {
-    throw new Error(`${label} storey ${storey}: ${errorMessage(e)}`, {cause: e});
+    throw relabelled(`${label} storey ${storey}`, e);
   }
   return {label, storey, floor, plate, building, roof};
 }
 
-/** The wall attributes the derived `Sel`s give the traced wall `a` to `b`, as roof-gable's `applySelectors` would. */
-function pickedAttrs(sels: Sel[], a: Pt, b: Pt): Partial<Wall> {
-  const sel = sels.find(s => selPicks(s, a, b));
-  if (!sel?.form || sel.deg === undefined) throw new Error(`no union wall holds the traced wall (${a.x}, ${a.y}) to (${b.x}, ${b.y})`);
-  return {form: sel.form, tan: tanDeg(sel.deg)};
+/**
+ * A storey's Building and the union walls it was derived from, whose `rises` gable rise decision 8 builds, and its
+ * covered rises: claimed gable bands on no union wall (journal decision 243, rule 3).
+ */
+export interface StoreyForms { building: Building; walls: UnionWall[]; covered: CoveredRise[] }
+
+/**
+ * Spec decisions 2 and 3 as amended (journal decisions 115, 116, 132 and 135; holed roof decisions 7 and 30): one
+ * storey's Building from its Rings, with the union walls it read. Every union wall takes its Rings' form and pitch as a
+ * roof-gable `Sel`, and the plan's loops, traced once (`storeyLoops`), go through roof-gable's own `buildFromLoops` with
+ * those `Sel`s, holes and all: an island holds any number of holes, each wall of each loop at its own union wall's form
+ * and pitch. The walls are
+ * derived per extent (`unionWallForms`), then gable rise decision 5 as amended by journal decisions 220 and 243 decides
+ * which all-gable walls algorithm B keeps and which bands are covered rises (`claimedWalls`), which reads algorithm B's
+ * span off the Building those walls give. Where a wall changes form the Building is built again.
+ */
+export function storeyForms(rings: StoreyRing[]): StoreyForms {
+  const rects = rings.map(r => r.ring.rect);
+  const loops = storeyLoops(rects);
+  const derived = unionWallForms(rings, loops);
+  const first = buildingOf(loops, derived);
+  const {walls, changed, covered} = claimedWalls(rings, derived, first);
+  return {building: changed ? buildingOf(loops, walls) : first, walls, covered};
 }
 
 /**
- * Spec decisions 2 and 3 as amended (journal decisions 115, 116, 132 and 135): one storey's Building from its Rings.
- * Every union wall takes its Rings' form and pitch as a roof-gable `Sel`.
- * - With no hole, the plan goes through roof-gable's own `buildFromRects` with those `Sel`s.
- * - An island with a hole is spliced through its cut into a slit polygon, its walls picked by the same `Sel`s and its
- *   two cut sides `form: 'cut'` at the cut's pitch: that of the union wall it is collinear with, else the island's
- *   steepest wall's, hip or gable (`freeCutPitch`, journal decisions 151 and 153).
- *   An island with more than one hole, or a hole no raw Ring wall segment can cut, is a hard error.
+ * A storey's Building from its traced union loops (`storeyLoops`) and its union walls as given: roof-gable's
+ * `buildFromLoops`, which takes holes and reads each loop's walls by its `Sel`s (holed roof decision 7); a traced wall
+ * lies on one union wall, so on one `Sel`. `storeyForms` calls it with the per-extent walls and again, where journal
+ * decision 220 changes a wall, with the walls it gives, on the loops it traced once.
  */
-export function storeyBuilding(rings: StoreyRing[]): Building {
-  const rects = rings.map(r => r.ring.rect);
-  const loops = storeyLoops(rects);
-  const walls = unionWallForms(rings, loops);
-  const sels = walls.map(wallSel);
-  const outers = loops.filter(l => polyArea(l) > 0);
-  const holes = loops.filter(l => polyArea(l) < 0);
-  if (!holes.length) return buildFromRects(rects, sels);
-  const cuts = holes.map(h => {
-    const cut = selectCut(rings, outers, h, walls);
-    if (!cut) throw new Error(`no raw Ring wall cuts the courtyard ring from the hole at (${h[0].x}, ${h[0].y}) to its outer loop`);
-    return cut;
-  });
-  outers.forEach((o, i) => {
-    const n = cuts.filter(c => c.outer === i).length;
-    if (n > 1) throw new Error(`the island at (${o[0].x}, ${o[0].y}) holds ${n} holes; a courtyard roof takes one`);
-  });
-  return finishBuilding(outers.map((outer, i) => {
-    const k = cuts.findIndex(c => c.outer === i);
-    if (k < 0) return {ring: outer, outer, holes: [], attrs: outer.map((a, j) => pickedAttrs(sels, a, outer[(j + 1) % outer.length]))};
-    const cut = cuts[k];
-    const {ring, cutWalls} = spliceCourtyard(outer, holes[k], cut);
-    const cutAttrs: Partial<Wall> = {form: 'cut', tan: tanDeg(cut.deg)};
-    const attrs = ring.map((a, j) => (cutWalls.includes(j) ? cutAttrs : pickedAttrs(sels, a, ring[(j + 1) % ring.length])));
-    return {ring, outer, holes: [holes[k]], attrs};
-  }));
+export function buildingOf(loops: Pt[][], walls: UnionWall[]): Building {
+  return buildFromLoops(loops, walls.map(wallSel));
 }
 
 /**
  * Solves an already-built storey Building, with every check a fixture's storey must pass. Each is a hard error naming
  * the label and storey:
- * - a `cut` wall anywhere but the two sides of one courtyard's cut, or a hole without them (journal decision 73: a lone
- *   cut would silently roof as a hip);
- * - a skeleton refusal (journal decision 51);
+ * - a skeleton refusal, naming the island and its cause (journal decision 51, holed roof decision 17);
  * - any `solveRoofParts` note, since `buildPieces` writes one only when it drops a piece (journal decisions 64, 73).
  */
 export function planChecked(label: string, storey: number, floor: number, plate: number, building: Building): StoreyPlan {
-  for (const comp of building.comps) {
-    const cuts = comp.walls.filter(w => w.form === 'cut');
-    if ((cuts.length || comp.holes.length) && !(cuts.length === 2 && comp.holes.length === 1)) {
-      throw new Error(`${label} storey ${storey}: a cut wall stands outside a courtyard's cut: ${cuts.map(wallLabel).join('; ')}`);
-    }
-  }
   const plan = planBuilding(label, storey, floor, plate, building);
   if (plan.roof.notes.length) throw new Error(`${label} storey ${storey}: gable piece dropped: ${plan.roof.notes.join('; ')}`);
   return plan;
@@ -125,21 +118,29 @@ export function planChecked(label: string, storey: number, floor: number, plate:
 
 /**
  * Spec decisions 2 to 4 and 9: storey `n`'s plan is the union of its Rings' rectangles, its walls' forms derived from
- * the Rings', roofed as if it were the top storey (`storeyBuilding`, then `planChecked`). A Ring side authored with a
- * form other than hip or gable, a cut among them, is a hard error naming the fixture and storey.
+ * the Rings', roofed as if it were the top storey (`storeyForms`, then `planChecked`). A Ring side authored with a
+ * form other than hip or gable is a hard error naming the fixture and storey.
  */
 export function planStorey(f: ShellFixture, n: number): StoreyPlan {
   const rings = storeyRings(f, n);
   if (!rings.length) throw new Error(`${f.name} storey ${n}: no Ring holds this storey`);
-  let building: Building;
+  let forms: StoreyForms;
   try {
-    building = storeyBuilding(rings);
+    forms = storeyForms(rings);
   } catch (e) {
     // A plan refusal keeps its class through the label (journal decision 146).
-    const message = `${f.name} storey ${n}: ${errorMessage(e)}`;
-    throw e instanceof PlanRefusal ? new PlanRefusal(message, {cause: e}) : new Error(message, {cause: e});
+    throw relabelled(`${f.name} storey ${n}`, e);
   }
-  return planChecked(f.name, n, n * f.storeyHeight, (n + 1) * f.storeyHeight, building);
+  const plan = planChecked(f.name, n, n * f.storeyHeight, (n + 1) * f.storeyHeight, forms.building);
+  // Gable rise decision 8: a storey with no rise carries none, so its plan is the roof solve's alone.
+  if (!forms.walls.some(w => w.rises?.length) && !forms.covered.length) return plan;
+  try {
+    plan.rises = risePieces(f, plan, forms.walls, forms.covered);
+  } catch (e) {
+    // A plan refusal keeps its class through the label (journal decisions 146 and 206).
+    throw relabelled(`${f.name} storey ${n}`, e);
+  }
+  return plan;
 }
 
 // ---- Planes -------------------------------------------------------------------------------------------------------
@@ -165,15 +166,6 @@ export interface Deletable { delete(): void }
 
 const toVec2 = (p: Pt): Vec2 => [p.x, p.y];
 
-function ccw(poly: Pt[]): Pt[] {
-  return polyArea(poly) < 0 ? [...poly].reverse() : poly;
-}
-
-/** Triangulates a simple CCW polygon; returns index triples into it, CCW seen from +z. */
-function triangulate(wasm: Wasm, poly: Pt[]): TriIndices[] {
-  return wasm.triangulate([poly.map(toVec2)]);
-}
-
 function finishPart(ctx: PartContext, plan: StoreyPlan, kind: PartKind, name: string, raw: TriSoup): RawPart {
   const {soup, stats} = weldAndSnap(raw, SHELL_TOLERANCE_CM);
   const part: RawPart = {id: ctx.parts.length, name: `${plan.label} storey ${plan.storey} ${name}`, storey: plan.storey, kind, soup, weld: stats};
@@ -182,62 +174,52 @@ function finishPart(ctx: PartContext, plan: StoreyPlan, kind: PartKind, name: st
 }
 
 /**
- * The polygons an island's caps are triangulated from, and where their vertices start in the part's positions: the
- * ring itself for an island without a hole; for a courtyard, the true outline, its outer loop and its hole's loop,
- * appended after the ring's two copies (spec decision 2 as amended).
+ * Triangulates `loops` (an outer loop and its holes, or one simple CCW polygon), returning index triples into their
+ * concatenation, CCW seen from +z.
  */
-function capLoops(comp: Comp): Pt[][] {
-  return comp.holes.length ? [comp.outer, ...comp.holes] : [comp.ring];
-}
-
-/** Triangulates `loops` (an outer loop and its holes), returning index triples into their concatenation. */
 function triangulateLoops(wasm: Wasm, loops: Pt[][]): TriIndices[] {
   return wasm.triangulate(loops.map(l => l.map(toVec2)));
 }
 
 /**
  * The island's outline extruded from floor to plate, for part `id`: its floor cap and its Wall sides, and with
- * `plateCap` its Internal cap at the plate. A courtyard's outline is its true outline, the hole a hole in it; its cut
- * is not a wall (spec decision 2 as amended).
+ * `plateCap` its Internal cap at the plate (holed roof decision 24). Each loop of `compLoops` is written at the floor and
+ * then each at the plate, the caps are triangulated from the loops together, the holes holes in them, and wall `j` of
+ * loop `k` is the side from that loop's vertex `j` to `j + 1`. An island with no hole writes its one loop.
  */
 function extrudeOutline(ctx: PartContext, plan: StoreyPlan, comp: Comp, id: number, plateCap: boolean): TriSoup {
   const tag = (t: LocalTag, pl: Plane3): number => addFace(ctx.tags, {...t, storey: plan.storey, part: id}, pl);
-  const ring = comp.ring;
-  const n = ring.length;
+  const loops = compLoops(comp);
+  const starts: number[] = [];
+  const m = loops.reduce((s, l) => { starts.push(s); return s + l.length; }, 0);
   const positions: number[] = [];
-  for (const p of ring) positions.push(p.x, p.y, plan.floor);
-  for (const p of ring) positions.push(p.x, p.y, plan.plate);
-  const caps = capLoops(comp);
-  const capBase = caps[0] === ring ? 0 : positions.length / 3;
-  const m = capBase ? caps.reduce((s, l) => s + l.length, 0) : n;
-  if (capBase) {
-    for (const l of caps) for (const p of l) positions.push(p.x, p.y, plan.floor);
-    for (const l of caps) for (const p of l) positions.push(p.x, p.y, plan.plate);
-  }
+  for (const l of loops) for (const p of l) positions.push(p.x, p.y, plan.floor);
+  for (const l of loops) for (const p of l) positions.push(p.x, p.y, plan.plate);
   const tris: number[] = [], faceIDs: number[] = [];
   const bottom = tag({kind: plan.storey === 0 ? 'Ground' : 'Underside', wall: -1, plane: -1}, horizontal(plan.floor, false));
   const top = plateCap ? tag({kind: 'Internal', wall: -1, plane: -1}, horizontal(plan.plate, true)) : -1;
-  for (const [a, b, c] of triangulateLoops(ctx.wasm, caps)) {
-    tris.push(capBase + a, capBase + c, capBase + b); faceIDs.push(bottom);
-    if (plateCap) { tris.push(capBase + m + a, capBase + m + b, capBase + m + c); faceIDs.push(top); }
+  for (const [a, b, c] of triangulateLoops(ctx.wasm, loops)) {
+    tris.push(a, c, b); faceIDs.push(bottom);
+    if (plateCap) { tris.push(m + a, m + b, m + c); faceIDs.push(top); }
   }
-  comp.walls.forEach((w, i) => {
-    if (w.form === 'cut') return;
-    const j = (i + 1) % n;
+  for (const w of comp.walls) {
+    const n = loops[w.loop].length;
+    const i = starts[w.loop] + w.edge, j = starts[w.loop] + (w.edge + 1) % n;
     const f = tag({kind: 'Wall', wall: w.id, plane: -1}, wallPlane(w));
-    tris.push(i, j, n + j, i, n + j, n + i);
+    tris.push(i, j, m + j, i, m + j, m + i);
     faceIDs.push(f, f);
-  });
+  }
   return {positions, tris, faceIDs};
 }
 
-/** A hip solid's bottom, for part `id`: the island's ring at plate height, Internal, facing down. */
+/** An island with no hole's hip solid bottom, for part `id`: the island at plate height, Internal, facing down. */
 function plateBottom(ctx: PartContext, plan: StoreyPlan, comp: Comp, id: number): TriSoup {
   const positions: number[] = [], tris: number[] = [], faceIDs: number[] = [];
   const bottom = addFace(ctx.tags, {kind: 'Internal', storey: plan.storey, wall: -1, plane: -1, part: id}, horizontal(plan.plate, false));
-  for (const p of comp.ring) positions.push(p.x, p.y, plan.plate);
+  const loops = compLoops(comp);
+  for (const l of loops) for (const p of l) positions.push(p.x, p.y, plan.plate);
   // Reversed winding: the bottom faces down.
-  for (const [a, b, c] of triangulate(ctx.wasm, comp.ring)) { tris.push(a, c, b); faceIDs.push(bottom); }
+  for (const [a, b, c] of triangulateLoops(ctx.wasm, loops)) { tris.push(a, c, b); faceIDs.push(bottom); }
   return {positions, tris, faceIDs};
 }
 
@@ -247,14 +229,13 @@ function wallPrism(ctx: PartContext, plan: StoreyPlan, ci: number, comp: Comp): 
 }
 
 /**
- * Spec decision 7: the island's outline at plate height, closed by the default hip's skeleton faces.
- *
- * A courtyard's hip solid stands from the floor instead, its sides and floor the wall prism's own (same tags, so the
- * union merges them as one identity). On a zero-width slit the default hip falls to the plate along the whole cut, so
- * a bottom at the plate would touch its own roof along the cut. Manifold's triangulation of that bottom can then take
- * the cut as a diagonal, giving one edge four half-edges, which `ofMesh` accepts and the union turns into triangles off
- * their planes (measured on random courtyards whose cut is collinear with a hole wall). Standing from the floor, the
- * roof's crease along the cut meets nothing of its own part.
+ * Spec decision 7: the island's roof, closed by the default hip's skeleton faces.
+ * - An island with no hole has its bottom at the plate.
+ * - A holed island's hip solid stands from the floor, its sides and floor the wall prism's own (same tags, so the union
+ *   merges them as one identity; journal decision 132). It does not take holed roof decision 25's bottom at the plate:
+ *   with that bottom Manifold's union leaves tucks on 36 all-gable split-band courtyards that build none from the floor
+ *   (ISSUE-building-shell-all-gable-courtyard-tuck.md has the measurement). Why the bottom at the plate leads Manifold
+ *   to leave a tuck is not established (BSA.F87 found the same of every tuck).
  */
 function hipSolid(ctx: PartContext, plan: StoreyPlan, ci: number, comp: Comp): RawPart {
   const id = ctx.parts.length;
@@ -263,31 +244,17 @@ function hipSolid(ctx: PartContext, plan: StoreyPlan, ci: number, comp: Comp): R
   for (const face of plan.roof.faces) {
     if (face.wall.comp !== ci) continue;
     const pl = b.planes[face.wall.plane];
-    const poly = ccw(face.poly);
+    const poly = ccwLoop(face.poly);
     const f = addFace(ctx.tags, {kind: 'Roof', storey: plan.storey, wall: -1, plane: pl.id, part: id}, roofPlane(pl, plan.plate));
     const start = positions.length / 3;
     for (const p of poly) positions.push(p.x, p.y, plan.plate + planeAt(pl, p));
-    for (const [a, bb, c] of triangulate(ctx.wasm, poly)) { tris.push(start + a, start + bb, start + c); faceIDs.push(f); }
+    for (const [a, bb, c] of triangulateLoops(ctx.wasm, [poly])) { tris.push(start + a, start + bb, start + c); faceIDs.push(f); }
   }
   return finishPart(ctx, plan, 'hip', `hip solid island ${ci}`, {positions, tris, faceIDs});
 }
 
-const alongX = (w: Wall): boolean => Math.abs(w.dir.x) > 0.5;
-const atAlong = (w: Wall, s: number, d: number): Pt => (alongX(w) ? {x: s, y: w.a.y + w.n.y * d} : {x: w.a.x + w.n.x * d, y: s});
-
-/** How far the storey's bounding box reaches from the wall line along the wall's inward normal. */
-function bboxReach(b: Building, w: Wall): number {
-  if (w.n.y > 0.5) return b.bbox.y1 - w.a.y;
-  if (w.n.y < -0.5) return w.a.y - b.bbox.y0;
-  if (w.n.x > 0.5) return b.bbox.x1 - w.a.x;
-  return w.a.x - b.bbox.x0;
-}
-
-/**
- * A stretch of a wall-line plane, `[lo, hi]` along the line, over which a face takes `kind` with `wall`: Gable on an
- * island wall, or Internal on a courtyard's cut (spec decision 2 as amended).
- */
-export interface GableZone { kind: 'Gable' | 'Internal'; wall: number; lo: number; hi: number }
+/** A stretch of a wall-line plane, `[lo, hi]` along the line, over which a face is Gable with `wall`. */
+export interface GableZone { wall: number; lo: number; hi: number }
 
 /**
  * Which world coordinate runs along a vertical plane: 0 (x) or 1 (y). Not cells.ts's `LatticeAxis`, which names a
@@ -332,10 +299,10 @@ export function matchGenerating(partName: string, soup: TriSoup, t: number, gens
   return hits[0];
 }
 
-/** The tag a face on `g` takes at `s` along its line: the first zone holding `s`'s kind and wall, else `g.tag`. */
+/** The tag a face on `g` takes at `s` along its line: Gable with the first zone holding `s`'s wall, else `g.tag`. */
 function zoneTag(g: Generating, s: number, storey: number): PartlessTag {
   const z = g.along?.zones.find(zone => s >= zone.lo && s <= zone.hi);
-  return z ? {kind: z.kind, storey, wall: z.kind === 'Internal' ? -1 : z.wall, plane: -1} : g.tag;
+  return z ? {kind: 'Gable', storey, wall: z.wall, plane: -1} : g.tag;
 }
 
 /**
@@ -390,15 +357,13 @@ const axisAlong = (p: Plane3): AlongAxis => (Math.abs(p.n[0]) > 0.5 ? 1 : 0);
  * the part and listed once.
  * - A Roof plane for each piece plane.
  * - Every vertical plane its faces can stand on: each island wall line, both band ends and the far side. A face on
- *   one is Cheek with the piece's wall, except within a zone. The zones, first match winning, are:
- *   - for a cut piece only, the courtyard's cut on its own vertical plane, over the cut's span: Internal (spec decision
- *     2 as amended);
+ *   one is Cheek with the piece's wall, except within a zone, where it is Gable. The zones, first match winning, are:
  *   - the own-wall zone of every piece of the island whose promoted line the plane is, over that piece's whole band,
  *     this piece first and then the storey's pieces in order (journal decision 82: one face, one identity, whichever
  *     piece made it);
- *   - then each island wall on the plane over that wall's own span, in ring order.
- *   Neither Gable zone is ever a cut wall's: a cut is not a wall.
+ *   - then each island wall on the plane over that wall's own span, in `comp.walls` order, a hole's walls among them.
  * - The plate, Cheek.
+ * No zone is Internal: the holed roof places no courtyard cut, so no piece stands on one (holed roof decision 27).
  */
 export function gableGenerating(plan: StoreyPlan, piece: Piece, far: number): Generating[] {
   const b = plan.building;
@@ -407,7 +372,7 @@ export function gableGenerating(plan: StoreyPlan, piece: Piece, far: number): Ge
   const cheek: PartlessTag = {kind: 'Cheek', storey: plan.storey, wall: w.id, plane: -1};
   // Every promoted line of the island, this piece's own first (journal decision 82): a face on any of them takes
   // that line's piece's own-wall zone, whichever piece made the face.
-  const promoted = [piece, ...plan.roof.pieces.filter(p => p !== piece && p.wall.comp === w.comp)];
+  const promoted = [piece, ...storeyPieces(plan).filter(p => p !== piece && p.wall.comp === w.comp)];
   const gens: Generating[] = [];
   const addOnce = (g: Generating): void => { if (!gens.some(e => samePlane(e.plane, g.plane))) gens.push(g); };
   for (const id of piece.planes) addOnce({plane: roofPlane(b.planes[id], plan.plate), tag: {kind: 'Roof', storey: plan.storey, wall: -1, plane: id}});
@@ -423,19 +388,15 @@ export function gableGenerating(plan: StoreyPlan, piece: Piece, far: number): Ge
   ];
   for (const plane of vertical) {
     const along = axisAlong(plane);
-    const span = (o: Wall, kind: GableZone['kind']): GableZone => {
+    const span = (o: Wall): GableZone => {
       const a = along === 0 ? o.a.x : o.a.y, c = along === 0 ? o.b.x : o.b.y;
-      return {kind, wall: o.id, lo: Math.min(a, c), hi: Math.max(a, c)};
+      return {wall: o.id, lo: Math.min(a, c), hi: Math.max(a, c)};
     };
     const zones: GableZone[] = [];
-    // A cut piece's faces on the cut's vertical plane, over its span, are Internal (spec decision 2 as amended): each has
-    // its partner across the slit in the other cut piece. Another piece's face there is no part of the cut, and keeps
-    // the zones below.
-    if (w.form === 'cut') for (const o of comp.walls) if (o.form === 'cut' && samePlane(plane, wallPlane(o))) zones.push(span(o, 'Internal'));
     for (const p of promoted) {
-      if (p.wall.form !== 'cut' && samePlane(plane, wallPlane(p.wall))) zones.push({kind: 'Gable', wall: p.wall.id, lo: p.bandLo, hi: p.bandHi});
+      if (samePlane(plane, wallPlane(p.wall))) zones.push({wall: p.wall.id, lo: p.bandLo, hi: p.bandHi});
     }
-    for (const o of comp.walls) if (o.form !== 'cut' && samePlane(plane, wallPlane(o))) zones.push(span(o, 'Gable'));
+    for (const o of comp.walls) if (samePlane(plane, wallPlane(o))) zones.push(span(o));
     addOnce({plane, tag: cheek, along: zones.length ? {axis: along, zones} : undefined});
   }
   addOnce({plane: horizontal(plan.plate, false), tag: cheek});
@@ -456,7 +417,7 @@ function gablePiece(ctx: PartContext, plan: StoreyPlan, k: number, piece: Piece)
   const name = `gable piece ${k} (${piece.label})`;
   const empty = (why: string): Error => new Error(`${plan.label} storey ${plan.storey}: ${name} is empty: ${why}`);
   const far = Math.min(piece.farDist, bboxReach(b, w));
-  const rect = ccw([atAlong(w, piece.bandLo, 0), atAlong(w, piece.bandHi, 0), atAlong(w, piece.bandHi, far), atAlong(w, piece.bandLo, far)]);
+  const rect = ccwLoop([atAlong(w, piece.bandLo, 0), atAlong(w, piece.bandHi, 0), atAlong(w, piece.bandHi, far), atAlong(w, piece.bandLo, far)]);
   // The piece's top is the lowest of its planes; no plane reaches above its own highest corner.
   const H = Math.min(...piece.planes.map(id => Math.max(...rect.map(p => planeAt(b.planes[id], p)))));
   if (!(H > SHELL_TOLERANCE_CM)) throw empty(`its planes rise ${H} cm at most over its band`);
@@ -472,7 +433,8 @@ function gablePiece(ctx: PartContext, plan: StoreyPlan, k: number, piece: Piece)
       m = keep(m.trimByPlane([pl.gx / L, pl.gy / L, -1 / L], -(plan.plate + pl.c) / L));
     }
     m = keep(m.trimByPlane([0, 0, 1], plan.plate));
-    const foot = keep(keep(keep(new wasm.CrossSection([comp.outer.map(toVec2)])).extrude(H + 30)).translate([0, 0, plan.plate - 10]));
+    // Holed roof decision 26: trimmed to the island with its holes, so no piece reaches into a courtyard.
+    const foot = keep(keep(keep(new wasm.CrossSection(compLoops(comp).map(l => l.map(toVec2)))).extrude(H + 30)).translate([0, 0, plan.plate - 10]));
     m = keep(m.intersect(foot));
     mesh = m.isEmpty() ? null : m.getMesh();
   } finally {
@@ -520,13 +482,13 @@ function gablePiece(ctx: PartContext, plan: StoreyPlan, k: number, piece: Piece)
   return finishPart(ctx, plan, 'gable', name, raw);
 }
 
-/** Spec decision 5: one wall prism and one hip solid per island, and one solid per gable piece. */
+/** Spec decision 5: one wall prism and one hip solid per island, and one solid per gable piece, a rise's included. */
 export function buildStoreyParts(ctx: PartContext, plan: StoreyPlan): RawPart[] {
   const out: RawPart[] = [];
   plan.building.comps.forEach((comp, ci) => {
     out.push(wallPrism(ctx, plan, ci, comp));
     out.push(hipSolid(ctx, plan, ci, comp));
   });
-  plan.roof.pieces.forEach((piece, k) => out.push(gablePiece(ctx, plan, k, piece)));
+  storeyPieces(plan).forEach((piece, k) => out.push(gablePiece(ctx, plan, k, piece)));
   return out;
 }

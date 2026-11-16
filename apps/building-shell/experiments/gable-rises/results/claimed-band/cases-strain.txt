@@ -1,0 +1,116 @@
+
+# Hand reductions of the classes the sweep found worse than today
+
+== TallStemBuriesMiddle
+  today: CLEAN 
+    Gable s0 on x=1000 [0,150] apex at 150.0, 150.0 above the plate
+    Gable s0 on x=1000 [350,500] apex at 350.0, 150.0 above the plate
+  A: CLEAN same shape as today
+    storey 0 x=1000 [0,150] outer ownGable: keptB, bands [0,500]@45
+    storey 0 x=1000 [350,500] outer ownGable: keptB, bands [0,500]@45
+    Gable s0 on x=1000 [0,150] apex at 150.0, 150.0 above the plate
+    Gable s0 on x=1000 [350,500] apex at 350.0, 150.0 above the plate
+  B: CLEAN same shape as today
+    storey 0 x=1000 [0,150] outer ownGable: toRise, bands [0,500]@45
+    storey 0 x=1000 [350,500] outer ownGable: toRise, bands [0,500]@45
+    rise [0,500] on x=1000: ends corner/corner, middle buried; planes y=0 x[0,1000] & y=500 x[0,1000] & x=0 y[0,500]; limit x=0 y[0,500]
+    Gable s0 on x=1000 [0,150] apex at 150.0, 150.0 above the plate
+    Gable s0 on x=1000 [350,500] apex at 350.0, 150.0 above the plate
+
+== TallWingBuriesEnd
+  today: CLEAN 
+    Gable s0 on y=0 [300,1000] apex at 600.0, 230.9 above the plate
+  A: CLEAN same shape as today
+    storey 0 y=0 [300,1000] outer ownGable: keptB, bands [0,1000]@45
+    Gable s0 on y=0 [300,1000] apex at 600.0, 230.9 above the plate
+  B: CLEAN same shape as today
+    storey 0 y=0 [300,1000] outer ownGable: toRise, bands [0,1000]@45
+    rise [0,1000] on y=0: ends corner/corner; planes x=0 y[0,400] & x=1000 y[0,400] & y=400 x[0,1000]; limit y=400 x[0,1000]
+    Gable s0 on y=0 [300,1000] apex at 600.0, 230.9 above the plate
+
+== TallCrossingBuriesEnd
+  today: CLEAN 
+    Gable s0 on y=0 [300,1000] apex at 600.0, 230.9 above the plate
+  A: CLEAN same shape as today
+    storey 0 y=0 [300,1000] outer ownGable: keptB, bands [0,1000]@45
+    Gable s0 on y=0 [300,1000] apex at 600.0, 230.9 above the plate
+  B: CLEAN same shape as today
+    storey 0 y=0 [300,1000] outer ownGable: toRise, bands [0,1000]@45
+    rise [0,1000] on y=0: ends corner/corner; planes x=0 y[200,400] & x=1000 y[0,400] & y=400 x[0,1000] & cap 250 on y=0 x[300,1000]; limit y=400 x[0,1000]; cap wallTop 250
+    Gable s0 on y=0 [300,1000] apex at 600.0, 230.9 above the plate
+
+== TwoPitchWall
+  today: CLEAN 
+    Gable s0 on x=0 [0,900] apex at 300.0, 300.0 above the plate
+  A: CLEAN SHAPE DIFFERS (-1.0000,0.0000,0.0000|0.00 differs by 88980.8 cm²)
+    storey 0 x=0 [0,900] notWider: toRise, bands [0,400]@52.5 [400,900]@30
+    rise [0,400] on x=0: ends corner/reflex; planes y=0 x[0,300] & rake from 400 on x=0 y[0,400] & x=300 y[0,400]; limit x=300 y[0,400]
+    rise [400,900] on x=0: ends reflex/corner; planes rake from 400 on x=0 y[400,900] & y=900 x[0,300] & x=300 y[0,400]; limit x=300 y[0,400]
+    Gable s0 on x=0 [0,400] apex at 226.3, 226.3 above the plate
+    Gable s0 on x=0 [400,900] apex at 717.0, 183.0 above the plate
+  B: CLEAN SHAPE DIFFERS (-1.0000,0.0000,0.0000|0.00 differs by 88980.8 cm²)
+    storey 0 x=0 [0,900] notWider: toRise, bands [0,400]@52.5 [400,900]@30
+    rise [0,400] on x=0: ends corner/reflex; planes y=0 x[0,300] & rake from 400 on x=0 y[0,400] & x=300 y[0,400]; limit x=300 y[0,400]
+    rise [400,900] on x=0: ends reflex/corner; planes rake from 400 on x=0 y[400,900] & y=900 x[0,300] & x=300 y[0,400]; limit x=300 y[0,400]
+    Gable s0 on x=0 [0,400] apex at 226.3, 226.3 above the plate
+    Gable s0 on x=0 [400,900] apex at 717.0, 183.0 above the plate
+
+== TwoPitchWallUnequalDepth
+  today: CLEAN 
+    Gable s0 on x=0 [0,900] apex at 300.0, 300.0 above the plate
+  A: CLEAN SHAPE DIFFERS (-1.0000,0.0000,0.0000|0.00 differs by 88980.8 cm²)
+    storey 0 x=0 [0,900] notWider: toRise, bands [0,400]@52.5 [400,900]@30
+    rise [0,400] on x=0: ends corner/reflex; planes y=0 x[0,300] & rake from 400 on x=0 y[0,400] & x=300 y[0,400]; limit x=300 y[0,400]
+    rise [400,900] on x=0: ends reflex/corner; planes rake from 400 on x=0 y[400,900] & y=900 x[0,600] & x=600 y[400,900]; limit x=600 y[400,900]
+    Gable s0 on x=0 [0,400] apex at 226.3, 226.3 above the plate
+    Gable s0 on x=0 [400,900] apex at 717.0, 183.0 above the plate
+  B: CLEAN SHAPE DIFFERS (-1.0000,0.0000,0.0000|0.00 differs by 88980.8 cm²)
+    storey 0 x=0 [0,900] notWider: toRise, bands [0,400]@52.5 [400,900]@30
+    rise [0,400] on x=0: ends corner/reflex; planes y=0 x[0,300] & rake from 400 on x=0 y[0,400] & x=300 y[0,400]; limit x=300 y[0,400]
+    rise [400,900] on x=0: ends reflex/corner; planes rake from 400 on x=0 y[400,900] & y=900 x[0,600] & x=600 y[400,900]; limit x=600 y[400,900]
+    Gable s0 on x=0 [0,400] apex at 226.3, 226.3 above the plate
+    Gable s0 on x=0 [400,900] apex at 717.0, 183.0 above the plate
+
+== Court18Less1
+  today: NOT CLEAN: conflicts 1 
+    Gable s0 on y=400 [200,450] apex at 200.0, 75.4 above the plate
+    Gable s2 on y=400 [50,200] apex at 134.9, 84.9 above the plate
+  A: NOT CLEAN: conflicts 1 SHAPE DIFFERS (0.0000,0.6018,0.7986|510.95 differs by 4695.5 cm²)
+    storey 0 y=400 [200,450] outer noSide+ownGable: toRise, bands [50,450]@37
+    rise [50,450] on y=400: ends corner/reflex; planes x=50 y[400,500] & rake from 450 on y=400 x[200,450] & y=500 x[450,600]; limit y=500 x[450,600]
+    storey 1 y=400 [50,200] notWider: keptB, bands [50,200]@45
+    storey 2 y=400 [50,200] notWider: keptB, bands [50,200]@45
+    Gable s0 on y=400 [200,450] apex at 200.0, 75.4 above the plate
+    Gable s2 on y=400 [50,200] apex at 134.9, 84.9 above the plate
+  B: NOT CLEAN: conflicts 1 SHAPE DIFFERS (0.0000,0.6018,0.7986|510.95 differs by 4695.5 cm²)
+    storey 0 y=400 [200,450] outer noSide+ownGable: toRise, bands [50,450]@37
+    rise [50,450] on y=400: ends corner/reflex; planes x=50 y[400,500] & rake from 450 on y=400 x[200,450] & y=500 x[450,600]; limit y=500 x[450,600]
+    storey 1 y=400 [50,200] notWider: toRise, bands [50,200]@45
+    rise [50,200] on y=400: ends corner/corner; planes x=50 y[250,400] & x=200 y[250,400] & y=250 x[50,200] & cap 263 on y=400 x[50,200]; limit y=250 x[50,200]; cap wallTop 263
+    storey 2 y=400 [50,200] notWider: toRise, bands [50,200]@45
+    rise [50,200] on y=400: ends corner/corner; planes x=50 y[250,400] & x=200 y[250,400] & y=250 x[50,200]; limit y=250 x[50,200]
+    Gable s0 on y=400 [200,450] apex at 200.0, 75.4 above the plate
+    Gable s2 on y=400 [50,200] apex at 134.9, 84.9 above the plate
+
+== Court18Less1Lower
+  today: CLEAN 
+    Gable s0 on y=400 [200,525] apex at 200.0, 75.4 above the plate
+  A: CLEAN SHAPE DIFFERS (0.0000,0.6018,0.7986|510.95 differs by 8608.4 cm²)
+    storey 0 y=400 [200,450] outer noSide+ownGable: toRise, bands [50,450]@37
+    rise [50,450] on y=400: ends corner/reflex; planes x=50 y[400,500] & rake from 450 on y=400 x[200,450] & y=500 x[450,600]; limit y=500 x[450,600]
+    Gable s0 on y=400 [200,450] apex at 200.0, 75.4 above the plate
+  B: CLEAN SHAPE DIFFERS (0.0000,0.6018,0.7986|510.95 differs by 8608.4 cm²)
+    storey 0 y=400 [200,450] outer noSide+ownGable: toRise, bands [50,450]@37
+    rise [50,450] on y=400: ends corner/reflex; planes x=50 y[400,500] & rake from 450 on y=400 x[200,450] & y=500 x[450,600]; limit y=500 x[450,600]
+    Gable s0 on y=400 [200,450] apex at 200.0, 75.4 above the plate
+
+== GableUnderNarrowUpper
+  today: CLEAN 
+    Gable s0 on x=0 [0,500] apex at 250.0, 357.0 above the plate
+  A: CLEAN same shape as today
+    storey 0 x=0 [0,500] notWider: keptB, bands [0,500]@55
+    Gable s0 on x=0 [0,500] apex at 250.0, 357.0 above the plate
+  B: NOT CLEAN: breakthrough 106.68 SHAPE DIFFERS (0.0000,0.8192,0.5736|552.97 differs by 27770.4 cm²)
+    storey 0 x=0 [0,500] notWider: toRise, bands [0,500]@55
+    rise [0,500] on x=0: ends corner/corner; planes y=0 x[0,1000] & y=500 x[0,1000] & x=1000 y[0,500] & cap 250 on x=0 y[0,500]; limit x=1000 y[0,500]; cap wallTop 250
+    Gable s0 on x=0 [0,500] apex at 175.1, 250.0 above the plate

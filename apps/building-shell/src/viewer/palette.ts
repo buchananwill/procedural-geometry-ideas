@@ -45,6 +45,8 @@ export const SHELL_KIND_COLOUR: Readonly<Record<ShellKind, number>> = {
   Ground: 0x3f8f4f,
   Cheek: 0x8e5bc2,
   Internal: MAGENTA,
+  // Journal decision 272: a tuck's layers, labelled and given no Cells: a cool cyan no other fill is near.
+  Tuck: 0x3fc6c0,
 };
 
 /** Every `ShellKind`: `tags.ts`'s one list (journal decision 147, N7), re-exported for the legend. */
@@ -101,8 +103,8 @@ export function fillShades(kind: ShellKind): number[] {
   return kind === 'Ground' ? shades.map(h => over(h, BACKGROUND, GROUND_OPACITY)) : shades;
 }
 
-/** Every shade the opt-in partial tint of `kind` shows. Ground and Internal faces have no Cells, so no tint. */
-export const tintShades = (kind: ShellKind): number[] => (kind === 'Ground' || kind === 'Internal' ? [] : litShades(kind, partialColour(kind)));
+/** Every shade the opt-in partial tint of `kind` shows. Ground, Internal and Tuck faces have no Cells, so no tint. */
+export const tintShades = (kind: ShellKind): number[] => (kind === 'Ground' || kind === 'Internal' || kind === 'Tuck' ? [] : litShades(kind, partialColour(kind)));
 
 /**
  * The face kinds a table row stands for: `kinds`, and Cheek wherever it names Gable, because Cheek reads as Gable (spec

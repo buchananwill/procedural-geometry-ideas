@@ -2,6 +2,7 @@ import {
     CLEAN_TEST_POLYGONS,
     COLLINEAR_DUMBBELL,
     FULL_CORPUS,
+    HOLED_F1,
     KNOWN_DEFECT_POLYGONS,
     OFFSET_CROSS_JUNCTION,
     OFF_EDGE_JITTER_L_SEED_55433,
@@ -2162,5 +2163,29 @@ describe('recursive segment subdivision', () => {
             expect(Object.keys(CENSUS_SIGNATURES).toSorted())
                 .toEqual(KNOWN_DEFECT_POLYGONS.map(polygon => polygon.name).toSorted());
         });
+    });
+});
+
+/*
+ * THE RECURSIVE DRIVER REFUSES HOLES (skeleton loop-consumers spec, decisions 23 and 42). It takes one ring by type and
+ * solves it without holes, so an options object carrying holes would subdivide the outline alone and say nothing.
+ */
+describe('subdivideRecursively refuses an options object carrying holes', () => {
+    const levels = uniformLevelSpecs({levels: 1, mergeGroupSize: 1, depthFraction: 0.5, residue: 'recurse'});
+
+    it('throws on F1, naming itself and computeStrips', () => {
+        const options = {levels, holes: HOLED_F1.holes} as RecursiveOptions;
+        expect(() => subdivideRecursively(HOLED_F1.outline, options)).toThrow(
+            'subdivideRecursively takes one ring and no holes, and was given 1: it solves its boundary without holes, '
+            + 'so it would subdivide the outline alone. Solve the outline with its holes through solveSkeleton and read '
+            + 'every loop through computeStrips.');
+    });
+
+    it('takes an empty holes list, and the outline alone, as it always has', () => {
+        const withEmpty = subdivideRecursively(HOLED_F1.outline, {levels, holes: []} as RecursiveOptions);
+        const without = subdivideRecursively(HOLED_F1.outline, {levels});
+        expect(withEmpty.outcome.kind).toBe('solved');
+        expect(flattenRecursiveTree(withEmpty).map(node => node.id))
+            .toEqual(flattenRecursiveTree(without).map(node => node.id));
     });
 });

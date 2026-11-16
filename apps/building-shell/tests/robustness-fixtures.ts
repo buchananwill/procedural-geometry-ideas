@@ -1,6 +1,6 @@
 // The WP3 correctness reviewer's robustness inputs (journal decision 101, F36 and F37), restated from its scratchpad
 // reproducers `fuzz4.mjs` and `fuzz3.mjs` so the tests own them. Both generators are deterministic.
-import {FixtureRing, RING_SIDES, RingSide, RingSides, ShellFixture, ring} from '../src/fixture.ts';
+import {FixtureRing, RING_SIDES, RingSide, RingSides, ShellFixture, holedFixture, ring} from '../src/fixture.ts';
 import type {Rect} from '../src/roof/model.ts';
 import {NamedFixture, shellFixture} from './test-builds.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
@@ -37,9 +37,9 @@ export const sweepFixtures = (storeyHeight: number = REVIEWER_STOREY_HEIGHT_CM):
 /**
  * `fuzz3.mjs`'s random Ring fixtures, draw for draw: one- and two-storey plans of up to two storey-0 Rings and one
  * storey-1 Ring, gabled on the first Ring's x or y side or hipped, at assorted pitches. Seed 1, 80 fixtures, is the
- * reviewer's run. The reproducer gabled the whole line x = x0 or y = y0; under Ring forms that is the first Ring's W
- * or S side, which wins the whole union wall on its line as Ring 0 (spec decision 3). Every draw is made as before and
- * in the same order; only what is built from the draws changed.
+ * reviewer's run. The reproducer gabled the whole line x = x0 or y = y0; as a Ring form that is the first Ring's W or S
+ * side, which wins the whole union wall on its line as Ring 0 (spec decision 3). Every draw is the reproducer's, in its
+ * order, so each seed draws the reviewer's layouts.
  */
 export function randomFixtures(seed: number, count: number, storeyHeight: number = REVIEWER_STOREY_HEIGHT_CM): ShellFixture[] {
   const rnd = stream(seed);
@@ -116,23 +116,24 @@ export const pickFrom = <T>(a: readonly T[], r: () => number): T => a[Math.floor
  * Journal decisions 115, 132 and 135: random courtyards within the Grammar's caps of 3 storeys and 4 Rings, right
  * angles only, drawn from the full family of four Rings about a hole: an S and an N band, a W and an E wing, and at
  * each corner the band, the wing or both covering it. Wings at full height with the bands between them are included,
- * so a layout no raw Ring wall segment can cut would be measured, not avoided (decision 132).
+ * so layouts in which no whole raw Ring wall crosses the ring from the outer loop to the hole are drawn too (decision
+ * 132).
  * - Every Ring stands from storey 0 for 1 to 3 storeys, so the hole runs from the ground to the sky and the genus is 1.
  * - Each side is gabled with probability 0.2, and the Rings come in a random order: the index is the C++ parent model
  *   index, and the lowest wins each union wall.
  * - Pitch (decision 135, F1): half the fixtures keep one pitch for every Ring; in the other half each Ring draws its
  *   own default, and each hipped side is authored a pitch of its own with probability 0.2.
- * Three streams draw independently: the layout as `randomCourtyardFixtures` first drew it (seed `seed`), the corners
- * (seed `seed + 7919`), and the pitches (seed `seed + 15485863`). A fixture whose corners and pitches both fall to the
- * classic draw is the one the generator first made. A generator of its own, so `randomFixtures`' seeds keep their draws.
+ * Three streams draw independently: the layout (seed `seed`), the corners (seed `seed + 7919`), and the pitches (seed
+ * `seed + 15485863`). A fixture whose corners and pitches both fall to the classic draw is the classic layout. A
+ * generator of its own, so `randomFixtures`' seeds keep their draws.
  *
  * Split mode (journal decisions 150 and 151) cuts one of the four Rings in two across its depth, at a 50 cm lattice
  * line strictly inside the hole's span, so the buried shared wall crosses the ring from the outer loop to the hole and
- * is collinear with no wall: the free cut. A fourth stream (seed `seed + 104729`) picks the Ring, the line, the second
- * half's place in the index order and, with mixed pitch, its default. The draw is placed so that the free cut is
- * certain to be the shortest qualifying segment: the split Ring's two corners are its own, so no wing or band side
- * runs along a hole wall's line through it, and every other Ring's depth is made deeper than the split Ring's. Every
- * other draw is made as in the classic mode, in the same order.
+ * is collinear with no wall. A fourth stream (seed `seed + 104729`) picks the Ring, the line, the second half's place in
+ * the index order and, with mixed pitch, its default. The draw is placed so that the buried shared wall is the shortest
+ * segment crossing the ring from the outer loop to the hole: the split Ring's two corners are its own, so no wing or
+ * band side runs along a hole wall's line through it, and every other Ring's depth is made deeper than the split
+ * Ring's. Every other draw is made as in the classic mode, in the same order.
  *
  * `name` names the k-th draw: `Court<k>` in classic mode, `SplitCourt<k>` in split mode, where every draw is split.
  */
@@ -211,15 +212,36 @@ function drawCourtyards<N extends string>(seed: number, count: number, storeyHei
 export const randomCourtyardFixtures = (seed: number, count: number, storeyHeight: number): NamedFixture<CourtName>[] =>
   drawCourtyards(seed, count, storeyHeight, courtName).map(d => d.fixture);
 
-/** A split-band courtyard and the line its split Ring was cut along: the free cut's line. */
+/** A split-band courtyard and the line its split Ring was cut along: its buried shared wall's line. */
 export type SplitCourtyard = Pick<CourtyardDraw<SplitCourtName>, 'fixture'> & Required<Pick<CourtyardDraw<SplitCourtName>, 'split'>>;
 
 /**
- * Journal decisions 150 and 151: random courtyards in split mode (`drawCourtyards`), one Ring cut in two so that the
- * free cut, collinear with no wall, is certain to be the shortest, so a sweep of them reads the free branch.
+ * Journal decisions 150 and 151: random courtyards in split mode (`drawCourtyards`), one Ring cut in two so that its
+ * buried shared wall, collinear with no wall, is the shortest segment crossing the ring from the outer loop to the hole.
  */
 export function randomSplitCourtyards(seed: number, count: number, storeyHeight: number): SplitCourtyard[] {
   return drawCourtyards(seed, count, storeyHeight, splitCourtName, true).flatMap(d => (d.split ? [{fixture: d.fixture, split: d.split}] : []));
+}
+
+/** Whether every Ring of `f` stands at one pitch: one default, and no side or run of a pitch of its own. */
+export const onePitch = (f: ShellFixture): boolean =>
+  f.rings.every(r => r.defaultDeg === f.rings[0].defaultDeg && RING_SIDES.every(s => r.sides?.[s]?.deg === undefined && !(r.sides?.[s]?.runs ?? []).some(x => x.deg !== undefined)));
+
+/**
+ * A split courtyard's unsplit twin (holed roof decision 52): its two halves, the Rings either side of the split line
+ * over one span, merged back into one Ring in the first half's place, each keeping the sides it did not bury.
+ */
+export function unsplitTwin({fixture, split}: SplitCourtyard): ShellFixture {
+  const ax = split.axis === 'x' ? 0 : 1;
+  const lo = fixture.rings.findIndex(r => r.rect[ax + 2] === split.at);
+  const hi = fixture.rings.findIndex(r => r.rect[ax] === split.at && r.rect[1 - ax] === fixture.rings[lo]?.rect[1 - ax] && r.rect[3 - ax] === fixture.rings[lo]?.rect[3 - ax]);
+  if (lo < 0 || hi < 0) throw new Error(`${fixture.name}: no two halves meet on ${split.axis} = ${split.at}`);
+  const a = fixture.rings[lo], b = fixture.rings[hi];
+  const rect: Rect = [Math.min(a.rect[0], b.rect[0]), Math.min(a.rect[1], b.rect[1]), Math.max(a.rect[2], b.rect[2]), Math.max(a.rect[3], b.rect[3])];
+  const far: RingSide = split.axis === 'x' ? 'E' : 'N';
+  const sides: RingSides = {...a.sides, ...(b.sides?.[far] ? {[far]: b.sides[far]} : {})};
+  const merged = ring(rect, a.baseStorey, a.storeys, a.defaultDeg, sides);
+  return {...fixture, name: `${fixture.name}~unsplit`, rings: fixture.rings.flatMap((r, i) => (i === lo ? [merged] : i === hi ? [] : [r]))};
 }
 
 /** The fixtures of `randomSplitCourtyards`. */
@@ -228,7 +250,7 @@ export const randomSplitCourtyardFixtures = (seed: number, count: number, storey
 
 /** The S band of a 1000 × 1000 courtyard authored as two Rings, and its pitches (`splitBandFixture`). */
 export interface SplitBandPitches {
-  /** Ring 0's default: the S band's west half, which wins both walls the free cut meets. */
+  /** Ring 0's default: the S band's west half, which wins both walls its buried shared wall meets. */
   a: number;
   /** Ring 0's S side (the outer wall at y = 0) and N side (the hole's S wall), when authored. */
   s?: number;
@@ -240,7 +262,8 @@ export interface SplitBandPitches {
 /**
  * Journal decision 150's split-band courtyard, the correctness reviewer's (`cfd.mts`): an S band of depth `bandS`
  * authored as two Rings split at x = `split`, wings either side of a hole from x = `holeLo` to `holeHi` up to y = 800,
- * and an N band. The split's buried shared wall, `bandS` long, is the shortest cut and collinear with no wall.
+ * and an N band. The split's buried shared wall, `bandS` long, is the shortest segment crossing the ring from the outer
+ * loop to the hole, and collinear with no wall.
  */
 export function splitBandFixture(name: string, holeLo: number, holeHi: number, bandS: number, split: number, p: SplitBandPitches): ShellFixture {
   const own: RingSides = {...(p.s !== undefined ? {S: {form: 'hip', deg: p.s}} : {}), ...(p.n !== undefined ? {N: {form: 'hip', deg: p.n}} : {})};
@@ -437,15 +460,98 @@ export function rosterPitchCases(fixtures: readonly ShellFixture[]): RosterPitch
 // ---- The named enrolled layouts (each its test's, and the golden set's) ------------------------------------------
 
 /**
- * Journal decision 132: the corrected cut rule's layout. Wings at full depth with the bands between them: no whole raw
- * wall crosses the ring, but each band's inner side has a segment that does.
+ * Journal decision 132: wings at full depth with the bands between them, so no whole raw wall crosses the ring from the
+ * outer loop to the hole, but a segment of each band's inner side does.
  */
 export const FULL_WINGS_PROBE: ShellFixture = shellFixture('FullWingsProbe',
   ([[0, 0, 1000, 300], [0, 700, 1000, 1000], [0, 0, 300, 1000], [700, 0, 1000, 1000]] as Rect[]).map(r => ring(r, 0, 1, 30)));
 
-/** WP3.6's finding, enrolled: roof-gable algorithm B's cut-piece overshoot, one Internal cut face surviving. */
-export const CUT_OVERSHOOT_PROBE: ShellFixture = shellFixture('CutOvershootProbe',
+/**
+ * WP3.6's finding, named by holed roof decision 47: a courtyard whose hole stands off its centre, the layout of the
+ * retired residue class `algorithm-B cut-piece overshoot`. Roofed by its outline and its hole, it builds clean
+ * (holed roof decision 48).
+ */
+export const OFF_CENTRE_COURTYARD: ShellFixture = shellFixture('OffCentreCourtyard',
   ([[0, 250, 250, 600], [0, 600, 650, 850], [400, 250, 650, 600], [0, 150, 650, 250]] as Rect[]).map(r => ring(r, 0, 1, 30)));
+
+/**
+ * Journal decision 245: `s1/Court29` reduced, Rings dropped and then side forms. Ring 3's S side is a covered rise
+ * (journal decision 243, rule 3) over x [650, 900] on y = 150, the line of the hole's S wall (named so by holed roof
+ * decision 47). It builds clean with no tuck (holed roof decision 48).
+ */
+export const COVERED_RISE_ON_HOLE_LINE: ShellFixture = shellFixture('CoveredRiseOnHoleLine', [
+  ring([100, 0, 900, 150], 0, 2, 30, {E: {form: 'gable'}}), ring([100, 150, 300, 450], 0, 1, 52.5, {E: {form: 'gable'}}),
+  ring([100, 450, 900, 650], 0, 2, 52.5), ring([650, 150, 900, 450], 0, 2, 45, {S: {form: 'gable'}, W: {form: 'gable'}}),
+]);
+
+/**
+ * Journal decision 245: `s13/Court21` reduced as `COVERED_RISE_ON_HOLE_LINE` is. The gabled S sides of Rings 2 and 3, each
+ * wholly on Ring 0's N side, are covered rises (journal decision 243, rule 3), the layout of the Cell-laying class "two
+ * Cells run the same way along one NetEdge" (journal F64, F74). It builds clean with no tuck (holed roof decision 48).
+ */
+export const COVERED_RISE_CELL_CLASH: ShellFixture = shellFixture('CoveredRiseCellClash', [
+  ring([100, 0, 600, 250], 0, 2, 30, {S: {form: 'gable'}}), ring([100, 400, 600, 600], 0, 3, 30),
+  ring([100, 250, 300, 400], 0, 3, 30, {S: {form: 'gable'}}), ring([450, 250, 600, 400], 0, 2, 30, {S: {form: 'gable'}}),
+]);
+
+/**
+ * Journal decision 272 (WP-C3), on BSA.F87: inputs whose union leaves a tuck. Each has a lower storey's gable on a wall
+ * line, back to back with a taller Ring's wall on the storey above, the taller Ring ending inside the gable's span.
+ * `span` is the x extent the oracle mirrors them in (BSA.F87 measured each mirror built with no tuck).
+ */
+export interface TuckCase { fixture: ShellFixture; span: number }
+
+const tuckGable = {S: {form: 'gable' as const}};
+
+/** BSA.F87's smallest input: two Rings, a whole-line gable end. */
+const tuckA = (h: number): TuckCase => ({span: 350, fixture: shellFixture(`TuckGableEnd${h}`, [
+  ring([0, 0, 200, 50], 0, 3, 30, tuckGable), ring([0, 50, 350, 150], 0, 1, 30, tuckGable),
+], h)});
+
+/** `s13h250/SplitCourt38` reduced (BSA.F87): a two-pitch rise's gable; `tower` and `low` vary it into the silent cases. */
+const tuckB = (name: string, low: [number, number, number, number], lowDeg: number, tower: [number, number, number, number], towerDeg: number, span: number): TuckCase => ({span, fixture: shellFixture(name, [
+  ring(low, 0, 2, lowDeg, tuckGable), ring([0, 100, 50, 150], 0, 2, 45, tuckGable), ring(tower, 0, 3, towerDeg),
+])});
+
+/** `s6h263/U8` reduced (BSA.F87): a whole-line gable end at 45 degrees. */
+const tuckC = (h: number): TuckCase => ({span: 300, fixture: shellFixture(`TuckSteepGableEnd${h}`, [
+  ring([0, 0, 200, 50], 0, 3, 30, tuckGable), ring([0, 50, 300, 100], 0, 1, 45, tuckGable),
+], h)});
+
+/**
+ * The tuck inputs whose Cell laying throws one of the two Cell-laying errors when the tuck is not labelled Tuck
+ * (BSA.F87, journal decision 272), and their storey heights.
+ */
+export const THROWING_TUCK_CASES: readonly TuckCase[] = [
+  tuckA(250), tuckA(263), tuckA(300),
+  tuckB('TuckRiseGable', [50, 100, 300, 250], 30, [100, 0, 250, 100], 30, 300),
+  tuckC(250), tuckC(263), tuckC(300),
+];
+
+/**
+ * BSA.F87's smallest input on a holed island (ISSUE-building-shell-all-gable-courtyard-tuck.md): `TuckGableEnd`'s two
+ * Rings, the band the S band of a courtyard whose wings and N band stand one storey, the hole x 100 to 250, y 150 to 350.
+ * Storey 0 is one island with one hole, so the genus is 1. Measured: its tuck is `TuckGableEnd`'s, the same outline at
+ * every height, and its x-mirror builds with no tuck.
+ */
+const tuckCourtyard = (h: number): TuckCase => ({span: 350, fixture: shellFixture(`TuckGableEndCourtyard${h}`, [
+  ring([0, 0, 200, 50], 0, 3, 30, tuckGable), ring([0, 50, 350, 150], 0, 1, 30, tuckGable),
+  ring([0, 150, 100, 350], 0, 1, 30), ring([250, 150, 350, 350], 0, 1, 30), ring([0, 350, 350, 450], 0, 1, 30),
+], h)});
+
+/** The tuck inputs on a holed island, and their storey heights. */
+export const HOLED_TUCK_CASES: readonly TuckCase[] = [tuckCourtyard(250), tuckCourtyard(263), tuckCourtyard(300)];
+
+/**
+ * BSA.F87's silent variants of `TuckRiseGable`: each builds with overlapping Cells and Unclassified Edges when the tuck
+ * is not labelled Tuck (journal decision 272).
+ */
+export const SILENT_TUCK_CASES: readonly TuckCase[] = [
+  tuckB('TuckRiseGableNarrowTower', [50, 100, 300, 250], 30, [150, 0, 200, 100], 30, 300),
+  tuckB('TuckRiseGableSteepTower', [50, 100, 300, 250], 30, [100, 0, 250, 100], 45, 300),
+  tuckB('TuckRiseGable37', [50, 100, 300, 250], 37, [100, 0, 250, 100], 30, 300),
+  tuckB('TuckRiseGableShortLow', [50, 100, 250, 250], 30, [100, 0, 250, 100], 30, 250),
+];
 
 /** Journal decision 135, F2: WP3.6's two cleanMesh refusals under floor-standing holed hip solids, stated literally. */
 export const F2_COURTYARDS: readonly ShellFixture[] = [
@@ -466,29 +572,49 @@ export const F2_COURTYARDS: readonly ShellFixture[] = [
 export const UPPER_U_EDGE_CONTACT: ShellFixture = shellFixture('UpperUJoinedByEdgeContact',
   [ring([0, 0, 1000, 400], 0, 1, 45), ring([0, 0, 200, 400], 1, 1, 45), ring([800, 0, 1000, 400], 1, 1, 45), ring([0, 400, 1000, 600], 1, 1, 45)]);
 
-/** A jutting-wall cut case's name (`jutCutFixtures`): the design, and its swap. */
-export type JutCutName = 'CourtyardJutCut' | 'CourtyardJutCutSwapped';
+/** A contested-jut courtyard's name (`courtyardJutFixtures`): the design, and its swap. */
+export type CourtyardJutName = 'CourtyardJut' | 'CourtyardJutSwapped';
 
 /**
- * Journal decision 175 and F55: WP3.9's rejected CutPitchConflict design, enrolled. CutPitchConflict's courtyard, its W
- * wing jutting out to x = -200 at 45 degrees, with a second Ring, `[-200,300,0,700]`, hipped at 45 but at 30 on its S
- * side, contesting the jut's S wall, y = 300 over x -200 to 0. The shortest cut, y = 300 over x 0 to 300, is collinear
- * with that wall at its outer end and with the hole's S wall, at 30, at its hole end.
- * - `CourtyardJutCut`: the 45 degree jut wins, the cut's ends disagree and it does not qualify, and the next cut,
- *   x 700 to 1000, is taken. Clean.
- * - `CourtyardJutCutSwapped`: the 30 degree Ring wins, both ends are at 30, and the shortest cut qualifies while
- *   collinear with the jutting wall. Defective (F55).
+ * Journal decision 175 and F55: a courtyard whose W wing juts out to x = -200, hipped at 45 degrees, with a second Ring,
+ * `[-200,300,0,700]`, hipped at 45 but at 30 on its S side, lying inside the jutting wing and contesting the jut's S
+ * wall, y = 300 over x -200 to 0. That wall is in line with the hole's S wall, y = 300 over x 300 to 700, at 30.
+ * - `CourtyardJut`: the jutting wing comes first in the index order.
+ * - `CourtyardJutSwapped`: the 30 degree Ring comes first, so it would win the jut's S wall.
+ * Each drops the inner Ring as fully internal (journal decisions 260 and 261), its 30 degree side with it, so the two
+ * are one building, the jut's index apart, and each keeps every invariant (`internal-rings.test.ts`).
  */
-export function jutCutFixtures(): NamedFixture<JutCutName>[] {
+export function courtyardJutFixtures(): NamedFixture<CourtyardJutName>[] {
   const bandS = ring([0, 0, 1000, 300], 0, 1, 30);
   const jut45 = ring([-200, 300, 300, 700], 0, 1, 45);
   const jut30S = ring([-200, 300, 0, 700], 0, 1, 45, {S: {form: 'hip', deg: 30}});
   const rest = [ring([0, 700, 1000, 1000], 0, 1, 30), ring([700, 300, 1000, 700], 0, 1, 30)];
   return [
-    shellFixture('CourtyardJutCut', [bandS, jut45, jut30S, ...rest]),
-    shellFixture('CourtyardJutCutSwapped', [bandS, jut30S, jut45, ...rest]),
+    shellFixture('CourtyardJut', [bandS, jut45, jut30S, ...rest]),
+    shellFixture('CourtyardJutSwapped', [bandS, jut30S, jut45, ...rest]),
   ];
 }
+
+/**
+ * Journal findings 88 and 89: the courtyard of `COURTYARD_RECTS` with its W wing jutting `jut` cm out past the bands,
+ * so the wing's S wall runs on in line with the hole's S wall, y = 300: S band, W wing, N band, E wing.
+ */
+export const jutWingRects = (jut: number): Rect[] => [[0, 0, 1000, 300], [-jut, 300, 300, 700], [0, 700, 1000, 1000], [700, 300, 1000, 700]];
+
+/** `jutWingRects(jut)` with every side hipped at `deg`, each Ring standing its own number of `storeys` from storey 0. */
+export const jutWingFixture = <N extends string>(name: N, jut: number, deg = 30, storeys: readonly number[] = [1, 1, 1, 1]): NamedFixture<N> =>
+  shellFixture(name, jutWingRects(jut).map((r, i) => ring(r, 0, storeys[i], deg)));
+
+/**
+ * Journal finding 88: the user's input, the wing jutting 250 cm, every side hipped at 30 degrees, one storey of 250 cm.
+ * The wing's S wall runs on in line with the hole's S wall at the corner (0, 300), where a roof built through a
+ * courtyard cut stands a Gable and a Cheek on x = 0 (journal finding 89); roofed by its outline and its hole, it stands
+ * neither (holed roof decision 39).
+ */
+export const COURTYARD_JUT_WING: ShellFixture = holedFixture('CourtyardJutWing');
+
+/** `COURTYARD_JUT_WING` is `jutWingFixture`'s layout at a 250 cm jut, the holed fixture moved out of the tests (holed roof decision 39). */
+export const COURTYARD_JUT_WING_AS_DRAWN = jutWingFixture('CourtyardJutWing', 250);
 
 /** Journal decision 150, F6: a near-touching island k/1024 cm beyond x = 500, its corners aligned or offset. */
 export type GapKind = 'Aligned' | 'Offset';

@@ -1,4 +1,4 @@
-import {CLEAN_TEST_POLYGONS} from '@proc-geo/test-fixtures';
+import {CLEAN_TEST_POLYGONS, HOLED_TEST_POLYGONS, holedSolveOptions} from '@proc-geo/test-fixtures';
 import {isClockwise, runAlgorithmV5, runAlgorithmV5Stepped, solveSkeleton, Vector2} from '@proc-geo/core';
 
 /** Clockwise convex quad — the happy path. */
@@ -147,5 +147,23 @@ describe('solveSkeleton', () => {
             expect(result.diagnostics.filter(d => d.kind === 'unresolved-edges')).toEqual([]);
             expect(result.complete).toBe(true);
         });
+    });
+
+    describe('the holed roster (skeleton loop-consumers spec, decision 41)', () => {
+        // The holed guard's two kinds block too (BSA.D314).
+        const NOT_COMPLETE_KINDS = ['step-failure', 'unresolved-edges', 'simultaneous-across-rings', 'multi-ring-step-refused',
+            'holed-topology-violation', 'holed-equal-time-violation'];
+
+        it.each(HOLED_TEST_POLYGONS.map(fixture => [fixture.name, fixture] as const))(
+            '%s solves completely, with one loop per hole and the outline',
+            (_name, fixture) => {
+                const result = solveSkeleton(fixture.outline, holedSolveOptions(fixture));
+
+                expect(result.diagnostics.filter(d => NOT_COMPLETE_KINDS.includes(d.kind))).toEqual([]);
+                expect(result.complete).toBe(true);
+                expect(result.context).not.toBeNull();
+                expect(result.graph.loops).toHaveLength(fixture.holes.length + 1);
+                expect(result.loopMaps).toHaveLength(fixture.holes.length + 1);
+            });
     });
 });

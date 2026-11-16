@@ -29,7 +29,7 @@ procedural-geometry-ideas/
 | Package                   | Description                                                                                     | Publishable  |
 |---------------------------|-------------------------------------------------------------------------------------------------|--------------|
 | `@proc-geo/core`          | Pure TypeScript geometry library (straight skeleton, random polygon generation). No React deps. | Yes          |
-| `@proc-geo/test-fixtures` | 59 named polygon fixtures in two rosters + test helpers. Optional for consumers.                | Yes          |
+| `@proc-geo/test-fixtures` | 60 single-loop fixtures in two rosters, 21 holed ones in a third + test helpers. Optional for consumers. | Yes          |
 | `@proc-geo/dashboard`     | React components for exploring geometry algorithms (Mantine, Konva, Zustand).                   | Yes          |
 | `@proc-geo/demo`          | Example Next.js app showcasing the integration.                                                 | No (private) |
 | `@proc-geo/building-shell` | Building-shell prototype: Ring storeys → Manifold union → faces, Edges, Cells; three.js viewer; JSON wire format; golden oracle for a C++ port. Vite + Vitest. | No (private) |
@@ -44,10 +44,35 @@ A private prototype, not a publishable module (see `docs/notes/building-shell-ar
 
 - `pnpm --filter @proc-geo/building-shell test` runs Vitest. `... typecheck` runs `tsc --noEmit`. `... dev` serves the
   three.js viewer. `... golden` re-exports the committed golden set in `golden/`, which a drift test holds byte-exact.
-- `src/roof/` is a byte-identical copy of the Piste Perfect roof-gable prototype. A copy-integrity test pins it, so
-  do not edit it.
+- `src/roof/` is a copy of the Piste Perfect roof-gable prototype. Removing the courtyard cut released every file but
+  `surface.ts` for editing (holed roof spec, decision 35), and the copy-integrity test pins algorithm B's tally and
+  verdicts on its 53 cases, so an edit there must keep them.
 - Scratch scripts that load the pipeline through `vite.runnerImport` must restate the `@proc-geo/core` alias to core's
   source, because `runnerImport` ignores `configFile`.
+
+## Arc journals
+
+Session journals are `docs/notes/<slug>-journal-NN.md`. Read and write them through
+[scripts/journal.py](./scripts/journal.py), following the `journal` skill
+([SKILL.md](./.claude/skills/journal/SKILL.md)): `python scripts/journal.py brief` bootstraps a session, `show <id>`
+fetches one entry, and `decision` / `finding` append the next numbered entry. Never read a journal end to end.
+
+- A decision or finding is cited project-wide as `{CODE}.{D|F}{n}`, e.g. `BSA.D247`. The codes are in
+  [arc-registry.md](./docs/notes/arc-registry.md): `BSA` is building-shell-arc, `RSA` is recursive-subdivision-arc.
+- The tool is plain Python 3, vendored from the Piste Perfect project. Its tests run with
+  `python -m unittest test_journal` from `scripts/`.
+
+## Notes schema
+
+Every file under `docs/notes/` follows [docs/notes/_schema.md](./docs/notes/_schema.md): typed front matter
+(vision, roadmap, decision spec, issue, workflow, ledger, commentary, technical reference), a status set per type, and
+`part_of` / `depends_on` / `record_of` edges. Follow the `notes-protocol` skill
+([SKILL.md](./.claude/skills/notes-protocol/SKILL.md)) whenever a task touches a note's front matter or status.
+
+- `python scripts/notes_schema.py check` validates the corpus (`--summary` for counts by rule). It needs PyYAML.
+- `python scripts/notes_schema.py report` prints the build frontier, design frontier, runway and critical path.
+- A `PostToolUse` hook (`.claude/hooks/check-notes-schema.py`, registered in `.claude/settings.json`) runs `check`
+  after every edit under `docs/notes/` and hands back any error. The corpus passes clean; keep it that way.
 
 ## Commands
 
@@ -112,7 +137,7 @@ Pure TypeScript library for computational geometry algorithms. No React or brows
 The algorithm computes a [straight skeleton](https://en.wikipedia.org/wiki/Straight_skeleton) -- the locus of points
 traced by polygon vertices as edges shrink inward at equal speed.
 
-**Algorithm versions:** The current algorithm is **V5** (`runAlgorithmV5` in `algorithm-termination-cases.ts`). Previous versions are now consigned to the git history. New work should target V5.
+**Algorithm versions:** The current algorithm is **V5** (`runAlgorithmV5` in `solve-entry.ts`). Previous versions are now consigned to the git history. New work should target V5.
 
 **Core infrastructure (shared by all versions):**
 
@@ -135,8 +160,14 @@ traced by polygon vertices as edges shrink inward at equal speed.
 
 | File                             | Role                                                                                                                                     |
 |----------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
-| `algorithm-termination-cases.ts` | **V5 entry point** (`runAlgorithmV5`), `StepAlgorithm`, base cases for 2-edge pairs and 3-edge triangles                                 |
-| `algorithm-complex-cases.ts`     | `handleInteriorEdges` -- generic handler for >3 interior edges: generates collisions, handles events, partitions into child sub-polygons |
+| `solve-entry.ts`                 | **V5 entry point** (`runAlgorithmV5`) and the other solve entries (`solveSkeleton`, `solveSkeletonStepped`)                              |
+| `step-driver.ts`                 | `stepAlgorithm` and the step loop (`driveSteps`)                                                                                         |
+| `boundary-stage.ts`              | `prepareBoundary` -- input checks, normalisation, the weight door, canonicalisation and winding before the solve                         |
+| `algorithm-termination-cases.ts` | Base cases for 2-edge pairs and 3-edge triangles                                                                                         |
+| `terminal-ladder.ts`             | The terminal ladder: degenerate and parallel closures, coaxial completion                                                                |
+| `algorithm-complex-cases.ts`     | `handleInteriorNGon` -- generic handler for >3 interior edges: generates collisions, handles events, partitions into child sub-polygons |
+| `event-order.ts`                 | Event ordering for `handleInteriorNGon` (arrival order, moments, tie-breaks)                                                             |
+| `whole-events.ts`                | A layer resolved whole: its merges, third fronts and refusals                                                                            |
 
 **V5 algorithm flow:**
 
@@ -145,7 +176,7 @@ traced by polygon vertices as edges shrink inward at equal speed.
 2. **Step** (`StepAlgorithm`) -- For each input, dispatch by edge count:
     - **2 edges** -> `handleInteriorEdgePair` (head-on or co-linear collapse, base case)
     - **3 edges** -> `handleInteriorEdgeTriangle` (find intersection point, base case)
-    - **>3 edges** -> `handleInteriorEdges` (generate all collision events, process the nearest offset layer, handle
+    - **>3 edges** -> `handleInteriorNGon` (generate all collision events, process the nearest offset layer, handle
       collapse vs. partition events, and emit child `AlgorithmStepInput`s for resulting sub-polygons)
 3. **After each step** -- Try to accept exterior edges (`tryToAcceptExteriorEdge`).
 4. **Termination** -- No more child steps are produced; all exterior edges are accepted.
@@ -157,10 +188,12 @@ methods for converting between IDs and edge data.
 
 ### `@proc-geo/test-fixtures` (`packages/test-fixtures/`)
 
-**Two rosters, one corpus.** `CLEAN_TEST_POLYGONS` is the **clean** roster -- 53 named polygon fixtures that solve,
-tile and subdivide, and the dozens of sweeps written against it assert exactly that. `KNOWN_DEFECT_POLYGONS` is the
-same `{name, vertices}` shape for the 6 fixtures with a measured defect. `FULL_CORPUS` is the two concatenated.
-All three are exported from `src/index.ts`, alongside `test-helpers.ts` and `test-constants.ts`.
+**Two single-loop rosters, one corpus, and a third roster with holes outside it.** `CLEAN_TEST_POLYGONS` is the
+**clean** roster -- 53 named polygon fixtures that solve, tile and subdivide, and the dozens of sweeps written against
+it assert exactly that. `KNOWN_DEFECT_POLYGONS` is the same `{name, vertices}` shape for the 7 fixtures with a
+measured defect. `FULL_CORPUS` is the two concatenated. All three are exported from `src/index.ts`, alongside `test-helpers.ts` and `test-constants.ts`.
+`HOLED_TEST_POLYGONS` (`src/holed-fixtures.ts`) is a third roster, of outlines with holes, outside `FULL_CORPUS`;
+every sweep solves it through `holedSolveOptions`.
 
 **There is no `ALL_TEST_POLYGONS`** (journal decision 74). The name is retired, not re-pointed: a roster called ALL
 that leaves the defect fixtures out launders the word, and keeping the old export alive would turn every stale
@@ -168,13 +201,22 @@ reference into a silent semantic flip rather than a compile error. Use `CLEAN_TE
 say which bar you are applying.
 
 **Exclusion is retired as a mechanism** (journal decision 72). A fixture with a defect is *enrolled*, never held
-out: the sweeps run the full corpus, clean fixtures assert clean, and each defect fixture asserts **exactly its
-pinned signature**, so an unattributed failure and an unattributed cure both break the suite. A fixture leaves
-`KNOWN_DEFECT_POLYGONS` by being fixed and promoted, never by a softened number. Which invariants are universal is
+out: the sweeps run the full corpus, and every fixture, clean or defect, is asserted against the **correct** result.
+
+**A test is never green because it asserts a defect** (BSA.D266, BSA.D336). A defect has exactly two acceptable
+forms: a test of the correct result that is **red, with an open issue note stating why**; or a guard in production
+code that refuses the input by name, with a test that is green on the guard. A test that pins a defect's signature
+("still alive", an expected violation count, an expected throw) is green while the code is wrong and goes red when
+it is fixed, so it is not written. The suite's figure is stated as a count passed plus the named list of red tests,
+each with its note. A fixture leaves `KNOWN_DEFECT_POLYGONS` by being fixed, when its red test turns green.
+
+**Legacy, awaiting conversion:** the pinned signatures of `KNOWN_DEFECT_POLYGONS` and the remaining "still alive"
+tests in core predate this rule. Do not add to them, and do not re-pin one that moves: a pin that goes red is
+diagnosed and, if it is a cure, rewritten to assert the correct result. Which invariants are universal is
 **measured**: containment, the bisector rate rule and signalled-not-silent sweep `FULL_CORPUS`; wavefront causality,
-clearance and edge direction do not hold over the defect roster and their violation counts are part of the
-signatures. The dashboard's fixture loaders list `FULL_CORPUS`, defect fixtures marked, so every fixture can be
-inspected. Depends on `@proc-geo/core`. Consumers can install this package for benchmarking or testing against known
+clearance and edge direction do not hold over the defect roster. The dashboard's fixture loaders list `FULL_CORPUS`, defect fixtures marked, so every fixture can be
+inspected; the skeleton editor's loader lists `HOLED_TEST_POLYGONS` as a third group, `Holed`, its holes drawn
+read-only. Depends on `@proc-geo/core`. Consumers can install this package for benchmarking or testing against known
 polygon shapes.
 
 ### `@proc-geo/dashboard` (`packages/dashboard/`)

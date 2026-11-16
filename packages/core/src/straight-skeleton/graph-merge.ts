@@ -26,12 +26,13 @@ export interface MergedGraphResult {
  * into a single unified StraightSkeletonGraph.
  *
  * Strategy:
- * 1. Concatenate all nodes and edges with renumbered IDs.
- * 2. Exterior nodes from all sub-graphs come first, then interior nodes.
- * 3. Crossing-point nodes that appear as exterior nodes in multiple sub-graphs
- *    are deduplicated: all references redirect to the canonical node.
- * 4. The canonical crossing-point nodes are moved to the interior section
- *    (after numExteriorNodes) so the UI renders them as skeleton nodes.
+ * 1. Concatenate the sub-graphs' nodes and edges in sub-graph order, renumbered by
+ *    offsets: each sub-graph's own exterior nodes and then its interior nodes, so the
+ *    merged exterior nodes are not one prefix of the node list.
+ * 2. Crossing-point nodes that appear as exterior nodes in multiple sub-graphs
+ *    are deduplicated: all references redirect to the first, canonical node, the
+ *    duplicates are removed, and node ids are compacted. Edge ids are not.
+ * 3. `numExteriorNodes` is the sub-graphs' exterior node count less the removed duplicates.
  */
 export function mergeSkeletonGraphs(
     subResults: SubPolygonResult[],
@@ -39,7 +40,7 @@ export function mergeSkeletonGraphs(
 ): MergedGraphResult {
     if (subResults.length === 0) {
         return {
-            graph: {nodes: [], edges: [], numExteriorNodes: 0, interiorEdges: [], exteriorWeights: []},
+            graph: {nodes: [], edges: [], numExteriorNodes: 0, interiorEdges: [], exteriorWeights: [], loops: []},
             crossingNodeIndices: [],
         };
     }
@@ -116,15 +117,14 @@ export function mergeSkeletonGraphs(
     // Find nodes that match crossing points. Multiple sub-graphs may have exterior nodes
     // at the same crossing-point position.
     //
-    // S4 OF THE C8 CENSUS: THE ARITHMETIC SAME-POINT BAR, EVALUATED IN UNIT SPACE. An earlier comment
-    // here said this ran "after the sub-graphs have been denormalised", in caller space; that was stale
-    // (C8 spec I2). All three callers — `runAlgorithmV5`, `solveSkeleton`'s self-intersecting path and
-    // the stepped solve — merge in UNIT space and denormalise afterwards, so the bar is read in the same
-    // space as `findOrAddNode`'s. The two sides are NOT independently computed geometry: `cp` is the
-    // crossing point the decomposition produced and the node is that same point carried through one
-    // sub-solve as an exterior node, so the comparison asks about identity, not proximity, and is
-    // expected exact. It shares S1's bar ({@link ARITHMETIC_SAME_POINT_BOX}), held with S1 — register C12
-    // measured the pair exact and it STOPPED with the window (journal-5 decision 167; see constants.ts).
+    // S4 OF THE C8 CENSUS: THE ARITHMETIC SAME-POINT BAR, EVALUATED IN UNIT SPACE (C8 spec I2). All three
+    // callers — `runAlgorithmV5`, `solveSkeleton`'s self-intersecting path and the stepped solve — merge in
+    // UNIT space and denormalise afterwards, so the bar is read in the same space as `findOrAddNode`'s. The
+    // two sides are NOT independently computed geometry: `cp` is the crossing point the decomposition
+    // produced and the node is that same point carried through one sub-solve as an exterior node, so the
+    // comparison asks about identity, not proximity, and is expected exact. It shares S1's bar
+    // ({@link ARITHMETIC_SAME_POINT_BOX}) and is held with S1: the box moves with the simultaneity window
+    // or not at all (journal-5 decision 167, register C12; see constants.ts).
     const crossingNodeGroups: Map<number, number[]> = new Map(); // crossingIndex → list of node IDs at that position
 
     for (let ci = 0; ci < crossingPoints.length; ci++) {
@@ -195,10 +195,8 @@ export function mergeSkeletonGraphs(
         }
     }
 
-    // Phase 4: Compute numExteriorNodes
-    // Exterior nodes are the original polygon vertices from each sub-graph that are NOT crossing points.
-    // Plus the crossing-point nodes (which we'll classify as interior for rendering purposes).
-    // Actually, for simplicity: numExteriorNodes = total exterior nodes across all sub-graphs minus duplicates.
+    // Phase 4: Compute numExteriorNodes: every sub-graph's exterior nodes, less the duplicates removed, so
+    // each canonical crossing-point node is counted once.
     let totalExteriorNodes = 0;
     for (const sub of subResults) {
         totalExteriorNodes += sub.graph.numExteriorNodes;
@@ -222,6 +220,12 @@ export function mergeSkeletonGraphs(
             numExteriorNodes: totalExteriorNodes,
             interiorEdges: allInteriorEdges,
             exteriorWeights: allExteriorWeights,
+            // NO LOOP TABLE (skeleton loops-input spec, decision 11): the merged exterior ids are not
+            // `0 .. numExteriorNodes - 1` (see `allExteriorWeights` above), so no table can describe them, and
+            // `adjacentExteriorEdge` and `loopOfExteriorEdge` refuse an empty table by name. A holed input never
+            // reaches the merge. The pass-through above, one sub-graph and no crossing point, is no merge: it
+            // returns that sub-graph, its own one-loop table included.
+            loops: [],
         },
         crossingNodeIndices,
     };
@@ -248,6 +252,9 @@ export function makeMergedSolverContext(
     return {
         graph,
         acceptedEdges,
+        // Every edge is accepted, so no bisector is live and no link is held (skeleton wavefront-order
+        // spec, decision 2); empty rather than filled, for the same reason the budgets below are.
+        wavefront: {clockwiseNeighbour: [], widdershinsNeighbour: []},
         collisionCache: new Map(),
         // Carried for shape only: this context is post-algorithm and the event layer never runs
         // against it, so nothing here reads the floor. Defaulted rather than required so a caller
@@ -263,6 +270,9 @@ export function makeMergedSolverContext(
         // Nothing runs against a merged context, so nothing adds to this; it is here so the shape is
         // one shape.
         diagnostics: [],
+        // No step runs against a merged context, and no probe watches it.
+        step: null,
+        probe: null,
         getEdgeWithId: (id: number) => graph.edges[id],
         getEdges: (ids: number[]) => ids.map(id => graph.edges[id]),
         getEdgeWithInterior: notSupported('getEdgeWithInterior'),
@@ -287,17 +297,14 @@ export function makeMergedSolverContext(
         isPrimaryNonReflex: notSupported('isPrimaryNonReflex'),
         updateMaxOffset: notSupported('updateMaxOffset'),
         isReflexEdge: notSupported('isReflexEdge'),
-        clockwiseSpanExcludingAccepted: notSupported('clockwiseSpanExcludingAccepted'),
-        clockwiseSpanIncludingAccepted: notSupported('clockwiseSpanIncludingAccepted'),
         widdershinsBisector: notSupported('widdershinsBisector'),
         clockwiseBisector: notSupported('clockwiseBisector'),
-        clockwiseVertexAtOffset: notSupported('clockwiseVertexAtOffset'),
-        widdershinsVertexAtOffset: notSupported('widdershinsVertexAtOffset'),
         terminateEdgesAtPoint: notSupported('terminateEdgesAtPoint'),
         crossWireEdges: notSupported('crossWireEdges'),
         parentEdges: notSupported('parentEdges'),
         parentEdge: notSupported('parentEdge'),
         exteriorParentsOfSubPolygon: notSupported('exteriorParentsOfSubPolygon'),
         validateSplitReachesEdge: notSupported('validateSplitReachesEdge'),
+        wavefrontVertexAt: notSupported('wavefrontVertexAt'),
     } as StraightSkeletonSolverContext;
 }

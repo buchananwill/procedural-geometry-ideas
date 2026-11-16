@@ -1,10 +1,32 @@
 import { useState } from "react";
 import {
-    Paper, Stack, Title, Button, UnstyledButton, Text, Group, Collapse,
+    Alert, Paper, Stack, Title, Button, UnstyledButton, Text, Group, Collapse,
     Modal,
 } from "@mantine/core";
+import type { SkeletonDiagnostic } from "@proc-geo/core";
 import type { SkeletonAnimationState } from "../hooks/useSkeletonAnimation";
+import { describeBlockingDiagnostics } from "../hooks/skeleton-solve-boundary";
 import CollapseChevron from "./CollapseChevron";
+import { isBlockingDiagnosticKind, SKELETON_INCOMPLETE_TITLE } from "./holed-fixture-text";
+
+/**
+ * One informational diagnostic of a holed solve, inside the collapse (dashboard holed-fixtures spec, decision 38): a
+ * causality violation in yellow as `{oracle} at {elementId}: {detail}`, every other kind dimmed and verbatim.
+ */
+function InformationalDiagnostic({ diagnostic }: { diagnostic: SkeletonDiagnostic }) {
+    if (diagnostic.kind === "causality-violation") {
+        return (
+            <Text size="xs" c="yellow" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {`${diagnostic.oracle} at ${diagnostic.elementId}: ${diagnostic.detail}`}
+            </Text>
+        );
+    }
+    return (
+        <Text size="xs" c="dimmed" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+            {diagnostic.detail}
+        </Text>
+    );
+}
 
 interface AlgorithmPanelProps {
     animation: SkeletonAnimationState;
@@ -23,7 +45,15 @@ export default function AlgorithmPanel({ animation }: AlgorithmPanelProps) {
         playback,
         startAnimation,
         exitAnimation,
+        holedSolve,
     } = animation;
+
+    // A HOLED RESULT THE SOLVER DID NOT FINISH, OR DISTRUSTS (decisions 37, 39 and 52): stated outside the collapse,
+    // over every frame of a step-through, so no picture of it reads as a finished skeleton.
+    const incompleteText = holedSolve !== null && !holedSolve.complete
+        ? describeBlockingDiagnostics(holedSolve.diagnostics) ?? "The holed solve reports complete: false."
+        : null;
+    const informational = holedSolve?.diagnostics.filter((d) => !isBlockingDiagnosticKind(d.kind)) ?? [];
 
     return (
         <>
@@ -35,8 +65,23 @@ export default function AlgorithmPanel({ animation }: AlgorithmPanelProps) {
                             <CollapseChevron opened={algorithmsOpen} />
                         </Group>
                     </UnstyledButton>
+                    {incompleteText !== null && (
+                        <Alert color="orange" title={SKELETON_INCOMPLETE_TITLE}>
+                            <Text size="xs" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                                {incompleteText}
+                            </Text>
+                        </Alert>
+                    )}
                     <Collapse in={algorithmsOpen}>
                         <Stack gap="xs">
+                            {informational.length > 0 && (
+                                <Stack gap={2}>
+                                    <Text size="xs" c="dimmed" fw={600}>Holed solve reports</Text>
+                                    {informational.map((diagnostic, index) => (
+                                        <InformationalDiagnostic key={index} diagnostic={diagnostic} />
+                                    ))}
+                                </Stack>
+                            )}
                             <Button
                                 color="orange"
                                 variant={showSkeleton ? "filled" : "light"}
@@ -103,15 +148,17 @@ export default function AlgorithmPanel({ animation }: AlgorithmPanelProps) {
             <Modal
                 opened={errorModalOpen}
                 onClose={() => setErrorModalOpen(false)}
-                title="Skeleton Computation Error"
+                title={holedSolve !== null ? SKELETON_INCOMPLETE_TITLE : "Skeleton Computation Error"}
                 centered
                 size="md"
             >
                 <Stack gap="md">
                     <Text size="sm">
-                        The straight skeleton algorithm encountered an error and could not
-                        complete. The partial result up to the point of failure is shown
-                        on the canvas.
+                        {holedSolve !== null
+                            ? "The holed solve came back incomplete. Every frame of this step-through is of an "
+                                + "unfinished or distrusted skeleton; the reasons are below."
+                            : "The straight skeleton algorithm encountered an error and could not complete. The "
+                                + "partial result up to the point of failure is shown on the canvas."}
                     </Text>
                     <Paper p="sm" withBorder style={{ fontFamily: "monospace" }}>
                         <Text size="xs" c="red" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>

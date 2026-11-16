@@ -1,16 +1,21 @@
-import {IntersectionType, Vector2} from "./types";
+import {Vector2} from "./types";
 
 /*
  * ----------------------------------------------------------------------------
  * THE TWO SOURCES OF A TOLERANCE — AND NO THIRD (C8 spec T1, T2; journal decisions 144, 157)
  * ----------------------------------------------------------------------------
  *
- * The scratch constant `FLOATING_POINT_EPSILON = 1e-8` is DELETED. It was one literal read as a
- * distance, a time, a sine, an area and a parameter, and it was none of them. A tolerance in this
- * package may now contain only: the client's perceptual floor δ (`context.perceptualFloor`, unit
+ * "C8 spec" below is the tolerance-derivation spec (`docs/notes/tolerance-derivation-decisions.md`), "spec A…"
+ * the angular-predicate spec (`angular-predicate-basis-decisions.md`) and "W-spec" the weighted-offsets spec
+ * (`weighted-offsets-decisions.md`).
+ *
+ * There is no package-wide epsilon. One literal read as a distance, a time, a sine, an area and a parameter
+ * is none of them, and two sites reading it in different spaces disagree by orders of magnitude. A tolerance
+ * in this package contains only: the client's perceptual floor δ (`context.perceptualFloor`, unit
  * space) for "visibly the same"; the unit roundoff u = 2⁻⁵³ (`UNIT_ROUNDOFF`) for "arithmetically
  * distinguishable"; integer multiples of u argued at their site the way `CROSS_PRODUCT_ROUNDING_UNITS`
- * is argued below; and IEEE representability limits.
+ * is argued below; and IEEE representability limits. Four bars held at the literal `1e-8` by measured
+ * STOPs are the only exceptions, and they are kept together in "THE HELD BARS" below.
  *
  * THE CATEGORY RULE (spec T2, ratified by decision 157). A comparison that decides a QUESTION the
  * arithmetic cannot decide — about input geometry, or about candidate events before any node exists —
@@ -31,10 +36,8 @@ import {IntersectionType, Vector2} from "./types";
  * Spec A1–A8 (angular-predicate-basis-decisions.md), journal decisions 134, 144 and 146. There is ONE
  * angular resolution, a FUNCTION of the client's perceptual floor δ, and every angular predicate in
  * the solver — "are these two directions identical?" and "can these two rays be intersected?" —
- * reads it. It replaces two retired constants, `DIRECTION_SINE_BAR` (1e-8, the epsilon read as a
- * sine) and `PARALLEL_GATE_SINE_BAR` (1.4142e-4, the epsilon read through `areEqual(|dot|, 1)`),
- * which were one scratch constant read in two spaces four orders apart. NEITHER TERM BELOW CONTAINS
- * `FLOATING_POINT_EPSILON` (spec A6, decision 144): the only two legitimate sources of a tolerance
+ * reads it, so the two questions cannot be answered at bars orders of magnitude apart. NEITHER TERM
+ * BELOW CONTAINS A FREE LITERAL (spec A6, decision 144): the only two legitimate sources of a tolerance
  * are the client's floor δ ("visibly the same") and the double's unit roundoff u ("arithmetically
  * distinguishable"), and the resolution is the larger of one bound drawn from each.
  *
@@ -147,11 +150,9 @@ export function angularResolution(perceptualFloor: number): number {
  * WIDTH" (C8 spec T23, open decision O3 ruled form (b) by journal decision 159(b)).
  *
  * A region of area `A` and perimeter `P` has a mean width of about `2A / P`; below `floor` the client
- * cannot see it has any width at all, which is decision 96's "a tile narrower than a certain size". It
- * replaces `DEGENERATE_AREA_EPSILON = 1e-6`, an absolute area with no derivation, which was read in two
- * spaces (spec I3): a caller-space area in the recursion, and a unit-space area in the decomposition,
- * where it was a square 1e-3 on a side — 1000δ — so a visible lobe of a self-intersection could be
- * discarded.
+ * cannot see it has any width at all, which is decision 96's "a tile narrower than a certain size". An
+ * absolute area cannot serve both consumers (spec I3): an area small in caller space is, read in unit space,
+ * a square up to 1e-3 on a side — 1000δ — and would discard a visible lobe of a self-intersection.
  *
  * ONE BAR, EACH CONSUMER IN ITS OWN SPACE: the recursion (`degenerateRegionFailure`) reads it with the
  * ROOT floor restated in caller units and the region's caller-unit perimeter, as canonicalisation
@@ -162,23 +163,28 @@ export function angularResolution(perceptualFloor: number): number {
  * decomposition and a segment boundary from `computeStrips` both arrive as intersections of rays, so a
  * geometrically collinear sliver carries an area of `1e-13` and never an exact `0`.
  *
- * MEASURED BEFORE IT MOVED (C8 dispatches 1 and 2, 2026-09-24). Of the recursion census's 22
- * decision-96 declines (all at full depth, on `Off-edge Jitter Plus (seed 7919)` and `Off-edge Jitter
- * Reflex L (seed 55433, k=4)`, root floor 2.56e-4 in caller units), this form keeps 16 and releases 6
- * (areas 4.6e-7..8.5e-7 against bars 4.0e-7..5.5e-7); `δ²` would have kept 1. Decision 159(b) ruled
- * that the six be SOLVED before the bar moved: all six solve complete, with zero causality violations
- * on every oracle, I2 and I5 clean, and their strips tiling the canonical region to ≤ 1.25e-16. The
- * decomposition's sub-polygon verdicts over the self-intersecting fixtures agree under the old and the
- * new bar.
+ * The form ("no visible width", not `δ²`) is O3's, ruled by its settling measurement (decision 159(b)).
+ * Measured: tolerance-derivation-measurement-record.md, "Measurement record", "degenerateAreaBar: O3's settling measurement".
  */
 export function degenerateAreaBar(floor: number, perimeter: number): number {
     return floor * perimeter / 2;
 }
 
 /**
+ * THE STRETCH BAR, in perceptual floors (skeleton flat-ring and third-front spec, decision 18; §6 item 1): a stretch of a
+ * flat ring no longer than `FLAT_STRETCH_BAR_FLOORS · δ` is REFUSED by name, never closed, because a direction read
+ * along so short a stretch is not readable.
+ *
+ * PROVISIONAL AND INCIDENTAL. The value rests on two jittered single-loop defect fixtures only (BSA.F113): applying the
+ * flat rule to one-ring steps without a bar gives each a silent direction violation, on stretches of 1.6 and 1.95
+ * floors. It only ever refuses, by name, a ring the solve would refuse without the flat rule, so it changes no answer. A
+ * derived form, from the nodes' position budgets, is left open.
+ */
+export const FLAT_STRETCH_BAR_FLOORS = 4;
+
+/**
  * Ulps of the larger quantity within which two computed values are ONE MOMENT of the arithmetic — the
- * REPRESENTATION BAR (C8 spec T26; moved here from `algorithm-complex-cases.ts`, where it was
- * `SIMULTANEOUS_ARRIVAL_ULPS`, value unchanged).
+ * REPRESENTATION BAR (C8 spec T26).
  *
  * SIXTY-FOUR, argued by two measured populations six orders away on either side (asserted as ratios in
  * `arrival-ordering.test.ts`): the rounding noise between two reports of one arrival sits at one to a
@@ -187,7 +193,7 @@ export function degenerateAreaBar(floor: number, perimeter: number): number {
  * `ARRIVAL_MOMENT_ULPS · ε · |larger|`.
  *
  * SHARED BY EVERY "SAME VALUE, TWO ARITHMETIC ROUTES" QUESTION: the moment partition of the layer
- * tie-break (S29), the offset table's simultaneous sets (S30, which was a free `1e-12`), and the floor of
+ * tie-break (S29), the offset table's simultaneous sets (S30), and the floor of
  * every pair's simultaneity window (`pairSimultaneityWindow`). The same-point question of node identity
  * (S1, S2, S4, S5) reads {@link ARITHMETIC_SAME_POINT_BOX}, held (register C12). Integer-valued so the C++
  * port reproduces the product order bit for bit (T38).
@@ -204,17 +210,16 @@ export const ARRIVAL_MOMENT_ULPS = 64;
  * the solver from deciding: perceptual in its cap, arithmetic in its floor. See
  * `pairSimultaneityWindow` (collision-helpers.ts) for the expression.
  *
- * THE FLAT δ WINDOW IS STRUCK (F70, decision 160). A δ-wide layer resolved as one event merges the
+ * THE WINDOW IS NOT A FLAT δ (F70, decision 160). A δ-wide layer resolved as one event merges the
  * geometry of arrivals the arithmetic orders perfectly well — two arrivals 1e-7 apart are about 1e9
  * ulps apart, a deterministic order — and resolving them as simultaneous OVERRIDES that order, which
  * decision 157 forbids. "Every arrival carries up to δ of error" is the worst case at the conditioning
  * edge (spec A3), not the typical arrival; the typical arrival carries its own budget, which is what the
  * per-pair form reads.
  *
- * NOT YET SPENT: the per-pair form hit T37's STOPs in C8 dispatch 2 (division-only budget) and again in
- * register C12 (complete model, exact box) — see "THE WINDOW AND THE BOX" below — and the seven sites read
- * {@link HELD_SIMULTANEITY_WINDOW}. `compareArrivalsAtPairWindow` (collision-helpers.ts) is the per-pair
- * comparison, landed and unspent.
+ * UNSPENT: the seven sites read {@link HELD_SIMULTANEITY_WINDOW}, held by measured STOPs (see "THE WINDOW AND
+ * THE BOX" below). `compareArrivalsAtPairWindow` (collision-helpers.ts) is the per-pair comparison, and no
+ * production site calls it.
  *
  * STATED CROSS-MULTIPLIED (T13): the cap is `δ · min(w₁, w₂)` on `|d₁·w₂ − d₂·w₁|`, which is
  * `|t₁ − t₂| < δ / max(w₁, w₂)` — inside it no participating edge advances more than δ.
@@ -222,11 +227,25 @@ export const ARRIVAL_MOMENT_ULPS = 64;
  * ANCHORED, NEVER TRANSITIVE (decision 155): every window is anchored on the earliest arrival.
  *
  * Named like {@link coaxialityFloor} so every window site states which currency it spends; computed
- * once onto `StraightSkeletonSolverContext.simultaneityWindow` (T5).
+ * once onto `StraightSkeletonSolverContext.simultaneityWindow` (T5), which is carried there and read by no
+ * production site while the window is held.
  */
 export function simultaneityWindow(perceptualFloor: number): number {
     return perceptualFloor;
 }
+
+/*
+ * ----------------------------------------------------------------------------
+ * THE HELD BARS — FOUR LITERAL 1e-8s, THE ONLY EXCEPTIONS TO THE TWO SOURCES ABOVE
+ * ----------------------------------------------------------------------------
+ *
+ * Four comparisons spend the literal `1e-8`, each held there by a measured STOP rather than derived from δ or u:
+ * every derived form measured so far stops a fixture solving, grows a violation, or moves a clean digest. Each is
+ * kept here: {@link HELD_SIMULTANEITY_WINDOW} and {@link ARITHMETIC_SAME_POINT_BOX}, one matched pair (the section
+ * below); {@link POINT_ON_RAY_SINE_BAR}, the snap's point-on-ray sine; and {@link ZERO_RATE_SINE_BAR},
+ * `addBisectionEdge`'s zero-rate sine. The measurements are in the C8 spec's measurement record
+ * (tolerance-derivation-measurement-record.md).
+ */
 
 /*
  * ----------------------------------------------------------------------------
@@ -235,70 +254,87 @@ export function simultaneityWindow(perceptualFloor: number): number {
  * ----------------------------------------------------------------------------
  *
  * {@link HELD_SIMULTANEITY_WINDOW} and {@link ARITHMETIC_SAME_POINT_BOX} are not two tolerances that happen
- * to share a number: they are ONE MATCHED PAIR. F74 traced what the pair does: the box absorbs genuinely
- * later or earlier events 1e-10 to 4e-7 away in time (41 of C11's 44 joins), and if the window moves
- * alone to its per-pair bar, the held box re-joins a later layer's merge onto an orphan edge's own source
- * and leaves a one-edge ring the step used to drop silently. Decision 162 rules a PERCEPTUAL window wrong
- * in principle, and decision 167 chose to move both, together, to the arithmetic bar: the window to each
- * pair's own, the moment bar widened by the two arrivals' COMPLETE first-order error budgets (the
- * error-model section below), capped at {@link simultaneityWindow}; the box to exact coordinate equality
- * at S1, S2, S4 and S5.
+ * to share a number: they are ONE MATCHED PAIR, and they move together or not at all. The box absorbs
+ * genuinely later or earlier events 1e-10 to 4e-7 away in time (F74), so if the window moves alone to its
+ * per-pair bar, the held box re-joins a later layer's merge onto an orphan edge's own source and leaves a
+ * one-edge ring, which the step reports as a `step-failure`.
  *
- * REGISTER C12 MEASURED THAT MOVE AND IT STOPPED; BOTH ARE HELD HERE, BY INVERSE EDIT (2026-09-25). The
- * complete model is LANDED on every `Arrival` and every node (`Arrival.uncertainty`,
- * `positionUncertainties`) and convicted against exact arithmetic, and it is UNSPENT, as the division-only
- * budget was after C8 dispatch 2. Measured over 642 cells (`FULL_CORPUS` at 1e-6 and 1e-5, Circle 48 and
- * Rosette5 40 at the 46 fine translations, the off-edge 1e-3 and along-edge 1.0 jitter grids, the jittered
- * Circle 32 ladder, the 62 regular circles of the vertex-count sweep):
+ * THE TARGET (decisions 162 and 167): a PERCEPTUAL window is wrong in principle, so both belong at the
+ * arithmetic bar — the window at each pair's own, the moment bar widened by the two arrivals' COMPLETE
+ * first-order error budgets (the error-model section below), capped at {@link simultaneityWindow}; the box
+ * at exact coordinate equality at S1, S2, S4 and S5. The complete model is computed on every `Arrival` and
+ * every node (`Arrival.uncertainty`, `positionUncertainties`) and convicted against exact arithmetic, and
+ * no comparison spends it yet.
  *
- *   - DECISION 167'S CONVICTION HELD. `Near Regular Circle 48` (native), `Near Regular Peanut 32` and
- *     `Slightly Deformed Peanut 2` did not move; every regular circle solved, digest unmoved.
- *   - THE WINDOW STOPPED. The complete model is honest and it is WIDE where a bisector is ill-conditioned:
- *     a unit-weight bisector's direction error is `5u + 4u·cot(φ/2)` (the parents `φ` apart), so a
- *     near-straight jittered vertex carries budgets of up to 2.9e13 moment bars on the corpus (median 1.5,
- *     99th percentile 2.1e4) and reaches the δ cap — the perceptual window again, locally. An anchored
- *     per-pair layer then resolves a wide-budget arrival with the earliest while leaving out a
- *     narrow-budget arrival of the same edges that is unorderable against it: `Off-edge Jitter Plus`, k = 9,
- *     seed 23757, strips 1.1% short with every oracle clean (F73's class); k = 7, seed 31676, an offset and
- *     a direction violation; four cells off machine-precision tiling (1.7e-13 to 3.6e-10). Filtering the
- *     whole list rather than cutting at the first refusal also gave `Off-edge Jitter Plus (seed 7919)` a
- *     direction violation and stopped two off-edge cells solving.
- *   - THE BOX, EXACT, IS MOSTLY WHAT DECISION 167 SAID — sub-floor fans become separate nodes, trees and
- *     tilings improve on the translated circles — but alone it gives `Near Regular Circle 48` at 2e11 an
- *     offset and a direction violation (while curing that cell's 57% tiling miss), and at S5 the offset
- *     projection's two ends of a zero-length segment are computed independently and differ by ulps, so an
- *     exact S5 keeps a repeated vertex (`offset-event-boundary-regression.test.ts`, two tests).
- *
- * The package's own report carries every table; the lead rules on the next mechanism.
+ * WHY BOTH ARE HELD: moved together, the window still stops solves. Where a bisector is ill-conditioned the
+ * complete model is honest and WIDE (a unit-weight bisector's direction error is `5u + 4u·cot(φ/2)`, the
+ * parents `φ` apart), so a near-straight jittered vertex's budget reaches the δ cap — the perceptual window
+ * again, locally — and an anchored per-pair layer resolves a wide-budget arrival with the earliest while
+ * leaving out a narrow-budget arrival of the same edges that is unorderable against it. The exact box alone
+ * also moves verdicts, and at S5 cannot be exact at all (see the box). Measured: tolerance-derivation-measurement-record.md,
+ * "Measurement record", "The window and the box: register C12's measurement".
  */
 
 /**
- * THE WINDOW THE SEVEN SITES STILL READ — HELD AT ITS HISTORICAL `1e-8` AS A MEASURED STOP, THREE TIMES
- * (C8 spec T14, T16, T37; register C12). Half of ONE matched pair with {@link ARITHMETIC_SAME_POINT_BOX} —
- * see the section above: they move together, or not at all.
+ * THE WINDOW THE SEVEN SITES READ (S22–S28) — HELD AT `1e-8` AS A MEASURED STOP (C8 spec T14, T16, T37;
+ * register C12). Half of ONE matched pair with {@link ARITHMETIC_SAME_POINT_BOX} — see the section above:
+ * they move together, or not at all.
  *
- * DISPATCH 1 (the flat δ window, F70): S22 alone moved the four predicted defect digests and stopped
- * fixtures solving, grew a direction violation and a diagnostic on `(seed 55433)`, moved the recursion
- * census and `Offset Cross Junction`'s ladder; S28 alone stopped one plus cell solving — STOPs 1, 2, 3, 6.
- *
- * DISPATCH 2 (T12 as amended by journal decision 160, the per-pair window `pairSimultaneityWindow` in
- * collision-helpers.ts, capped at δ, DIVISION-ONLY budget): with all seven sites at it, 211 of 580 sweep
- * cells move and 45 core tests fail — `Near Regular Circle 48` and the vertex-count sweep's regular circles
- * STOP SOLVING, and two CLEAN digests move (`Near Regular Peanut 32`, `Slightly Deformed Peanut 2`).
- *
- * REGISTER C12 (the per-pair window with the COMPLETE first-order model, beside an exact box): the three
- * fixtures dispatch 2 split are gathered and unmoved, and the move STOPS elsewhere — see the section above.
+ * Three moves have been measured and each STOPS: the flat δ window (F70), the per-pair window
+ * (`pairSimultaneityWindow`, collision-helpers.ts) on a division-only budget, and the per-pair window on the
+ * complete first-order model beside an exact box. Measured: tolerance-derivation-measurement-record.md, "Measurement
+ * record", "HELD_SIMULTANEITY_WINDOW: the three measured moves".
  */
 export const HELD_SIMULTANEITY_WINDOW = 0.00000001;
+
+/**
+ * "Are these two positions ONE POINT?" once a node exists — the ARITHMETIC same-point bar of S1
+ * (`findOrAddNode`), S2 (`coincidentEventPositions`), S4 (graph-merge's crossing-point dedupe) and S5
+ * (the offset projection's zero-length segments). HELD AT THE COMPONENT BOX `1e-8` AS A MEASURED STOP
+ * (C8 spec T8 and O1; journal decision 154's ruling rule; register C12).
+ *
+ * Its acceptance DISCARDS a produced answer (two nodes become one), so under T2 it is an arithmetic
+ * bar and never δ (F27, audit C1). At `1e-8` it is wider than the arithmetic: it joins positions far
+ * above 64 ulps apart that do not correlate with the pricing's conditioning, most of them a genuinely
+ * later or earlier event (F74) that decision 141 would admit as a distinct node.
+ *
+ * THE WINDOW'S COUNTERPART (journal decisions 162(b), 167): the other half of ONE matched pair with
+ * {@link HELD_SIMULTANEITY_WINDOW}; see "THE WINDOW AND THE BOX" above `HELD_SIMULTANEITY_WINDOW`. Exact,
+ * the four sites would read: S1 and S4 coordinate equality; S2 coordinate equality OR one instigator (a
+ * group of re-reports of ONE split is one node by acceptance, and equality alone moves clean digests by
+ * ulps); S5 cannot be exact, because the two ends of a zero-length offset segment are computed apart and
+ * differ by ulps, and an exact S5 keeps a repeated vertex. Measured: tolerance-derivation-measurement-record.md,
+ * "Measurement record", "ARITHMETIC_SAME_POINT_BOX: O1's histogram and the exact box".
+ */
+export const ARITHMETIC_SAME_POINT_BOX = 0.00000001;
+
+/**
+ * The snap's point-on-ray sine bar (`pointLiesOnRay` in algorithm-termination-cases.ts, census S10), HELD at
+ * `1e-8` (C8 spec T32; journal decision 161(e)).
+ *
+ * T32's target is the coaxial form, which the closure's point-on-ray test (S11) reads. At the lane the snap
+ * gives `Off-edge Jitter Plus`, k = 3, seed 47514 (the off-edge 1e-3 grid) an offset violation of its own,
+ * diagnosed as a `causality-violation` on a cell that has none at `1e-8` — T37 STOP 3 — so it stays here.
+ * `tolerance-derivation.test.ts` asserts the held state on that cell. Measured: tolerance-derivation-measurement-record.md,
+ * "Measurement record", "POINT_ON_RAY_SINE_BAR (held)".
+ */
+export const POINT_ON_RAY_SINE_BAR = 0.00000001;
+
+/**
+ * `addBisectionEdge`'s zero-rate sine bar (algorithm-helpers.ts), HELD at `1e-8` (census S19). Three
+ * re-derivations are measured and refused: T17's ρ (decision 161(b)), `k·u` and the forward bound 8u (decision
+ * 164). Measured: tolerance-derivation-measurement-record.md, "Measurement record", "ZERO_RATE_SINE_BAR (held)".
+ */
+export const ZERO_RATE_SINE_BAR = 0.00000001;
 
 /**
  * The largest ratio between the fastest and slowest edge weight the solver will accept (W-spec W48;
  * C8 spec T22, journal decision 156): `maxWeightRatio(δ) = δ / (64·√2·u)`.
  *
- * THE OLD DERIVATION IS VOID. `MAX_WEIGHT_RATIO = 100` was `1e-6 / 1e-8`: the scratch time window read
- * as a distance on the fastest edge. The per-pair window (T13) is stated on the FASTER participant, so
- * that hazard — two arrivals fused because the window, read in the fast edge's distance, exceeds the
- * floor — is gone for every ratio. What still binds is COHERENCE between the two simultaneity bars:
+ * THE RATIO IS NOT A WINDOW READ AS A DISTANCE. The per-pair window (T13) is stated on the FASTER
+ * participant, so the hazard of two arrivals fused because the window, read in the fast edge's distance,
+ * exceeds the floor does not arise at any ratio, and no argument from δ or u yields a ceiling of 100 (I11).
+ * What binds is COHERENCE between the two simultaneity bars:
  * the narrowest window, `δ / R` in time, must stay wider than the arithmetic moment bar
  * (`ARRIVAL_MOMENT_ULPS · ε · t`, S29) at the largest time a unit-extent region admits,
  * `t_max = √2/2` (spec I7). So
@@ -307,8 +343,8 @@ export const HELD_SIMULTANEITY_WINDOW = 0.00000001;
  *
  * — about 9.95e7 at the library floor and 9.95e8 at 1e-5. The door refuses only where the narrowest
  * window would fall inside the moment bar: "guards pathological, doesn't insist on a concrete product
- * opinion" (decision 156). The conditioning hazard the old ceiling half-covered is the per-vertex turn
- * guard's ({@link minWeightTurnSine}).
+ * opinion" (decision 156). The conditioning hazard of unequal weights is the per-vertex turn guard's
+ * ({@link minWeightTurnSine}).
  *
  * PRODUCT ORDER IS PART OF THE DEFINITION: `64 · √2` and `· u` are exact (powers of two), so the only
  * rounding is the division, and `maxWeightRatio(δ) · 64 · √2 · u` returns δ (asserted in
@@ -339,8 +375,7 @@ export function maxWeightRatio(perceptualFloor: number): number {
  *     sin²φ  ≥  k·u·t_max·Δw / δ  =  2u·(√2/2)·Δw / δ  =  √2·u·Δw / δ.
  *
  * Equivalently `conditioningBound(δ)·√(Δw/2)`. At the library floor: 4.853e-5 for weights (1, 16) and
- * 1.2468e-4 for Δw = 99, against the retired frozen 1.4142e-4 (the scratch epsilon's `√(ε(2 − ε))`,
- * which this replaces). A DIFFERENT QUESTION from `intersectRays`' division, so distinct from the
+ * 1.2468e-4 for Δw = 99. A DIFFERENT QUESTION from `intersectRays`' division, so distinct from the
  * angular resolution (spec A22).
  *
  * PRODUCT ORDER IS PART OF THE DEFINITION: `√2 · u` is exact (u a power of two), then `· Δw`, `/ δ`
@@ -361,7 +396,7 @@ export function minWeightTurnSine(perceptualFloor: number, weightDifference: num
  * "Is this divisor zero?" is a question about the arithmetic, not about the geometry, so its bar is
  * the evaluated expression's own rounding-error bound: a value inside it has no sign and no magnitude
  * the arithmetic can vouch for. The pattern is `meetHeadOn`'s (collision-helpers.ts). Every bound below
- * is first order in u, lies seven to eight orders inside the retired `1e-8`, and is compared with `≤`
+ * is first order in u, lies seven to eight orders inside `1e-8`, and is compared with `≤`
  * ("inside the bound"), as `meetHeadOn` compares.
  */
 
@@ -486,11 +521,11 @@ export const UNIT_CROSS_PRODUCT_ROUNDING_BOUND = CROSS_PRODUCT_ROUNDING_UNITS * 
  * the bar decides: `2u + 5u + u = 8u ≈ 8.9e-16`.
  *
  * A WORST-CASE BOUND, NOT A FIT: over 200 000 random near-anti-parallel wall pairs measured against exact
- * dyadic arithmetic (C8 dispatch 3), the worst forward error of the evaluated rate was 1.75u — the
- * roundings rarely align — and over 2 000 000 EXACTLY anti-parallel pairs the computed rate never
- * exceeded 1.5u. The bound is what the arithmetic can VOUCH FOR, not what it usually achieves: `Golf
- * Cart`'s 3.3u corridor rates, which it zeroes, are TRUE rates of a one-ulp tilt in that fixture's input
- * (vertex 3 at y = 399.99999999999994), not rounding.
+ * dyadic arithmetic, the worst forward error of the evaluated rate is 1.75u — the roundings rarely
+ * align — and over 2 000 000 EXACTLY anti-parallel pairs the computed rate never exceeds 1.5u. The bound
+ * is what the arithmetic can VOUCH FOR, not what it usually achieves: `Golf Cart`'s 3.3u corridor rates,
+ * which it zeroes, are TRUE rates of a one-ulp tilt in that fixture's input (vertex 3 at
+ * y = 399.99999999999994), not rounding.
  */
 export const FORWARD_CROSS_PRODUCT_ROUNDING_UNITS = 8;
 
@@ -498,7 +533,7 @@ export const FORWARD_CROSS_PRODUCT_ROUNDING_UNITS = 8;
  * `FORWARD_CROSS_PRODUCT_ROUNDING_UNITS · u`: the bar below which an evaluated offset rate carries no sign
  * the arithmetic can vouch for about the exact geometry (journal-5 decision 164). Read through
  * `offsetRateIsArithmeticZero` (core-functions.ts) by `makeOffsetDistance` (S20). `addBisectionEdge`'s
- * zero rate (S19) was measured at it and stays held (see that site).
+ * zero rate (S19) does not read it: it is held at {@link ZERO_RATE_SINE_BAR}.
  */
 export const OFFSET_RATE_FORWARD_ROUNDING_BOUND = FORWARD_CROSS_PRODUCT_ROUNDING_UNITS * UNIT_ROUNDOFF;
 
@@ -515,9 +550,9 @@ export const OFFSET_RATE_FORWARD_ROUNDING_BOUND = FORWARD_CROSS_PRODUCT_ROUNDING
  * EXACT geometry the solver was handed (the stored input doubles) — and two arrivals whose difference is
  * inside the sum of their bounds cannot be ordered by anything the arithmetic can vouch for.
  *
- * WHAT C8 DISPATCH 2 CHARGED, AND WHY IT WAS TWO ORDERS SHORT. Only the division by `sin θ` inside
- * `intersectRays` (`k·u·|sep|/sin²θ`): the BACKWARD error of evaluating the intersection of the stored
- * rays. But the rays are not the geometry — their bases are NORMALISED COMPUTED vectors, their sources
+ * WHY THE DIVISION ALONE FALLS TWO ORDERS SHORT. The division by `sin θ` inside `intersectRays`
+ * (`k·u·|sep|/sin²θ`) is the BACKWARD error of evaluating the intersection of the stored rays. But the
+ * rays are not the geometry — their bases are NORMALISED COMPUTED vectors, their sources
  * may be PRICED positions, and the arrival is then read through a computed RATE and a computed SOURCE
  * OFFSET. Every one of those roundings reaches the reading. The model below charges each, to first order
  * in u, as the FORWARD question requires (the argument at {@link FORWARD_CROSS_PRODUCT_ROUNDING_UNITS}).
@@ -534,7 +569,7 @@ export const OFFSET_RATE_FORWARD_ROUNDING_BOUND = FORWARD_CROSS_PRODUCT_ROUNDING
  *   (iii) the SOURCE's own position budget, CARRIED from the event that placed the node (0 for a
  *         stored input vertex) — into the intersection as `(e₁ + e₂)/|sin θ|`, and into the source
  *         offset ({@link sourceOffsetUncertainty});
- *   (iv)  the division term C8 dispatch 2 had, now stated on the priced travel: `k·u·|a| / |sin θ|`
+ *   (iv)  the division term, stated on the priced travel: `k·u·|a| / |sin θ|`
  *         (≤ `k·u·|sep|/sin²θ`);
  *
  * plus the evaluation roundings of every product and sum on the route. All are FIRST ORDER: products of
@@ -593,9 +628,9 @@ export const BASIS_LENGTH_ERROR = BASIS_LENGTH_ROUNDING_UNITS * UNIT_ROUNDOFF;
  * LENGTH errors do not), so `η_b = 5u + 4u·cot(φ/2)`: 5u between anti-parallel walls (the corridor
  * midline, where {@link FORWARD_CROSS_PRODUCT_ROUNDING_UNITS}'s 5u was argued), 9u at a right angle, and
  * growing without bound at a near-STRAIGHT vertex, where two nearly equal unit vectors are subtracted and
- * their length errors are all that is left of the difference's direction. MEASURED BEFORE IT WAS
- * WRITTEN: the turn-only form (5u at every angle) was convicted against exact arithmetic by a bisector
- * 28.8u off its true direction (`tolerance-derivation.test.ts`). Under unequal weights the kernel can
+ * their length errors are all that is left of the difference's direction. A turn-only form (5u at every
+ * angle) is not a bound: `tolerance-derivation.test.ts` convicts it against exact arithmetic with a
+ * bisector 28.8u off its true direction. Under unequal weights the kernel can
  * amplify further, which the per-vertex turn guard ({@link minWeightTurnSine}) bounds; the expression
  * charges it as it stands.
  *
@@ -687,8 +722,9 @@ export function sourceOffsetUncertainty(
  *
  * which is `max(w_cw, w_ws)·|t_cw − t_ws|`: the two parents' clocks at the node, disagreeing, restated as
  * a length on the faster wall — never smaller than the clockwise reading's error `w_cw·|t_cw − t_ws|`.
- * Measured on `Off-edge Jitter Plus`, k = 9, seed 23757: the step-58 merge of 163×232 and 93×232, 9.47e-7
- * apart, sited the 75|4 bisector's source 1.7214e-10 off its locus, against a carried budget of 9.28e-12.
+ * Without this term the budget falls short by orders: on `Off-edge Jitter Plus`, k = 9, seed 23757, the
+ * step-58 merge of 163×232 and 93×232, 9.47e-7 apart, sites the 75|4 bisector's source 1.7214e-10 off its
+ * locus, against a pricing budget of 9.28e-12.
  *
  * THE SPLIT PATH PAYS IT TOO (journal-5 decision 171(c)): `coincidentEventPositions` re-points a group of
  * one layer's splits at its medoid in the same way, and each moved split's node is charged this term over
@@ -729,9 +765,9 @@ export interface RayErrorTerms {
  *   - BASES (part i): turning `b₂` by `η₂` about `P₂` moves line 2, at the meeting point, by `η₂·|t|`
  *     across itself, and `a` by `η₂·|t|/s` (exactly `−η₂·t/sin θ`); turning `b₁` by `η₁` moves `a` by
  *     `η₁·|a|·|cos θ|/s ≤ η₁·|a|/s`. By the law of sines `|a|, |t| ≤ D/s`, so this is at most
- *     `(η₁ + η₂)·D/sin²θ` — the `|sep|·(2u + 2u)/sin θ` of the dispatch, per unit of travel;
+ *     `(η₁ + η₂)·D/sin²θ` — `|sep|·(2u + 2u)/sin θ` per unit of travel for two wall bases;
  *   - THE DIVISION (part iv): the denominator is a dot product of unit vectors, off by `k·u` absolutely,
- *     so relatively by `k·u/s`: `k·u·|a|/s` (C8 dispatch 2's term, `≤ k·u·D/sin²θ`, restated on `|a|`);
+ *     so relatively by `k·u/s`: `k·u·|a|/s` (`≤ k·u·D/sin²θ`, stated on `|a|`);
  *   - THE NUMERATOR: `D·ŝep` is the computed separation with each component off by a relative `3u` (the
  *     subtraction, the quotient by `D`, the product by `D` — the length `D`'s own error cancels between
  *     the two), `3u·D` as a vector; the dot product with a unit vector rounds by `k·u = 2u` of `D`: `5u·D/s`
@@ -823,40 +859,13 @@ export function weightedRateSumForwardBound(
 }
 
 /**
- * "Are these two positions ONE POINT?" once a node exists — the ARITHMETIC same-point bar of S1
- * (`findOrAddNode`), S2 (`coincidentEventPositions`), S4 (graph-merge's crossing-point dedupe) and S5
- * (the offset projection's zero-length segments). HELD AT ITS HISTORICAL VALUE, THE COMPONENT BOX AT
- * `1e-8`, AS A MEASURED STOP (C8 spec T8 and O1; journal decision 154's ruling rule; register C12).
- *
- * O1's settling histogram (dispatch 1, 2026-09-24) found joins ABOVE 64 ulps — 43 of them at 5e5 to
- * 5.2e7 ulps of the unit extent (7e-10 to 1.16e-8), on Circle 48 and Rosette5 40 at fine translations,
- * one off-edge jitter cell and eight cells of the jittered Circle 32 ladder — that do NOT correlate with
- * the pricing's conditioning. F74 traced them: 41 of 44 are this box absorbing a genuinely later or
- * earlier event (1e-10 to 4e-7 away in time), which decision 141 would admit as a distinct node.
- *
- * Its acceptance DISCARDS a produced answer (two nodes become one), so under T2 it is an arithmetic
- * bar and never δ (F27, audit C1).
- *
- * THE WINDOW'S COUNTERPART (journal decisions 162(b), 167): the other half of ONE matched pair with
- * {@link HELD_SIMULTANEITY_WINDOW}. Register C12 measured both at the arithmetic bar and the move STOPPED;
- * see "THE WINDOW AND THE BOX" above `HELD_SIMULTANEITY_WINDOW`. Exact, the four sites read: S1 and S4
- * coordinate equality; S2 coordinate equality OR one instigator (a group of re-reports of ONE split is
- * one node by acceptance — read as equality alone, it moved seven clean digests by at most 1.93 ulps);
- * S5 could not be exact (the two ends of a zero-length offset segment are computed apart and differ by
- * ulps, and an exact S5 keeps a repeated vertex).
- */
-export const ARITHMETIC_SAME_POINT_BOX = 0.00000001;
-
-/**
  * "Are these two sources on ONE LINE?" — the LANE WIDTH, in distance, for the coaxiality question
  * (spec A9/A10, journal decisions 135 and 136).
  *
  * A THIRD QUESTION, IN THE FLOOR'S CATEGORY. The solver asks three things about a pair of rays, not
  * two: are the directions identical (an angle), is an intersection priceable (an angle), and are the
- * two sources coaxial (a DISTANCE). The third was answered for years at
- * the retired scratch `FLOATING_POINT_EPSILON`, which held the solver to arithmetic precision on a question the
- * client measures in visible distance — `sourceLiesAhead`'s own comment half-recognised this and
- * then reached for the epsilon anyway.
+ * two sources coaxial (a DISTANCE). The client measures the third in visible distance, so an arithmetic
+ * bar would hold the solver to a precision the question does not ask for.
  *
  * THE WIDTH IS THE FLOOR ITSELF, unchanged: two lines the client cannot tell apart ARE one line for
  * every purpose the solve has, and journal decision 105's doctrine already rules that the floor is
@@ -866,14 +875,10 @@ export const ARITHMETIC_SAME_POINT_BOX = 0.00000001;
  *
  * IN UNIT SPACE, AS AN ABSOLUTE LATERAL DISTANCE — not a relative bar on the source separation. A
  * relative bar on a separation tending to zero is a bar tending to zero, and head-on-ness is a
- * property of the two DIRECTIONS, which do not shrink with it. That is the measured counter-case
- * `sourceLiesAhead`'s `Math.max(1, d)` hybrid existed for; the hybrid is retired because the
- * absolute form states the same thing without the discontinuity at unit separation.
+ * property of the two DIRECTIONS, which do not shrink with it. A hybrid `Math.max(1, d)` bar covers that
+ * case too, but with a discontinuity at unit separation that the absolute form does not have.
  */
 export function coaxialityFloor(perceptualFloor: number): number {
     return perceptualFloor;
 }
 
-export const NO_COLLISION_RESULTS: IntersectionType[] = ['diverging', 'parallel', 'identical-source']
-
-export const TRIANGLE_INTERSECT_PAIRINGS = [[0,1],[1,2],[2,0],[1,0],[2,1],[0,2]]

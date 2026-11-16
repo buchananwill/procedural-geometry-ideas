@@ -21,6 +21,19 @@ because the scratchpad it lived in is session-specific.
 | `alongedge` | 160    | the along-edge 1.0 jitter grid, stage off                            |
 | `ladder`    | 48     | the jittered Circle 32 ladder (1/3/10/15/30/100 ×, seeds 0–7)        |
 | `regular`   | 62     | the regular circles of the vertex-count sweep                        |
+| `holed`     | 336    | `HOLED_TEST_POLYGONS` (21) at floors 1e-6 and 1e-5, at translations 1e8 to 1e13 on every loop, and at jitter 1× seeds 0–7 on every loop in loop order (loop-consumers spec, decision 43) |
+
+A holed cell's `tiling` is the holed identity (strips plus the SIGNED offset rings against the outline's area less
+the holes'; `holedTilingError` in `wavefront-measurement-helpers.ts`), and its `isTree` is undefined, because
+`buildSkeletonTree` refuses a holed result and the record's `catch` takes the throw. The group adds no regions: the
+recursive driver refuses holes. Harness cells are records compared between trees, not tests.
+
+A holed record also carries three fields no single-loop record has (BSA.D316), so a structurally wrong holed cell
+shows in a field and not only as a changed digest: `holes`, the input's hole count; `unculledSelfLoops`, the interior
+edges that end at their own source and are not marked culled; and `cycleRank`, the interior graph's rank as
+`interiorGraphShape` in `holed-test-helpers.ts` counts it (culled edges skipped, an arc recorded from both ends once,
+each un-culled self-loop adding one). A sound holed cell reads `unculledSelfLoops: 0` and `cycleRank` equal to
+`holes`.
 
 `runRegions(out, depthFraction, tag)` re-solves every level > 0 node of the census-grid
 trees (merge groups 1–4, three levels, residue `'recurse'`) on its own boundary with the

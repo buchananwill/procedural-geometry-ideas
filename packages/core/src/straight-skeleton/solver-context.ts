@@ -6,9 +6,14 @@ import {
     PolygonEdge, PolygonNode,
     RayProjection,
     SkeletonDirection,
+    SkeletonLoop,
     StraightSkeletonSolverContext,
-    Vector2
+    Vector2,
+    WavefrontSegment
 } from "./types";
+import {makeWavefront, wavefrontSegmentsOf} from "./wavefront-links";
+import {currentStepMembers} from "./step-scope";
+import {activeWavefrontProbe} from "./wavefront-check";
 import {addInEdges, initBoundingPolygon} from "./graph-helpers";
 import {
     addVectors,
@@ -39,13 +44,17 @@ import {
  * `weights` is the per-exterior-edge wavefront speed, parallel to `nodes` (W-spec W1). Omitted means
  * all ones, which is bit-identical to the unweighted solver by construction — every weighted site
  * multiplies or divides by exactly `1.0` (W-spec W36).
+ *
+ * `loops` is the loop table, handed to `initBoundingPolygon` as it stands (skeleton loops-input spec, decision
+ * 10). Omitted means one loop of all the nodes, so a direct caller gets a single-loop context.
  */
 export function makeStraightSkeletonSolverContext(
     nodes: Vector2[],
     perceptualFloor: number = SKELETON_NOISE_FLOOR,
     weights?: readonly number[],
+    loops?: readonly SkeletonLoop[],
 ): StraightSkeletonSolverContext {
-    const graph = initBoundingPolygon(nodes, weights);
+    const graph = initBoundingPolygon(nodes, weights, loops);
     const acceptedEdges = nodes.map(() => false);
     // DERIVED ONCE, HERE (spec A9/A10). Every coaxiality site in the solve spends this one number,
     // so two sites cannot answer "are these two sources on one line?" differently.
@@ -54,10 +63,8 @@ export function makeStraightSkeletonSolverContext(
     // angular predicate reads this field; none recomputes the square root.
     const angularBar = angularResolution(perceptualFloor);
     // DERIVED ONCE, HERE (C8 spec T5, T12 as amended): the CAP of the simultaneity window, carried on
-    // the context for the "are these two arrivals one moment?" sites (S22–S28). They do not spend it:
-    // the flat δ window (C8 dispatch 1), the per-pair window with the division-only budget (dispatch 2)
-    // and the per-pair window with the complete model beside an exact box (register C12) all hit T37's
-    // STOPs, and the sites hold `HELD_SIMULTANEITY_WINDOW` (see constants.ts).
+    // the context for the "are these two arrivals one moment?" sites (S22–S28). CARRIED, UNSPENT: the
+    // sites read `HELD_SIMULTANEITY_WINDOW`, held by measured T37 STOPs (see constants.ts).
     const window = simultaneityWindow(perceptualFloor);
     // THE NODES' POSITION ERROR BUDGETS (journal-5 decision 167, part (iii) of the complete model),
     // parallel to `graph.nodes`: a boundary vertex is a stored input double, exact by definition.
@@ -135,34 +142,6 @@ export function makeStraightSkeletonSolverContext(
 
     }
 
-    function span(firstEdge: PolygonEdge, secondEdge: PolygonEdge, includeAccepted = true): number {
-        if (edgeRank(firstEdge.id) !== 'exterior' || edgeRank(secondEdge.id) !== 'exterior') {
-            throw new Error('Direct span of interior edges not yet implemented.')
-        }
-
-        if (acceptedEdges[firstEdge.id] || acceptedEdges[secondEdge.id]) {
-            throw new Error('Cannot compute span with accepted edges.')
-        }
-
-        let totalSpan = 0;
-        for (let i = 0; i < graph.numExteriorNodes; i++) {
-            const nextEdge = (i + firstEdge.id) % graph.numExteriorNodes;
-            if ((nextEdge) === secondEdge.id) {
-                return totalSpan;
-            }
-
-            if (includeAccepted || !acceptedEdges[nextEdge]) {
-                totalSpan++;
-            }
-        }
-
-        return totalSpan;
-    }
-
-    function spanExlcudingAccepted(firstEdge: PolygonEdge, secondEdge: PolygonEdge): number {
-        return span(firstEdge, secondEdge, false);
-    }
-
     /**
      * The wavefront vertex on `bisector` at a given PERPENDICULAR DISTANCE from the exterior edge
      * whose basis is `edgeBasis`.
@@ -180,24 +159,22 @@ export function makeStraightSkeletonSolverContext(
     /**
      * The node at `position`, created if no existing node is within tolerance of it.
      *
-     * THE EPSILON HERE IS FROZEN, AND THE COMPONENT-WISE BOX WITH IT (journal decisions 104/105,
-     * audit constraint C1). It is the one positional comparison in the solver deliberately left out
-     * of the tolerance unification, and the reason is a falsified experiment rather than an
-     * oversight: widening it to the render floor — merge by absorption, first-established wins —
-     * delivered every promised cure and broke four independent axes at once, taking Circle 16/32
-     * from clean to unsolvable at 1e10/1e11, Circle 48's scatter from 3 to 28 cells, the recursion
-     * census from 26 to 42, and the tiling identity from exact to ~1e-7. Reverting the one file
-     * restored the suite exactly (journal F27).
+     * THE BAR IS ARITHMETIC AND HELD, A COMPONENT-WISE BOX AT `ARITHMETIC_SAME_POINT_BOX` (journal
+     * decisions 104/105, audit constraint C1). It is never the render floor: widening it to the floor —
+     * merge by absorption, first-established wins — delivers every promised cure and breaks four
+     * independent axes at once, taking Circle 16/32 from clean to unsolvable at 1e10/1e11, Circle 48's
+     * scatter from 3 to 28 cells, the recursion census from 26 to 42, and the tiling identity from
+     * exact to ~1e-7 (journal F27).
      *
      * ITS ROLE IS ARITHMETIC EQUALITY, NOT GEOMETRIC MERGING. It exists to recognise a position two
      * code paths computed by different arithmetic, and nothing more. If a position arriving here
      * needs a GEOMETRIC merge, the defect is that its path bypassed event resolution — which is a
      * question about the event layer, not about this number.
      *
-     * EXACT IDENTITY WAS MEASURED IN REGISTER C12 AND IS HELD (journal-5 decision 167): with the window
-     * at its per-pair bar beside it, see "THE WINDOW AND THE BOX" in constants.ts; ALONE, with the window
-     * held, it trades `Near Regular Circle 48` at 2e11's 57% tiling miss for an offset and a direction
-     * violation. The box moves with the window or not at all.
+     * NOR IS IT EXACT IDENTITY (journal-5 decision 167, register C12): the box and the simultaneity
+     * window are one matched pair and move together or not at all (see `ARITHMETIC_SAME_POINT_BOX` in
+     * constants.ts). Exact alone, with the window held, it trades `Near Regular Circle 48` at 2e11's 57%
+     * tiling miss for an offset and a direction violation.
      *
      * PRECONDITION: `position` is finite. A NaN coordinate never compares equal to itself under an
      * absolute tolerance — the difference is NaN and every comparison against it is false — so the
@@ -245,43 +222,53 @@ export function makeStraightSkeletonSolverContext(
         clockwiseBisector: InteriorEdge
     }
 
+    /**
+     * The live segments of an exterior edge, READ FROM THE WAVEFRONT'S LINKS (skeleton wavefront-order spec,
+     * decisions 5 and 19): each live bisector whose clockwise parent is the edge is a segment's widdershins
+     * end, `from`, and its clockwise neighbour is the clockwise end, `to`.
+     *
+     * READ FROM THE LINKS, NEVER SORTED BY AN ID KEY. A key symmetric in a bisector's two parents ties on a
+     * two-bisector ring whose bisectors share one parent pair, and id order then labels the pair backwards
+     * (BSA.F95); and an id key presumes every ring is an interval of ids, which a ring joined from two loops is
+     * not (BSA.F91). The links need neither presumption.
+     *
+     * In ascending order of `from`. Where several segments validate a split, every one is returned and the caller
+     * chooses (skeleton join-and-divide spec, decision 5).
+     *
+     * A SEGMENT WHOSE `to` IS NOT LIVE THROWS (BSA.D293): it is a broken link (W1), and dropping it silently
+     * would hide the break from the split that asked. No roster reaches it (0 of about 6.1 million segments).
+     */
     function activeExteriorEdgeSegments(edgeId: number): EdgeSection[] {
         if (edgeRank(edgeId) !== 'exterior') {
             throw new Error("Can only find active sections for exterior edges.")
         }
 
-        const rotateId = (id: number): number => {
-            return (id - edgeId + graph.numExteriorNodes) % graph.numExteriorNodes;
+        const segments = wavefrontSegmentsOf(context, edgeId);
+        const broken = segments.find(segment => segment.to < graph.numExteriorNodes || acceptedEdges[segment.to]);
+        if (broken !== undefined) {
+            throw new Error(`Segment (e${broken.from}, e${broken.to}) of edge ${edgeId} ends on e${broken.to}, `
+                + `which is not a live bisector: the wavefront's links are broken.`);
         }
-
-        const makeClockwiseSweepIndex = (interiorEdge: InteriorEdge): number => {
-            const wsParent = widdershinsParent(interiorEdge)
-            const cwParent = clockwiseParent(interiorEdge);
-
-            return graph.numExteriorNodes - rotateId(wsParent.id) - rotateId(cwParent.id) - 1; // subtract 1 to keep return strictly less than the number of exterior edges.
-        }
-
-        const children = graph.interiorEdges.filter(e => {
-            return !acceptedEdges[e.id] && (e.widdershinsExteriorEdgeIndex === edgeId || e.clockwiseExteriorEdgeIndex === edgeId)
-        })
-            .toSorted((e1, e2) => makeClockwiseSweepIndex(e1) - makeClockwiseSweepIndex(e2))
-
-        const sections: EdgeSection[] = []
-
-        if (children.length < 2) {
-            return sections
-        }
-
-        for (let i = 0; i < children.length; i += 2) {
-            sections.push({widdershinsBisector: children[i], clockwiseBisector: children[i + 1]})
-        }
-
-        return sections;
+        return segments
+            .map(segment => ({
+                widdershinsBisector: getInteriorWithId(segment.from),
+                clockwiseBisector: getInteriorWithId(segment.to),
+            }));
     }
 
-    return {
+    /** A section as a {@link WavefrontSegment}: its widdershins bisector is `from`, its clockwise bisector `to`. */
+    function asSegment(edgeId: number, section: EdgeSection): WavefrontSegment {
+        return {
+            exteriorEdge: edgeId,
+            from: section.widdershinsBisector.id,
+            to: section.clockwiseBisector.id,
+        };
+    }
+
+    const context: StraightSkeletonSolverContext = {
         graph,
         acceptedEdges: acceptedEdges,
+        wavefront: makeWavefront(nodes.length),
         collisionCache: new Map() as CollisionCache,
         perceptualFloor,
         coaxialityFloor: coaxialLane,
@@ -289,6 +276,8 @@ export function makeStraightSkeletonSolverContext(
         simultaneityWindow: window,
         positionUncertainties,
         diagnostics: [],
+        step: null,
+        probe: activeWavefrontProbe(),
         getEdgeWithId,
         getEdges(idList: number[]): PolygonEdge[] {
             return idList.map(getEdgeWithId)
@@ -340,7 +329,7 @@ export function makeStraightSkeletonSolverContext(
         edgeRank,
         isPrimaryNonReflex,
         isReflexEdge,
-        /** `offset` is a TIME (W-spec W16); the `Math.min` is unchanged. */
+        /** `offset` is a TIME (W-spec W16); the bound kept is the least time offered. */
         updateMaxOffset(edgeId: number, offset: number) {
             if (offset < 0) {
                 return
@@ -352,20 +341,8 @@ export function makeStraightSkeletonSolverContext(
 
             edgeData.maxOffset = Math.min(edgeData.maxOffset, offset);
         },
-        clockwiseSpanExcludingAccepted: spanExlcudingAccepted,
-        clockwiseSpanIncludingAccepted: span,
         widdershinsBisector: primaryWiddershinsBisector,
         clockwiseBisector: primaryClockwiseBisector,
-        // W-spec W40: the argument is a local TIME, carried to a perpendicular distance by the
-        // exterior edge's own weight. At unit weights `localTime * 1.0` is exact.
-        clockwiseVertexAtOffset(edgeId: number, localTime: number): Vector2 {
-            return vertexAtOffset(primaryClockwiseBisector(edgeId), getEdgeWithId(edgeId).basisVector,
-                localTime * weightOf(edgeId));
-        },
-        widdershinsVertexAtOffset(edgeId: number, localTime: number): Vector2 {
-            return vertexAtOffset(primaryWiddershinsBisector(edgeId), getEdgeWithId(edgeId).basisVector,
-                localTime * weightOf(edgeId));
-        },
         terminateEdgesAtPoint(edgeIds: number[], position: Vector2, positionUncertainty: number): PolygonNode {
             const node = findOrAddNode(position, positionUncertainty);
             addInEdges(node, edgeIds);
@@ -400,9 +377,9 @@ export function makeStraightSkeletonSolverContext(
             parents.push(widdershinsParent(getInteriorWithId(interiorEdgeIds[0])).id);
             return parents;
         },
-        validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, arrival: Arrival): boolean {
+        validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, arrival: Arrival): WavefrontSegment[] {
             const splitIntersectionOptions: IntersectionType[] = ['converging']
-            const bisectorRay = this.projectRayInterior(getInteriorWithId(bisectorId));
+            const bisectorRay = context.projectRayInterior(getInteriorWithId(bisectorId));
             const edgeBasis = getEdgeWithId(edgeToSplitId).basisVector;
             // The split edge's own weight: the bounding bisectors' travel along this edge is a
             // perpendicular DISTANCE from THIS edge's line, so it is the local time times THIS
@@ -412,8 +389,8 @@ export function makeStraightSkeletonSolverContext(
 
             const segments = activeExteriorEdgeSegments(edgeToSplitId);
 
-            // We're now testing all active segments, because if the edge has split or engaged in a collapse anywhere, the shrinkage/expansion rate will have changed.
-            return segments.some(segment => {
+            // Every active segment is tested, because once the edge has split or engaged in a collapse anywhere, its shrinkage/expansion rate has changed.
+            const validates = (segment: EdgeSection): boolean => {
                 const {widdershinsBisector, clockwiseBisector} = segment;
                 const widdershinsEdge = getEdgeWithId(widdershinsBisector.id);
                 const clockwiseEdge = getEdgeWithId(clockwiseBisector.id);
@@ -423,10 +400,10 @@ export function makeStraightSkeletonSolverContext(
                 // Update: this is correct now that the edge shrinkage/collapse is computed dynamically, using the active edge segments.
                 // W-spec W30: each bounding bisector's BIRTH is its own arrival pair, and the
                 // not-yet-born test is the division-free comparison against it. The local travel is
-                // then a difference of TIMES. At unit weights both times are `d / 1.0` and this is
-                // today's `offset - sourceOffset`.
-                const widdershinsBirth = birthArrivalOf(widdershinsBisector, this);
-                const clockwiseBirth = birthArrivalOf(clockwiseBisector, this);
+                // then a difference of TIMES. At unit weights both times are `d / 1.0`, so it is the
+                // distance difference `offset - sourceOffset`, bit for bit.
+                const widdershinsBirth = birthArrivalOf(widdershinsBisector, context);
+                const clockwiseBirth = birthArrivalOf(clockwiseBisector, context);
                 const clockwiseLocalTime = splitTime - timeOf(clockwiseBirth);
                 const widdershinsLocalTime = splitTime - timeOf(widdershinsBirth);
 
@@ -459,8 +436,32 @@ export function makeStraightSkeletonSolverContext(
                 }
                 return valid;
 
-            })
+            };
 
+            // EVERY VALIDATING SEGMENT IN THE STEP, IN ASCENDING `from` (skeleton join-and-divide spec, decisions 4
+            // and 5). Only a segment whose `from` stands in the current step is searched: a ring of another step is
+            // another part of the region. Outside a step every segment is. The callers choose from the list: the
+            // incenter paths take the first the neighbour guard does not refuse, the direct strike the first.
+            // On one loop no split validates on more than one segment, nor outside its step (BSA.F95, BSA.F97).
+            const members = currentStepMembers(context);
+            return segments
+                .filter(segment => members === null || members.has(segment.widdershinsBisector.id))
+                .filter(validates)
+                .map(segment => asSegment(edgeToSplitId, segment));
+        },
+        wavefrontVertexAt(bisectorId: number, time: number): Vector2 {
+            // The construction `validateSplitReachesEdge` reads a segment's ends with (skeleton join-and-divide
+            // spec, decision 12), against the
+            // bisector's own clockwise parent: its local time is `time` less its birth time, carried to a
+            // perpendicular distance from that parent's line by the parent's weight (W-spec W40) and walked along
+            // the bisector from its source node. A bisector of anti-parallel parents has no rate against its
+            // parent, and `projectFromPerpendicular` leaves it at its source.
+            const interior = getInteriorWithId(bisectorId);
+            const parent = clockwiseParent(interior);
+            const localTime = time - timeOf(birthArrivalOf(interior, context));
+            return vertexAtOffset(getEdgeWithId(bisectorId), parent.basisVector, localTime * weightOf(parent.id));
         },
     };
+
+    return context;
 }

@@ -26,9 +26,9 @@ export const RING_CORNERS: typeof RING_SIDES.length = RING_SIDES.length;
 
 /**
  * Journal decision 143, F4: a Pitched side's solved pitch must lie in [WIRE_MIN_PITCH_DEG, WIRE_MAX_PITCH_DEG], or
- * it is refused. The open range (0, 90) admitted pitches that crash the build. Decision 144 narrowed the floor from 5°
- * to 7°: WP3.7's sweep found narrow failing pockets between 5.86° and 6.9°, and is green from 6.91° to 75°. Content's
- * own pitches are 22.5°, 30° and 45°.
+ * it is refused, since a pitch outside it can crash the build. The floor is 7° (decision 144): WP3.7's sweep found
+ * narrow failing pockets between 5.86° and 6.9°, and is green from 6.91° to 75°. Content's own pitches are 22.5°, 30°
+ * and 45°.
  */
 export const WIRE_MIN_PITCH_DEG = 7;
 export const WIRE_MAX_PITCH_DEG = 75;
@@ -52,6 +52,8 @@ export type WireProvenance = z.output<typeof ProvenanceV1Schema>;
 /** One solved run along a side (decision 149). */
 export type WireRun = WireSide['runs'][number];
 export type WireSolvedForm = WireRun['form'];
+/** A GableEnd run's facing strategy on the wire (per-stretch gable settings decision 12). */
+export type WireFacing = WireRun['facing'];
 export type WireRequest = WireSide['request'];
 
 /** A file refused, with every reason found, one line each. */

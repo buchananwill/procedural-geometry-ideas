@@ -1,3 +1,11 @@
+---
+title: "D0L System V1 Implementation Plan"
+type: workflow
+area: dol-system
+status: archived
+date: 2026-03-14
+---
+
 # D0L System V1 — Implementation Plan
 
 > **Target spec:** `docs/notes/dol-system-v1-spec.md`

@@ -94,6 +94,8 @@ export const LIT_NORMALS: Readonly<Record<ShellKind, readonly Vec3[]>> = {
   Underside: [[0, 0, -1]],
   Ground: [[0, 0, -1], [0, 0, 1]],
   Internal: ring(0),
+  // Journal decision 272: a tuck lies on the plane of the faces it was tucked from, of any orientation.
+  Tuck: [...rings(1), ...rings(-1)],
 };
 
 /** Every shade `hex` takes on a face of `kind`, darkest and lightest and between, as sRGB integers without repeats. */

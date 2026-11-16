@@ -1,3 +1,11 @@
+---
+title: "Additional Features for the Polygon Editing UI"
+type: commentary
+area: dashboard
+status: archived
+date: 2026-02-19
+---
+
 # Additional Features For The Polygon Editing UI
 
 The purpose of the polygon editing UI is to allow a user to understand how the straight skeleton algorithm functions. To

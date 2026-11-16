@@ -1,8 +1,7 @@
-import type {SkeletonSolveResult, Vector2} from './types';
-import {solveSkeleton} from './algorithm-termination-cases';
+import type {PerceptualFloorOptions, SkeletonSolveResult, Vector2} from './types';
+import {solveSkeleton} from './solve-entry';
 import {
     canonicalisePolygon,
-    PerceptualFloorOptions,
     REMOVED_VERTEX_INDEX,
     resolvePerceptualFloor,
 } from './canonicalisation';
@@ -12,7 +11,7 @@ import {computeMaxOffset, computeOffsetRings} from './offset-projection';
 import {computeStrips} from './strip-decomposition';
 import type {Strip, StripOptions} from './strip-decomposition';
 import {ensureClockwise} from './polygon-decomposition';
-import {ringPerimeter, signedArea} from '../random-polygon/geometry-helpers';
+import {ringPerimeter, signedArea} from './planar-geometry';
 
 /**
  * Recursive segment subdivision: solve a region, cut it into segments, solve each segment again —
@@ -37,8 +36,8 @@ import {ringPerimeter, signedArea} from '../random-polygon/geometry-helpers';
  * Both streams are independently terminal, so all four combinations are askable and all four work.
  * `leaf` + `recurse` is the droste reading proper — the ring of segments is final and only the
  * courtyard subdivides — and it is the only combination in which a node has residue children and no
- * segment children. The scalar shape this replaced could not express it, or `void` + `leaf`, or
- * `leaf` + `void`, because segments always recursed.
+ * segment children. One scalar setting shared by every level, with segments always recursing, cannot
+ * express it, nor `void` + `leaf`, nor `leaf` + `void` (per-level recursion spec, decision 4).
  *
  * ## The residue is rings, PLURAL
  *
@@ -78,7 +77,7 @@ import {ringPerimeter, signedArea} from '../random-polygon/geometry-helpers';
  * A sub-polygon that will not solve is recorded on its node ({@link RecursiveNode.failure}) and its
  * siblings carry on. A demo that throws on one awkward cell shows nothing at all; a half-subdivided
  * picture that marks which cells failed is the useful artefact, and the census of which regions fail
- * as *solver output fed back as solver input* is itself the measurement this pass exists to take.
+ * as *solver output fed back as solver input* is itself the measurement this driver exists to take.
  * That covers the residue stream too: a ring that will not solve — or that is too small or too thin
  * to be a polygon at all — becomes a residue child carrying its reason, and its sibling rings and its
  * parent's segments are unaffected.
@@ -99,7 +98,7 @@ export const MAX_RECURSION_LEVELS = 3;
  * The depth fraction at which the wavefront is fully consumed and there is no residue.
  *
  * The upper end of the `(0, 1]` interval rather than a default: a caller asking for full depth is
- * asking for exactly the behaviour that predates the residue stream.
+ * asking for segments that tile the region and no residue stream.
  */
 export const FULL_DEPTH_FRACTION = 1;
 
@@ -163,11 +162,11 @@ export interface RecursiveOptions extends PerceptualFloorOptions {
 }
 
 /**
- * The scalars the uniform reading of this driver used to take, for {@link uniformLevelSpecs}.
+ * The four scalars of a uniform recursion — one setting shared by every level — for
+ * {@link uniformLevelSpecs}.
  *
- * Kept as a type of its own rather than as four positional parameters so a call site reads the same
- * way it did when these were fields on {@link RecursiveOptions} — which is what makes the migration a
- * one-liner rather than a re-ordering exercise.
+ * A type of its own rather than four positional parameters, so a call site names each scalar and
+ * cannot transpose two of them.
  */
 export interface UniformLevelSpecsInput {
     /** How many levels to produce. Clamped by {@link clampLevels}. */
@@ -181,12 +180,13 @@ export interface UniformLevelSpecsInput {
 }
 
 /**
- * `levels` copies of one spec: the uniform reading that predates per-level specs.
+ * `levels` copies of one spec: the uniform reading, every level alike (per-level recursion spec,
+ * decision 6).
  *
  * A HELPER, NOT A SECOND SOURCE OF TRUTH. The driver reads {@link RecursiveOptions.levels} and nothing
- * else; this exists so that the behaviour the scalar options described keeps a name and a one-line
- * migration. `segments` is `recurse` at every level because that is the only thing the old shape could
- * do — segments always recursed, which is why three of the four stream combinations were unreachable.
+ * else; this gives a uniform recursion a name and a one-line call. `segments` is `recurse` at every
+ * level, which is what a uniform recursion means: the other three stream combinations need a level
+ * whose segments stop, and are spelled as explicit specs.
  */
 export function uniformLevelSpecs(input: UniformLevelSpecsInput): LevelSpec[] {
     const {mergeGroupSize, depthFraction, residue} = input;
@@ -208,7 +208,7 @@ export const ROOT_REGION_ID = 'r0';
 /**
  * The id of the `childIndex`-th child of the region `parentId`.
  *
- * PATH-BASED AND NOTHING ELSE (journal decision 97): the id is the route from the root, so it is a
+ * PATH-BASED AND NOTHING ELSE (RSA.D97): the id is the route from the root, so it is a
  * pure function of the tree's shape and identical input yields identical ids across runs and across
  * machines. No counter, no hash of geometry, nothing that could renumber when an unrelated branch
  * changes — a census row citing `r0.3.1` names the same region tomorrow.
@@ -244,12 +244,12 @@ export type RegionProvenance =
 /**
  * What became of a region: solved, refused as too small to be a polygon, or attempted and failed.
  *
- * THREE ARMS RATHER THAN A STRING, because the three are acted on differently and journal decision 96
- * settled that only one of them is a defect. A `declined-degenerate` region is the driver correctly
+ * THREE ARMS RATHER THAN A STRING, because the three are acted on differently and only one of them is
+ * a defect (RSA.D96: declining a tile narrower than the floor is correct behaviour). A `declined-degenerate` region is the driver correctly
  * refusing to slice a tile narrower than it can see — accepted behaviour, and it carries the measured
  * area that made the call so a reader can check it against the floor without re-deriving it. A
  * `failed` region is a polygon of real area whose solve did not finish, which is the live defect
- * class. Telling them apart by matching the prefix of a sentence is what this replaces.
+ * class. A census counts them by kind here, never by matching the prefix of a sentence.
  *
  * {@link RecursiveNode.failure} carries the same sentence on both failing arms and stays the thing a
  * readout prints; this is the thing a census counts by kind.
@@ -276,7 +276,7 @@ export interface RecursiveNode {
     /**
      * This region's stable, path-based id — see {@link childRegionId}.
      *
-     * FIRST-CLASS IDENTITY (journal decision 97). The tree the driver returns is the instrument the
+     * FIRST-CLASS IDENTITY (RSA.D97). The tree the driver returns is the instrument the
      * recursion is debugged with, and an instrument whose readings cannot be cited is half an
      * instrument: the census names the region that failed, the inspector is pointed at one region by
      * name, and the two are talking about the same thing because the name is a function of the input.
@@ -305,8 +305,8 @@ export interface RecursiveNode {
      * has to be written against. `solveSkeleton` canonicalises inside the solve — it removes
      * boundary vertices too small to see, on purpose — so the segments and the residue rings are
      * both clipped out of a polygon that is smaller than {@link boundary} by a floor-times-perimeter
-     * sliver. Summing them against `boundary` charges that intended removal as tiling error, which
-     * is what closed the canonicalisation floor's usable band down to a single point.
+     * sliver. Summing them against `boundary` charges that intended removal as tiling error, and
+     * that error is large enough to close the canonicalisation floor's usable band to a single point.
      *
      * Carried on the node rather than left to the caller to recompute: recomputing means running
      * canonicalisation a second time and trusting the two runs to agree, a second derivation of a
@@ -326,7 +326,7 @@ export interface RecursiveNode {
      *
      * A SEPARATE, REPORTED QUANTITY, NEVER FOLDED INTO THE TILING IDENTITY. Two different things are
      * being asserted — that the strips tile what they were built from, and that what they were built
-     * from still resembles what was handed in — and collapsing them into one number is what made an
+     * from still resembles what was handed in — and collapsing them into one number makes an
      * intended removal look like a gap between strips.
      *
      * EXACTLY ZERO, not approximately, wherever canonicalisation removed nothing: the stage deletes
@@ -398,9 +398,10 @@ export function makeMergeGroupPredicate(mergeGroupSize: number): SameLogicalStre
 /**
  * A count of levels, forced into `[1, 3]`. Anything non-finite is treated as the minimum.
  *
- * Still a count rather than an array, because the depth is bounded in exactly one place and both the
+ * A count rather than an array, because the depth is bounded in exactly one place and both the
  * driver's {@link clampLevelSpecs} and a UI counting its own rows have to be bounded by the same
- * formula. What was retired is the level count as a FIELD ON THE OPTIONS, not the arithmetic.
+ * formula. The options carry no level count — the array's length is the depth — but the bound is
+ * this one arithmetic.
  */
 export function clampLevels(levels: number): number {
     if (!Number.isFinite(levels)) {
@@ -410,7 +411,8 @@ export function clampLevels(levels: number): number {
 }
 
 /**
- * Decision 3's predicate: whether `level` is the deepest level a composition of `levels` levels has.
+ * Whether `level` is the deepest level a composition of `levels` levels has — the level at which both
+ * streams are terminal whatever its spec says (per-level recursion spec, decision 3).
  *
  * PUBLISHED RATHER THAN RESTATED AT EACH SITE, for the same reason the clamps are: the driver, the
  * readout that reports an overridden setting, and the panel that disables a terminal level's controls
@@ -437,7 +439,7 @@ export function clampMergeGroupSize(mergeGroupSize: number): number {
  * interval is open at zero and so has no least element to clamp to. A zero or negative fraction asks
  * for a cut of no depth, which produces segments with no area and a residue equal to the whole region
  * — a recursion that subdivides nothing. Full depth is the honest reading of "no usable depth was
- * asked for": it is the behaviour that predates this option.
+ * asked for": segments that tile the region, and no residue.
  */
 export function clampDepthFraction(depthFraction: number): number {
     if (!Number.isFinite(depthFraction) || depthFraction <= 0) {
@@ -467,9 +469,8 @@ export const FALLBACK_LEVEL_SPEC: LevelSpec = {
 /**
  * One spec per level, its length forced into `[1, 3]` and every field inside its own range.
  *
- * THE LENGTH IS CLAMPED THROUGH {@link clampLevels}, the same function the level count went through
- * when it was a number, so the depth this driver will run to is bounded by exactly one formula however
- * it is asked for. Entries past the maximum are dropped rather than folded into the last one: a fourth
+ * THE LENGTH IS CLAMPED THROUGH {@link clampLevels}, the same function a level count goes through,
+ * so the depth this driver will run to is bounded by exactly one formula however it is asked for. Entries past the maximum are dropped rather than folded into the last one: a fourth
  * level's spec has nowhere to apply, and merging it into the third would be running a spec against a
  * region it was not written for.
  */
@@ -501,7 +502,7 @@ export type LevelPolicy = Omit<LevelSpec, 'mergeGroupSize'> & {
  *
  * Gathered into one value rather than threaded as separate parameters because it is constant for the
  * whole tree: a node that read a different depth or a different floor from the level it belongs to
- * would be the defect this arc exists to prevent, and passing one frozen record makes that impossible
+ * would be the defect this record exists to prevent, and passing one frozen record makes that impossible
  * to write by accident. WHAT IS CONSTANT IS THE ARRAY, not one spec — the array is indexed by level,
  * and a node at level `n` may only ever read `levels[n]`.
  */
@@ -522,9 +523,10 @@ export interface RecursiveRun {
      * BOTH ARE CARRIED BECAUSE THEY LIVE IN DIFFERENT SPACES AND ANSWER AT DIFFERENT SITES.
      * {@link rootNoiseFloor} is this value in caller units, restated per region for canonicalisation;
      * this one goes to each region's solve untouched, because the coincidence bar it reaches is
-     * evaluated in whatever unit space that region has — which is precisely what it did when it was
-     * a module constant. Journal decision 106 moves where the number comes from and nothing else; the
-     * asymmetry between the two is audit §7.2 decision 9 and is still OPEN.
+     * evaluated in whatever unit space that region has. The client supplies the number (RSA.D106).
+     * The asymmetry between the two — the root's floor restated for canonicalisation, the raw floor
+     * for each region's coincidence bar — is kept split (tolerance unification audit §7.2, decision 9;
+     * tolerance-derivation spec, T6).
      */
     perceptualFloor: number;
 }
@@ -546,8 +548,20 @@ function toLevelPolicy(spec: LevelSpec): LevelPolicy {
  * Every node of the returned tree either carries the segments it was divided into or a `failure`
  * saying why it was not — including the root, which is returned as a failed node rather than
  * throwing, so a caller always has something to draw.
+ *
+ * HOLES ARE REFUSED BY A THROW (skeleton loop-consumers spec, decision 23). The driver takes one ring by type and
+ * solves it without holes, so an options object carrying a non-empty `holes` would otherwise subdivide the outline
+ * alone and say nothing — the same guard the legacy single-loop entries carry. That is a caller error, not a
+ * region the driver failed on, so it throws rather than returning a failed root.
  */
 export function subdivideRecursively(boundary: Vector2[], options: RecursiveOptions): RecursiveNode {
+    const holes = (options as {holes?: unknown} | undefined)?.holes;
+    if (Array.isArray(holes) && holes.length > 0) {
+        throw new Error(
+            `subdivideRecursively takes one ring and no holes, and was given ${holes.length}: it solves its boundary `
+            + `without holes, so it would subdivide the outline alone. Solve the outline with its holes through `
+            + `solveSkeleton and read every loop through computeStrips.`);
+    }
     const perceptualFloor = resolvePerceptualFloor(options);
     return subdivideNode(boundary, 0, {id: ROOT_REGION_ID, provenance: {kind: 'root'}}, {
         levels: clampLevelSpecs(options.levels).map(toLevelPolicy),
@@ -590,12 +604,11 @@ export function flattenRecursiveTree(node: RecursiveNode): RecursiveNode[] {
  * The standing noise floor as a length in the caller's coordinates, measured on the ROOT region.
  *
  * The perceptual floor is a UNIT-SPACE value, so what it means as a world length depends on the
- * extent it was normalised against. Measuring it once here against the root's extent is decision 7 of
- * the canonicalisation spec: the floor is a property of the region the caller handed in, not of
- * whichever sliver the recursion is currently holding.
+ * extent it was normalised against. It is measured once, here, against the root's extent: the floor
+ * is a property of the region the caller handed in, not of whichever sliver the recursion is
+ * currently holding (input canonicalisation spec, decision 7).
  *
- * `perceptualFloor` IS THE CLIENT'S (journal decision 106), defaulting to `SKELETON_NOISE_FLOOR`.
- * Only the source of the number changes; what it means here does not.
+ * `perceptualFloor` IS THE CLIENT'S (RSA.D106), defaulting to `SKELETON_NOISE_FLOOR`.
  */
 function rootNoiseFloor(boundary: Vector2[], perceptualFloor: number): number {
     return denormaliseLength(makeSkeletonNormalisation(boundary), perceptualFloor);
@@ -630,7 +643,7 @@ interface RegionCanonicalisation {
  * out of unit space. Canonicalisation deletes vertices and never moves the ones it keeps, and the
  * remap is what carries that fact across the normalisation seam: taking the surviving coordinates
  * from `region` itself makes {@link RecursiveNode.canonicalAreaDrift} EXACTLY zero wherever nothing
- * was removed, which is what decision 7 asks for. Reading the solved graph's exterior ring instead
+ * was removed. Reading the solved graph's exterior ring instead
  * looks equivalent and is not — measured across the corpus at three depths and four merge groups, it
  * differs from the input by up to `1.4e-14` on rings that lost no vertex at all, because
  * normalisation's CENTRING translation is not exactly invertible even though its power-of-two scale
@@ -674,13 +687,15 @@ export type SegmentOutcome =
     | {canonicalBoundary: Vector2[]; segments?: undefined; residueRings?: undefined; failure: string};
 
 /**
- * Decision 5's degeneracy test: why this region has no skeleton, or `undefined` when it has one.
+ * The degeneracy test: why this region has no skeleton, or `undefined` when it has one. A region with
+ * fewer than three vertices, or with no visible width, is not recursed (recursive segment subdivision
+ * spec, decision 5).
  *
  * `solveSkeleton` throws below three vertices and a zero-area polygon has no skeleton to speak of;
  * both are reported the same way as a solve that merely failed, because to the caller they are the
  * same event — this cell was not subdivided.
  *
- * THE BAR IS "NO VISIBLE WIDTH" (C8 spec T23, O3 form (b), journal decision 159(b)): the ROOT floor
+ * THE BAR IS "NO VISIBLE WIDTH" (C8 spec T23, O3 form (b), RSA.D159(b)): the ROOT floor
  * restated in caller units — the same restatement canonicalisation uses (S47) — times half the region's
  * caller-unit perimeter. A region whose mean width `2A / P` is under the floor is a tile the client
  * cannot see is a tile.
@@ -690,7 +705,7 @@ function degenerateRegionFailure(
     rootFloor: number,
 ): Extract<RegionOutcome, {kind: 'declined-degenerate'}> | undefined {
     // Reported with the area it was measured at, and the bar, not just the sentence that quotes them:
-    // journal decision 96 accepts the decline as correct behaviour, so the numbers that made the call
+    // RSA.D96 accepts the decline as correct behaviour, so the numbers that made the call
     // are a measurement a reader checks rather than a fragment to parse back out.
     const area = boundary.length < 3 ? 0 : Math.abs(signedArea(boundary));
     if (boundary.length < 3) {
@@ -768,8 +783,8 @@ function canonicalAreaDrift(boundary: Vector2[], canonicalBoundary: Vector2[]): 
  *
  * FULL DEPTH IS A SEPARATE CODE PATH, DELIBERATELY. `computeOffsetRings` at the maximum offset
  * returns nothing because the wavefront has been consumed — but "returns nothing" and "is not asked"
- * are different claims, and only the second makes full depth exactly the behaviour that predates the
- * residue stream regardless of what the projection does at its own boundary.
+ * are different claims, and only the second guarantees that full depth yields no residue regardless of
+ * what the projection does at its own boundary.
  */
 function residueAt(result: SkeletonSolveResult, depth: number, depthFraction: number): Vector2[][] {
     return depthFraction >= FULL_DEPTH_FRACTION ? [] : computeOffsetRings(result, depth);
@@ -824,9 +839,9 @@ function subdivideNode(
 ): RecursiveNode {
     // Screened before the winding is touched: a region with no area has no winding to normalise, so
     // it is recorded exactly as it was handed in rather than arbitrarily reversed on the way out.
-    // This is also where a residue ring too small or too thin to be a polygon is caught: decision 4
-    // discards it from the recursion, and it is recorded here in the same shape a failed segment
-    // child is, because to the caller the two are the same event.
+    // This is also where a residue ring too small or too thin to be a polygon is caught: it is
+    // discarded from the recursion (partial-depth residue spec, decision 4), and it is recorded here
+    // in the same shape a failed segment child is, because to the caller the two are the same event.
     // A degenerate region is turned away BEFORE anything is canonicalised, which is the one case in
     // which a node really is its own canonical form with a drift of exactly zero.
     const degeneracy = degenerateRegionFailure(boundary, run.rootNoiseFloor);

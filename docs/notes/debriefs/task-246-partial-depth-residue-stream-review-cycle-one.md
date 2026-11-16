@@ -1,3 +1,11 @@
+---
+title: "Task 246 — Partial depth and the residue stream (review cycle 1 response)"
+type: workflow
+area: subdivision
+status: archived
+date: 2026-08-17
+---
+
 # Task 246 — Partial depth and the residue stream (review cycle 1 response)
 
 ## Task Summary

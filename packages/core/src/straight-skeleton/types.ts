@@ -1,5 +1,7 @@
 import type { Vector2 } from '../shared/types';
 import type { SkeletonNormalisation } from './normalisation';
+import type { StepScope } from './step-scope';
+import type { WavefrontProbe } from './wavefront-check';
 export type { Vector2 } from '../shared/types';
 
 export interface PolygonNode {
@@ -34,7 +36,7 @@ export enum SkeletonDirection {
  * A wavefront arrival TIME, carried as the pair it was derived from (W-spec W7).
  *
  * `distance` is the perpendicular distance of the arrival point from the CLOCKWISE PARENT's
- * supporting line — exactly the number `makeOffsetDistance` has always computed — and `weight` is
+ * supporting line — the number `makeOffsetDistance` computes — and `weight` is
  * that parent's speed. The time is `distance / weight`, and {@link timeOf} performs that division
  * for reporting, sorting keys and denormalisation only.
  *
@@ -55,8 +57,8 @@ export interface Arrival {
      * products and sums — see `arrivalUncertainty` and the error-model section of constants.ts. Set
      * ONCE, where the arrival is priced; `0` only for a quantity with no arithmetic in it (a boundary
      * vertex's zero, a bound). `pairSimultaneityWindow` widens a pair's simultaneity window by the two
-     * budgets — landed and measured, but NOT spent: register C12's move of the seven window sites to it
-     * STOPPED (see `HELD_SIMULTANEITY_WINDOW`).
+     * budgets; no window site reads that form, because moving the seven window sites to it is a measured
+     * STOP (register C12; see `HELD_SIMULTANEITY_WINDOW`).
      */
     uncertainty: number;
 }
@@ -68,8 +70,7 @@ export interface InteriorEdge {
     length: number;
     /**
      * The latest TIME at which this bisector can still be carrying a wavefront vertex (W-spec W5,
-     * W16). At unit weights a time and a distance are the same double, which is why this field kept
-     * its name.
+     * W16). Named as an offset because at unit weights a time and a distance are the same double.
      */
     maxOffset?: number;
     /**
@@ -101,6 +102,42 @@ export interface StraightSkeletonGraph {
      * reads a weight after a merge. See `graph-merge.ts`.
      */
     exteriorWeights: number[];
+    /**
+     * THE LOOP TABLE (skeleton loops-input spec, decisions 3, 6 and 7): loop 0 is the outline and loop `k` the
+     * caller's hole `k - 1`, each a run of exterior ids `start .. start + count - 1` in its solved vertex order.
+     * Loops are contiguous from 0, each `count` is at least 3, the counts sum to `numExteriorNodes`, and an
+     * exterior node's id equals its exterior edge's id. The outline's ids are therefore the ids a single-loop
+     * solve of it gives, and a single-loop graph carries `[{start: 0, count: numExteriorNodes}]`.
+     *
+     * PLAIN DATA, ON THE GRAPH, because stepped snapshots clone the graph only (BSA.F93). The next or previous
+     * exterior edge is read through `adjacentExteriorEdge` (graph-helpers.ts), never by arithmetic on ids.
+     *
+     * ON A MERGED GRAPH this is EMPTY (decision 11): the merge renumbers exterior ids across sub-graphs, so they
+     * are not `0 .. numExteriorNodes - 1` and no table can describe them, and the accessors refuse it by name.
+     */
+    loops: SkeletonLoop[];
+}
+
+/** One loop of the exterior boundary: exterior ids `start .. start + count - 1` (skeleton loops-input spec, decision 3). */
+export interface SkeletonLoop {
+    start: number;
+    count: number;
+}
+
+/**
+ * How one loop of the caller's input maps onto the solved graph (skeleton loops-input spec, decisions 3 and 24),
+ * built from canonicalisation's `indexRemap` and then the winding reversal.
+ */
+export interface SkeletonLoopMap {
+    /** Caller vertex `i` to the exterior node it became, or `REMOVED_VERTEX_INDEX` where canonicalisation removed it. */
+    vertexToNode: number[];
+    /**
+     * Caller edge `i` (vertex `i` to vertex `i + 1`) to the exterior edge id that carries it. Where the edge's
+     * start vertex was removed, that is the merged edge leaving the nearest surviving vertex before it.
+     */
+    edgeToEdge: number[];
+    /** True when winding normalisation reversed this loop. */
+    reversed: boolean;
 }
 
 export interface RayProjection {
@@ -137,26 +174,59 @@ export interface GraphHelpers {
     isPrimaryNonReflex(edgeId: number): boolean;
     updateMaxOffset(edgeId: number, length: number): void;
     isReflexEdge(edgeA: InteriorEdge): boolean;
-    clockwiseSpanExcludingAccepted(firstEdge: PolygonEdge, secondEdge: PolygonEdge): number;
-    clockwiseSpanIncludingAccepted(firstEdge: PolygonEdge, secondEdge: PolygonEdge): number;
     widdershinsBisector(edgeId: number): PolygonEdge;
     clockwiseBisector(edgeId: number): PolygonEdge;
-    /** `localTime` is a TIME; it is multiplied by the exterior edge's own weight (W-spec W40). */
-    clockwiseVertexAtOffset(edgeId: number, localTime: number): Vector2;
-    /** `localTime` is a TIME; it is multiplied by the exterior edge's own weight (W-spec W40). */
-    widdershinsVertexAtOffset(edgeId: number, localTime: number): Vector2;
     /** Terminate `edgeIds` at the node at `position` ({@link findOrAddNode}), carrying its error budget. */
     terminateEdgesAtPoint(edgeIds: number[], position: Vector2, positionUncertainty: number): PolygonNode;
     crossWireEdges(id1: number, id2: number): void;
     parentEdges(interiorEdgeId: number): { clockwise: PolygonEdge; widdershins: PolygonEdge };
     parentEdge(interiorEdgeId: number, direction: SkeletonDirection): PolygonEdge;
     exteriorParentsOfSubPolygon(interiorEdgeIds: number[]): number[];
-    validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, arrival: Arrival): boolean;
+    /**
+     * Every segment of `edgeToSplitId` the bisector's split validates on, in `activeExteriorEdgeSegments`' order
+     * (ascending `from`), and empty when none does (skeleton join-and-divide spec, decision 5, amending the
+     * wavefront-order spec's decision 11). Inside a step only segments whose `from` stands in the current step are
+     * searched (decision 4); outside one, every segment of the edge.
+     */
+    validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, arrival: Arrival): WavefrontSegment[];
+    /**
+     * Where the wavefront vertex a live bisector traces stands at TIME `time` (skeleton join-and-divide spec,
+     * decision 12): read against its own clockwise parent, from its birth arrival, as `validateSplitReachesEdge`
+     * reads a segment's ends.
+     */
+    wavefrontVertexAt(bisectorId: number, time: number): Vector2;
+}
+
+/**
+ * The wavefront's order, STORED (skeleton wavefront-order spec, decisions 1 to 7): each live bisector's
+ * two neighbours around its ring. Both arrays are indexed by edge id, as `acceptedEdges` is — the
+ * exterior edges' slots and every bisector that is not live hold `-1`.
+ *
+ * PLAIN DATA, two arrays of numbers, so a `structuredClone` of the context carries it (decision 7).
+ * Written by the events that change the wavefront's shape (`wavefront-links.ts`, `layer-links.ts`), and the solver's one source of
+ * wavefront order: the segments of an edge, the neighbour guard, the rings of a step and the child steps of a
+ * partitioning layer are all read from it (spec decisions 19 and 20).
+ */
+export interface Wavefront {
+    clockwiseNeighbour: number[];
+    widdershinsNeighbour: number[];
+}
+
+/**
+ * One live segment of an exterior edge, as a linked pair (spec decision 5): `from` is the bisector whose
+ * clockwise parent is `exteriorEdge`, and `to` is `from`'s clockwise neighbour.
+ */
+export interface WavefrontSegment {
+    exteriorEdge: number;
+    from: number;
+    to: number;
 }
 
 export interface StraightSkeletonSolverContext extends GraphHelpers {
     graph: StraightSkeletonGraph;
     acceptedEdges: boolean[];
+    /** The wavefront's neighbour links (spec decision 1), the solver's source of wavefront order. */
+    wavefront: Wavefront;
     collisionCache: CollisionCache;
     /**
      * The client's perceptual floor for this solve, in the unit space the graph is being solved in.
@@ -196,9 +266,9 @@ export interface StraightSkeletonSolverContext extends GraphHelpers {
      * {@link perceptualFloor} by `simultaneityWindow` at context construction and carried here beside
      * {@link coaxialityFloor} and {@link angularResolution}, so every window site — the layer, the
      * phantom test, the snap's equal-time check, the closure's simultaneity and the three
-     * birth-causality tests — can spend one double. NOT YET SPENT: the sites hold
-     * `HELD_SIMULTANEITY_WINDOW` (1e-8) under the T37 STOPs of C8 dispatches 1 and 2 and of register
-     * C12; see constants.ts.
+     * birth-causality tests — can spend one double. CARRIED, UNSPENT: no production site reads it; every
+     * window site reads `HELD_SIMULTANEITY_WINDOW` (1e-8), held by measured T37 STOPs (register C12; see
+     * constants.ts).
      */
     simultaneityWindow: number;
     /**
@@ -214,12 +284,24 @@ export interface StraightSkeletonSolverContext extends GraphHelpers {
     /**
      * Informational reports the SOLVE itself made, as opposed to the boundary stage.
      *
-     * The only producer today is A19's coaxial completion, which is entered deep inside the per-arity
+     * The producers are A19's coaxial completion, which is entered deep inside the per-arity
      * handlers and has no other way to be heard: `stepAlgorithm` carries THROWN messages out on
-     * `errors`, and a completion is by definition the case that did not throw. `solveSkeleton` drains
-     * this onto its own `diagnostics`, so a completion is signalled, never silent.
+     * `errors`, and a completion is by definition the case that did not throw; and the refusals of a
+     * step of several rings (`simultaneous-across-rings`, `multi-ring-step-refused`; skeleton
+     * join-and-divide spec), which throw as well and are named here by kind. `solveSkeleton` drains
+     * this onto its own `diagnostics`, so neither is silent.
      */
     diagnostics: SkeletonDiagnostic[];
+    /**
+     * The step being handled, or `null` outside one (skeleton join-and-divide spec, decisions 4 and 22): opened and
+     * closed by `handleAlgorithmStepInput` (`beginStep`, `endStep`), read by `validateSplitReachesEdge` and `refuseStep`.
+     */
+    step: StepScope | null;
+    /**
+     * The standing gate's probe (skeleton wavefront-order spec, decision 23), or `null` in a normal solve. Taken when
+     * the context is made from the test suite's installation (`setWavefrontProbe`), and read at the step boundaries.
+     */
+    probe: WavefrontProbe | null;
 }
 
 export type IntersectionType =
@@ -259,8 +341,9 @@ export interface SplitOffsetResult {
     intersectionData: IntersectionResult;
 }
 
-export interface CollisionEvent {
-    /** A TIME — `timeOf(arrival)` (W-spec W5). At unit weights this is today's distance. */
+/** The fields every collision event carries, whatever its type. */
+interface CollisionEventFields {
+    /** A TIME — `timeOf(arrival)` (W-spec W5). At unit weights it equals the arrival's distance. */
     offsetDistance: number;
     /** The pair every predicate reads (W-spec W7, W22). */
     arrival: Arrival;
@@ -269,17 +352,43 @@ export interface CollisionEvent {
      * carried onto the node the event creates (`StraightSkeletonSolverContext.positionUncertainties`).
      */
     positionUncertainty: number;
-    collidingEdges: number[]; // first two are instigator and main result, i.e. exterior edge if split, otherwise intersection. Other indices if present are bisector rays to also accept in this event.
+    /** `[instigator, target]`: the target is the struck exterior edge for a split, the other bisector otherwise. */
+    collidingEdges: [number, number];
     position: Vector2;
     intersectionData: IntersectionResult
-    eventType: CollisionType
 }
 
-/** Sentinel stored in the collision cache when collideEdges returned null. */
-export const NO_COLLISION_SENTINEL = Symbol('no-collision');
+/** Two bisectors meeting: neighbours on the wavefront (`interiorPair`) or not (`interiorNonAdjacent`). */
+export interface PairEvent extends CollisionEventFields {
+    eventType: 'interiorPair' | 'interiorNonAdjacent';
+}
 
-/** A single cache entry: either a real CollisionEvent, or the sentinel for "computed, was null". */
-export type CollisionCacheEntry = CollisionEvent[] | typeof NO_COLLISION_SENTINEL;
+/** A bisector striking an exterior edge: a split. */
+export interface SplitEvent extends CollisionEventFields {
+    eventType: 'interiorAgainstExterior';
+    /**
+     * The segment of the struck exterior edge this split validated on (spec decision 11); the split rewrites the
+     * wavefront's links around it (decision 12).
+     */
+    struckSegment: WavefrontSegment;
+}
+
+/**
+ * An event the solver prices and never resolves: a pair whose two readings disagree (`phantomDivergentOffset`), or an
+ * event past its instigator's bound (`outOfBounds`, which `collideEdges` marks and which keeps a split's segment).
+ */
+export interface UnresolvableEvent extends CollisionEventFields {
+    eventType: 'phantomDivergentOffset' | 'outOfBounds';
+    struckSegment?: WavefrontSegment;
+}
+
+/** The events a layer resolves: `createCollisions` keeps only these. */
+export type ResolvableEvent = PairEvent | SplitEvent;
+
+export type CollisionEvent = ResolvableEvent | UnresolvableEvent;
+
+/** A single cache entry: the events `collideEdges` returned for the pair, empty when there are none. */
+export type CollisionCacheEntry = CollisionEvent[];
 
 /**
  * Nested map keyed by (edgeIdA, edgeIdB) in call order.
@@ -290,11 +399,9 @@ export type CollisionCache = Map<number, Map<number, CollisionCacheEntry>>;
 /**
  * A bisector to be born: which two exterior parents bound it, and which node it leaves from.
  *
- * NO DIRECTION HINT, AND THAT IS DELIBERATE. This carried an `approximateDirection` that
- * `addBisectionEdge` used to flip the parent-derived basis with. The basis is never in doubt — the
- * offset rate decides it, and where the rate is zero the parents are anti-parallel and their
- * ORDERING decides it — so the hint could only ever overrule a correct answer, and measurably did:
- * see `addBisectionEdge`.
+ * NO DIRECTION HINT, AND THAT IS DELIBERATE. The basis is never in doubt — the offset rate decides
+ * it, and where the rate is zero the parents are anti-parallel and their ORDERING decides it — so a
+ * hint could only ever overrule a correct answer: see `addBisectionEdge`.
  */
 export interface BisectionParams {
     clockwiseExteriorEdgeIndex: number;
@@ -314,14 +421,14 @@ export interface AlgorithmStepInput {
     interiorEdges: number[]
 }
 
+/** What `stepAlgorithm` returns. A handler of one input returns its child steps alone, as `AlgorithmStepInput[]`. */
 export interface AlgorithmStepOutput {
     childSteps: AlgorithmStepInput[]
     /**
-     * Messages for sub-polygons that threw while being handled. Populated by `stepAlgorithm`,
-     * which catches per-sub-polygon exceptions so that sibling sub-polygons still resolve.
-     * Absent (or empty) means every input was handled without error.
+     * Messages for sub-polygons that threw while being handled. `stepAlgorithm` catches per-sub-polygon exceptions
+     * so that sibling sub-polygons still resolve. Empty means every input was handled without error.
      */
-    errors?: string[]
+    errors: string[]
 }
 
 /**
@@ -342,9 +449,42 @@ export interface AlgorithmStepOutput {
  * - `causality-violation`    — the solved graph breaks wavefront causality by one of the four
  *   post-solve oracles (journal-5 decision 148, C8 spec T18): one diagnostic per violation, carried as a
  *   {@link CausalityViolationDiagnostic}. INFORMATIONAL with respect to `complete` — `complete` keeps
- *   its meaning (every exterior edge accepted, no step failure, no unresolved edge) — but it is what
+ *   its meaning (no blocking diagnostic and at least one interior edge; it reads no exterior edge's
+ *   acceptance) — but it is what
  *   makes a wrong answer SIGNALLED: a solve can never report `complete: true` with empty diagnostics
  *   while violating wavefront causality. See `causality-check.ts`.
+ * - `simultaneous-across-rings` — a layer of a step of several rings was refused because events of different
+ *   rings coincide in it in a form the solver does not settle (simultaneous-rings decisions 20 to 22; flat-ring and
+ *   third-front decisions 31 and 44): a vertex event across rings that is not one run on each of two rings, a layer
+ *   that cannot be resolved whole holding an event across rings, or a meeting on a third front that cannot be resolved
+ *   as one whole event — in a layer not resolved whole, or where the meeting's strikes hit more than one wall, a run of
+ *   it is its whole ring, not exactly one of its gaps faces the struck wall, or a gap grazes the wall or lies between
+ *   same-facing parallel walls of unequal weight. BLOCKING, and refused before the layer changed anything; the detail
+ *   names the step, its rings, the events and the decision.
+ * - `multi-ring-step-refused` — a step of several rings could not be handled generically and was refused: a ring
+ *   of fewer than three bisectors at its start, no event at all, a ring of three or more the layer left with no visible
+ *   area that is not a flat termination (the detail names the clause of the flatness test it fails), or a ring of
+ *   three or more with area that cannot be told outer from inner or assigned to a component without guessing
+ *   (join-and-divide decisions 16, 22 and 23; a ring of two is a corridor and its own child, simultaneous-rings
+ *   decision 12; a flat ring is closed in its step, flat-ring and third-front decisions 7 to 28). BLOCKING; the detail
+ *   names the step and the ring.
+ * - `holed-topology-violation` — a solve with holes that would otherwise be complete has a finished interior graph
+ *   that is not one connected graph of cycle rank equal to the hole count (an arc recorded from both ends counted
+ *   once, culled edges and self-loops skipped), or an arc whose two records name different pairs of walls (BSA.D314,
+ *   BSA.D318, `holed-guard.ts`). BLOCKING; the detail names the component count, the rank or the arc. Never pushed on
+ *   a single-loop solve.
+ * - `holed-equal-time-violation` — a solve with holes that would otherwise be complete has an interior node that is
+ *   not at one time from every wall meeting there, within the perceptual floor in unit space (BSA.D314). BLOCKING;
+ *   the detail names the node and the two walls furthest apart. Never pushed on a single-loop solve.
+ * - `holed-time-order-violation` — a solve with holes that would otherwise be complete has a non-culled interior edge
+ *   whose target is earlier than its source, beyond the perceptual floor in unit space (BSA.D318). BLOCKING; the
+ *   detail names the edge. Never pushed on a single-loop solve.
+ * - `holed-planarity-violation` — a solve with holes that would otherwise be complete has two arcs that cross inside
+ *   both, or two collinear arcs that overlap, beyond the perceptual floor in unit space (BSA.D318). BLOCKING; the
+ *   detail names both arcs. Never pushed on a single-loop solve.
+ * - `holed-unculled-self-loop` — a solve with holes that would otherwise be complete has a zero-length self-loop the
+ *   solver did not mark culled (BSA.D318). INFORMATIONAL: it does not make a result incomplete. Never pushed on a
+ *   single-loop solve.
  */
 export type SkeletonDiagnosticKind =
     'winding-normalised'
@@ -353,7 +493,49 @@ export type SkeletonDiagnosticKind =
     | 'step-failure'
     | 'unresolved-edges'
     | 'coaxial-completion'
-    | 'causality-violation';
+    | 'causality-violation'
+    | 'simultaneous-across-rings'
+    | 'multi-ring-step-refused'
+    | 'holed-topology-violation'
+    | 'holed-equal-time-violation'
+    | 'holed-time-order-violation'
+    | 'holed-planarity-violation'
+    | 'holed-unculled-self-loop';
+
+/**
+ * The two kinds a step of several rings is refused with (join-and-divide decisions 16, 22 and 23; simultaneous-rings
+ * decisions 20 to 24), by `refuseStep`. Both are blocking; `STEP_REFUSAL_KINDS` in `diagnostic-kinds.ts` lists them.
+ */
+export type StepRefusalKind = 'simultaneous-across-rings' | 'multi-ring-step-refused';
+
+/**
+ * Why a solve entry refused its input outright, by a thrown `SkeletonInputRefusal` (`input-refusal.ts`), before any
+ * solve ran. Each names the rule the input breaks:
+ *
+ * - `too-few-vertices`             — a loop of fewer than three vertices.
+ * - `non-finite-vertex`            — a vertex coordinate that is not a finite number.
+ * - `weight-count`                 — a weight array not one weight per vertex (W-spec W1).
+ * - `weight-not-finite-positive`   — a weight that is not a finite, strictly positive number (W-spec W2).
+ * - `weight-ratio`                 — the fastest weight over the slowest exceeds `maxWeightRatio` (W-spec W3, W48).
+ * - `weight-change-without-corner` — a weight change at a turn below `minWeightTurnSine`: weights may change only at a
+ *   visible corner (W-spec W49).
+ * - `mis-wound-loop`               — under `normaliseWinding: false`, a holed input's loop wound the wrong way.
+ * - `loop-conflict`                — the loops of a holed input cross, touch, nest wrongly, or a hole is degenerate;
+ *   the message names the conflict (`LoopConflictKind`).
+ * - `loop-table`                   — a loop table that does not tile the nodes, or holds a loop of fewer than three.
+ * - `holes-on-legacy-entry`        — holes given to a legacy entry, which has no diagnostics channel to report them on.
+ */
+export type SkeletonInputRefusalKind =
+    'too-few-vertices'
+    | 'non-finite-vertex'
+    | 'weight-count'
+    | 'weight-not-finite-positive'
+    | 'weight-ratio'
+    | 'weight-change-without-corner'
+    | 'mis-wound-loop'
+    | 'loop-conflict'
+    | 'loop-table'
+    | 'holes-on-legacy-entry';
 
 /** Every diagnostic kind except `causality-violation`, which carries structured fields of its own. */
 export type GeneralSkeletonDiagnosticKind = Exclude<SkeletonDiagnosticKind, 'causality-violation'>;
@@ -408,10 +590,14 @@ export interface SkeletonSolveResult {
      */
     context: StraightSkeletonSolverContext | null;
     /**
-     * True when the skeleton is fully resolved: no `step-failure` and no `unresolved-edges`
-     * diagnostics, and the graph has at least one interior edge. A `winding-normalised`,
+     * True when the skeleton is fully resolved: no `step-failure`, `unresolved-edges`,
+     * `simultaneous-across-rings`, `multi-ring-step-refused`, `holed-topology-violation`,
+     * `holed-equal-time-violation`, `holed-time-order-violation` or `holed-planarity-violation` diagnostics, and the
+     * graph has at least one interior edge. It reads no exterior edge's acceptance. The holed kinds come from the guard
+     * a solve with holes runs last (BSA.D314, BSA.D318); its `holed-unculled-self-loop` is informational. A `winding-normalised`,
      * `vertices-canonicalised` or `self-intersecting` diagnostic on its own does not make a result
-     * incomplete — all three are informational reports of what the boundary stage did to the input.
+     * incomplete — all three are informational reports of what the boundary stage did to the input. The informational
+     * kinds are `INFORMATIONAL_DIAGNOSTIC_KINDS`, and `isBlockingDiagnosticKind` reads them (`diagnostic-kinds.ts`).
      */
     complete: boolean;
     diagnostics: SkeletonDiagnostic[];
@@ -420,8 +606,8 @@ export interface SkeletonSolveResult {
      * carried so that downstream consumers can scale their own LENGTH-DIMENSIONED INPUTS across the
      * same seam.
      *
-     * The solver's `1e-8` epsilon is absolute, so the polygon is normalised to unit extent before
-     * solving and denormalised afterwards; anything a caller feeds back in that is measured in the
+     * The solver's tolerances are absolute in unit space, so the polygon is normalised to unit extent
+     * before solving and denormalised afterwards; anything a caller feeds back in that is measured in the
      * caller's units has to make the same trip. Strip depth and `minWidth`/`maxWidth` go through
      * `normaliseLength`; `minArea`/`maxArea` go through `normaliseArea`, which squares. Dimensionless
      * quantities — fractions of the maximum offset, aspect-ratio bounds — cross the seam untouched.
@@ -432,7 +618,187 @@ export interface SkeletonSolveResult {
      * and remapped through every boundary-stage index change — canonicalisation's removals and the
      * winding reversal (W-spec W45). Length matches `graph.numExteriorNodes` on the simple path.
      *
-     * All ones when the caller passed no weights.
+     * All ones when the caller passed no weights. A holed solve carries every loop's weights, concatenated in
+     * exterior id order (skeleton loops-input spec, decision 34).
      */
     weights: number[];
+    /**
+     * Each loop of the caller's input mapped onto the solved graph (skeleton loops-input spec, decisions 3, 24 and
+     * 25): index 0 the outline, then the holes in the order given. `null` EXACTLY WHEN `context` is `null`, on the
+     * self-intersecting single-loop path, because the decomposition renumbers; every other solve carries a map per
+     * loop, its reversal included.
+     */
+    loopMaps: SkeletonLoopMap[] | null;
+}
+
+/**
+ * The client's perceptual floor, taken once and applied to every floor-derived bar in the solve.
+ *
+ * ONE FLOOR, SET ONCE, IN UNIT SPACE. Journal decision 106: the solver must not create geometry the
+ * client will throw away in its renderer, so the value that decides "can this be seen?" belongs to
+ * the client, not to this module. {@link SKELETON_NOISE_FLOOR} is the library DEFAULT — conservative,
+ * for a headless consumer with no rendering limits to measure — and a client with a known zoom cap
+ * derives its own and passes it here. Omitting the option solves at {@link SKELETON_NOISE_FLOOR}.
+ *
+ * EVERY PERCEPTUAL QUESTION IN THE SOLVE READS THIS ONE FLOOR (C8 spec T2, T25; journal decisions 144
+ * and 157). Under the tolerance-derivation spec's category rule, a comparison that decides a QUESTION the arithmetic cannot decide — about
+ * input geometry, or about candidate events before any node exists — takes δ, and the solve derives
+ * every such bar from this value once, at context construction:
+ *
+ *   - {@link canonicalisePolygon}'s deviation bar — "this boundary vertex cannot be seen, so the
+ *     solver never sees it either" — the ROOT floor restated in region units by the recursion driver,
+ *     strictly below (the same inequality as every other "same point before any node" bar, T7);
+ *   - the coincidence clustering's `isOneEvent` bar (`coincident-events.ts`), anchored (decision 155);
+ *   - the coaxiality lane, `coaxialityFloor(δ) = δ` (spec A9/A10);
+ *   - the angular resolution, `angularResolution(δ)` (spec A1–A8);
+ *   - the simultaneity window's cap, `simultaneityWindow(δ) = δ` (C8 spec T12–T14; its seven sites are
+ *     held at a measured STOP);
+ *   - the degeneracy bar, `degenerateAreaBar(δ, perimeter)` — the root floor restated in caller units in
+ *     the recursion, the solve's floor in unit space in the decomposition (T23, O3 form (b));
+ *   - the solver's own causality check (journal decisions 148, 149);
+ *   - the weight door's two bounds, `maxWeightRatio(δ)` and `minWeightTurnSine(δ, Δw)` (T21, T22).
+ *
+ * What is NOT floor-derived is so by the same rule, not by exemption: a comparison whose acceptance
+ * DISCARDS OR SUBSTITUTES an answer already produced takes the unit roundoff (`findOrAddNode`'s
+ * same-point bar, whose derivation is held by its O1 STOP; the moment bar `ARRIVAL_MOMENT_ULPS`), and
+ * a division guard takes its own rounding bound. The strip and parcel constants
+ * are classified and not re-derived (T27, O5); and the test-side bars are instruments, held tighter
+ * than any floor on purpose (audit §7.1 decision 5).
+ *
+ * WHAT THE OPTION CHANGES IS WHERE A VALUE COMES FROM, NEVER WHAT IT MEANS. Each bar above keeps its
+ * own space and its own predicate; only the number substituted for {@link SKELETON_NOISE_FLOOR} is
+ * the client's. In particular the recursion driver's root-floor pass-down stands: the
+ * canonicalisation bar is the ROOT's floor restated in the region's units while the coincidence bar
+ * is the raw floor in whatever unit space the region has. That asymmetry is audit §7.2 decision 9,
+ * open, and this option does not settle it.
+ */
+export interface PerceptualFloorOptions {
+    /**
+     * The smallest separation the client can render as two things rather than one, IN UNIT SPACE —
+     * a fraction of the polygon's own extent, because the solve is normalised to unit extent before
+     * anything looks at it. Defaults to {@link SKELETON_NOISE_FLOOR}.
+     *
+     * Derive it, do not pick it: viewport pixels ÷ (zoom cap × the reference world extent) is the
+     * chain, and `apps/demo` carries a worked example at its two solver pages.
+     */
+    perceptualFloor?: number;
+}
+
+/**
+ * Per-edge wavefront speeds (arc journal decision 112(a), W-spec W1–W4).
+ *
+ * ONE ENTRY PER INPUT VERTEX. `weights[i]` is the speed of the edge from vertex `i` to vertex
+ * `(i + 1) % n`. Omitted, or an empty array, means all ones — which is bit-identical to the
+ * unweighted solver by construction, because every weighted site multiplies or divides by exactly
+ * `1.0` and there is no branch on unit weights anywhere (W-spec W36).
+ *
+ * WHAT A WEIGHT MEANS. The wavefront of edge `i` stands at perpendicular distance `w_i · t` from its
+ * supporting line at time `t`, so a fast edge sweeps further in the same time and its face in the
+ * skeleton grows at its expense of its neighbours'. In the roof reading, `w` is the tangent of the
+ * pitch: a shallow roof plane over a fast edge, a steep one over a slow edge.
+ *
+ * THREE THINGS ARE REFUSED, LOUDLY, AT THE DOOR:
+ *
+ *  1. a weight that is not finite and strictly positive (W-spec W2) — zero and infinite weights have
+ *     no well-posed vertex velocity, and a gable is a post-process on an all-positive solve;
+ *  2. `max / min` above `maxWeightRatio(δ)` (W-spec W3, W48; C8 spec T22);
+ *  3. a weight change at a vertex whose turn sine is below `minWeightTurnSine(δ, Δw)` (W-spec W49, C8 spec T21,
+ *     arc decision 124(b)) — **weights may change only at a visible corner**.
+ *
+ * The array is normalised so the slowest edge has weight exactly `1` before anything reads it
+ * (W-spec W4); `SkeletonSolveResult.weights` reports the normalised, remapped array the solve ran on.
+ */
+export interface WeightOptions {
+    weights?: readonly number[];
+}
+
+/**
+ * A hole in the outline (skeleton loops-input spec, decisions 1 and 2): a closed ring and, optionally, its own
+ * per-edge weights with the meaning of {@link WeightOptions.weights}; omitted or empty is all ones. The weights
+ * travel on the hole, so no parallel array can disagree with the hole list.
+ *
+ * WOUND EITHER WAY: the boundary stage winds every hole counter-clockwise, opposite to the outline, so that the
+ * building lies on the same side of every exterior edge (BSA.D282, decision 21).
+ */
+export interface SkeletonHole {
+    vertices: readonly Vector2[];
+    weights?: readonly number[];
+}
+
+/**
+ * The holes of an outline (skeleton loops-input spec, decision 1). Omitted or empty means a single-loop solve.
+ *
+ * A HOLED SOLVE STEPS LIKE ANY OTHER (skeleton join-and-divide spec): in the generic case it solves, and so it does
+ * where events of two rings coincide as a meeting of one run on each of two rings (skeleton simultaneous-rings spec,
+ * which covers the concentric courtyard), on a third front when its one gap facing the struck wall can be read, and
+ * where a layer leaves a flat ring (skeleton flat-ring and third-front spec). A layer whose coincidence those specs do
+ * not settle — a meeting of more than two runs, or a third front that cannot be resolved whole — is refused by name as
+ * `simultaneous-across-rings`, and `complete` is then false.
+ * Only {@link solveSkeleton} and its stepped twin {@link solveSkeletonStepped} take holes; the legacy entries refuse
+ * them (skeleton loops-input spec, decision 4; dashboard holed-fixtures spec, decision 18).
+ */
+export interface HoleOptions {
+    holes?: readonly SkeletonHole[];
+}
+
+export interface SolveSkeletonOptions extends PerceptualFloorOptions, WeightOptions, HoleOptions {
+    /**
+     * Reverse counter-clockwise input before solving. The solver only handles clockwise
+     * winding; leaving this off on counter-clockwise input produces an unresolved skeleton.
+     * Defaults to `true`.
+     *
+     * WITH HOLES, every loop is wound by this option: the outline clockwise and each hole counter-clockwise
+     * (skeleton loops-input spec, decision 21). Off, it says the caller's winding is already right, and a holed
+     * input with a mis-wound loop is REFUSED by a throw, because a holed solve has no meaning on the wrong side of
+     * a wall (decision 22, BSA.D282). A single mis-wound loop is not refused.
+     */
+    normaliseWinding?: boolean;
+    /**
+     * Override the deviation below which an input vertex is treated as invisible and removed.
+     * Defaults to {@link PerceptualFloorOptions.perceptualFloor}, and thence to
+     * {@link SKELETON_NOISE_FLOOR}.
+     *
+     * NOT A SECOND PERCEPTUAL FLOOR — it is the region pass-down, and it exists because it lives in a
+     * DIFFERENT SPACE. `perceptualFloor` is the client's one scale-free value; this is that value
+     * carried into one sub-region's unit space by the recursion driver, so that a sliver
+     * canonicalises against the root's idea of invisible rather than its own. A direct caller who
+     * wants a coarser floor sets `perceptualFloor` and leaves this alone.
+     *
+     * IN UNIT SPACE, NOT THE CALLER'S. Canonicalisation runs after the polygon has been carried to
+     * unit extent, so this value does NOT go through `normaliseLength` — it is compared directly
+     * against unit-space deviations, which is what makes it relative by construction. See
+     * `canonicalisation.ts`.
+     *
+     * THE FLOOR BELONGS TO THE ROOT REGION, which is why it is accepted here rather than derived from
+     * the polygon. For a direct call the two coincide. The recursion driver passes a sub-region's
+     * root floor down through this option, because normalising a thin sliver to its own extent would
+     * scale it up enormously and leave it holding every degenerate vertex it has.
+     *
+     * Zero is an exact identity — nothing is removed — which is the supported way to turn the stage
+     * off and measure what it is buying.
+     */
+    noiseFloor?: number;
+}
+
+/**
+ * {@link solveSkeletonStepped}'s answer (dashboard holed-fixtures spec, decision 17): the step-by-step snapshots of the
+ * one solve, and that solve's result.
+ */
+export interface SteppedSkeletonSolveResult {
+    /**
+     * Snapshot 0 after initialisation, then one per step boundary, each in caller space and each carrying the loop
+     * table (decision 20). The last deep-equals `result.graph`. On the self-intersecting path, the merged graph alone.
+     */
+    snapshots: StraightSkeletonGraph[];
+    /** What `solveSkeleton(vertices, options)` returns. */
+    result: SkeletonSolveResult;
+    /** The snapshot after the first step that recorded a failure, or `null` when no step did. */
+    firstFailedSnapshot: number | null;
+}
+
+export interface SteppedAlgorithmResult {
+    /** Graph snapshots: index 0 = after init, 1..N = after each while-loop iteration */
+    snapshots: StraightSkeletonGraph[];
+    /** Non-null if the algorithm threw an error */
+    error: string | null;
 }

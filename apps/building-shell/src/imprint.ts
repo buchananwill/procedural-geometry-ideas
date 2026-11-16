@@ -127,11 +127,7 @@ function boundariesOf(model: RegionModel, f: number): Boundary[] {
 /** Imprints every winner boundary onto the mesh. Returns the mesh itself, untouched, when no boundary crosses it. */
 export function imprintRegions(mesh: ShellMesh, model: RegionModel): ImprintResult {
   const {table, planes} = model.tags;
-  const nTri = mesh.tris.length / 3;
   const stats: ImprintStats = {split: 0, neighbours: 0, added: 0, boundaries: 0};
-  const pos: number[] = Array.from(mesh.positions);
-  const at = (v: number): Vec3 => [pos[3 * v], pos[3 * v + 1], pos[3 * v + 2]];
-  const tol = IMPRINT_TOLERANCE_CM;
 
   // Boundaries per peer set: faces with the same peers share them.
   const bySet = new Map<string, Boundary[]>();
@@ -142,6 +138,37 @@ export function imprintRegions(mesh: ShellMesh, model: RegionModel): ImprintResu
     if (!got) { got = boundariesOf(model, f); bySet.set(k, got); stats.boundaries += got.length; }
     return got;
   };
+  const cut = cutAlongBoundaries(mesh, {
+    boundariesOf: t => (table[mesh.faceIDs[t]].kind === 'Internal' ? [] : boundaries(mesh.faceIDs[t])),
+    normalOf: t => planes[mesh.faceIDs[t]].n,
+  });
+  return {mesh: cut.mesh, stats: {...stats, split: cut.split, neighbours: cut.neighbours, added: cut.added}};
+}
+
+/**
+ * What `cutAlongBoundaries` reads per output triangle: the boundaries that may cut it (none to leave it whole) and the
+ * outward normal of its plane.
+ */
+export interface CutPlan {
+  boundariesOf(t: number): Boundary[];
+  normalOf(t: number): Vec3;
+}
+
+/** What a cut did: the mesh, and the counts of `ImprintStats` other than `boundaries`. */
+export interface CutResult { mesh: ShellMesh; split: number; neighbours: number; added: number }
+
+/**
+ * Spec decision 15's cut, shared by the imprint and the tuck pass (journal decision 272): every output triangle a
+ * boundary crosses is cut along the boundary's line into convex pieces, every new vertex on an output edge splits the
+ * triangle across that edge too, so the mesh stays closed, and each piece is triangulated with its triangle's faceID.
+ * Returns the mesh itself, untouched, when no vertex is added.
+ */
+export function cutAlongBoundaries(mesh: ShellMesh, plan: CutPlan): CutResult {
+  const nTri = mesh.tris.length / 3;
+  const stats = {split: 0, neighbours: 0, added: 0};
+  const pos: number[] = Array.from(mesh.positions);
+  const at = (v: number): Vec3 => [pos[3 * v], pos[3 * v + 1], pos[3 * v + 2]];
+  const tol = IMPRINT_TOLERANCE_CM;
 
   /** New vertices per output edge, and per cut triangle. */
   const onEdge = new Map<string, number[]>();
@@ -211,17 +238,15 @@ export function imprintRegions(mesh: ShellMesh, model: RegionModel): ImprintResu
   const cut = new Map<number, Piece[]>();
   const T = mesh.tris;
   for (let t = 0; t < nTri; t++) {
-    const f = mesh.faceIDs[t];
-    if (table[f].kind === 'Internal') continue;
-    const bs = boundaries(f);
+    const bs = plan.boundariesOf(t);
     if (!bs.length) continue;
-    const n = planes[f].n;
+    const n = plan.normalOf(t);
     const a = T[3 * t], b = T[3 * t + 1], c = T[3 * t + 2];
     let pieces: Piece[] = [{vs: [a, b, c], sides: [edgeKey(a, b), edgeKey(b, c), edgeKey(c, a)]}];
     for (const bd of bs) pieces = pieces.flatMap(pc => (crosses(pc, bd, n) ? split(pc, bd, n, t) : [pc]));
     if (pieces.length > 1) { cut.set(t, pieces); stats.split++; }
   }
-  if (stats.added === 0) return {mesh, stats};
+  if (stats.added === 0) return {mesh, ...stats};
 
   // Split every piece side, and every untouched triangle's edge, at the new vertices lying on it; then triangulate.
   const tris: number[] = [];
@@ -254,11 +279,11 @@ export function imprintRegions(mesh: ShellMesh, model: RegionModel): ImprintResu
         for (const [, v] of inner) vs.push(v);
         if (inner.length) grew = true;
       }
-      for (const tri of triangulate(vs, at, planes[f].n, t)) { tris.push(...tri); faceIDs.push(f); }
+      for (const tri of triangulate(vs, at, plan.normalOf(t), t)) { tris.push(...tri); faceIDs.push(f); }
     }
     if (!own && grew) stats.neighbours++;
   }
-  return {mesh: {positions: Float32Array.from(pos), tris: Uint32Array.from(tris), faceIDs: Uint32Array.from(faceIDs)}, stats};
+  return {mesh: {positions: Float32Array.from(pos), tris: Uint32Array.from(tris), faceIDs: Uint32Array.from(faceIDs)}, ...stats};
 }
 
 /**

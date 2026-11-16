@@ -1,3 +1,11 @@
+---
+title: "Algorithm V4 Overview"
+type: technical-reference
+area: straight-skeleton
+status: archived
+date: 2026-02-23
+---
+
 # Algorithm V4
 
 The V4 version of this algorithm aims to achieve robustness, with disregard for computational efficiency. To this end, the proposed overview is as follows:

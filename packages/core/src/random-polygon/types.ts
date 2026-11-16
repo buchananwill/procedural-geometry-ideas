@@ -16,15 +16,8 @@ export interface RandomPolygonParams {
   maxEdges: number;
 }
 
-/** Result of a finite segment-segment intersection test */
-export interface SegmentIntersection {
-  /** Parameter along segment A (0..1) */
-  tA: number;
-  /** Parameter along segment B (0..1) */
-  tB: number;
-  /** The intersection point */
-  point: Vector2;
-}
+/** Result of a finite segment-segment intersection test; defined beside the test, in the solver's planar geometry. */
+export type { SegmentIntersection } from "../straight-skeleton/planar-geometry";
 
 /** Status of the generator state machine */
 export type GeneratorStatus =

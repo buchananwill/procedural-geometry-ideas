@@ -277,47 +277,6 @@ export function faceLoopViolations(b: ShellBuild): string[] {
   return out;
 }
 
-/**
- * Journal decision 135, F3: on every storey with a hole, every raw face of the hip solid and of the cut pieces lying on
- * a cut's vertical plane within the cut's span is tagged `Internal` (spec decision 2 as amended), so the cut's residue
- * cannot go silent under another tag. A holed storey whose cut planes carry no such face at all is a violation too.
- */
-export function cutPlaneViolations(u: Pick<ShellBuild['union'], 'plans' | 'parts' | 'tags'>): string[] {
-  const out: string[] = [];
-  const tol = SHELL_TOLERANCE_CM;
-  for (const plan of u.plans) {
-    plan.building.comps.forEach((comp, ci) => {
-      const cuts = comp.walls.filter(w => w.form === 'cut');
-      if (!cuts.length) return;
-      const prefix = `${plan.label} storey ${plan.storey} `;
-      const cutPieces = plan.roof.pieces.flatMap((p, k) => (p.wall.form === 'cut' && p.wall.comp === ci ? [`${prefix}gable piece ${k} (${p.label})`] : []));
-      const names = new Set([`${prefix}hip solid island ${ci}`, ...cutPieces]);
-      let onCut = 0;
-      for (const part of u.parts) {
-        if (!names.has(part.name)) continue;
-        const P = part.soup.positions;
-        part.soup.faceIDs.forEach((f, t) => {
-          const vs = [0, 1, 2].map(j => part.soup.tris[3 * t + j]);
-          const on = cuts.some(w => {
-            const vertical = w.a.x === w.b.x;
-            const lo = vertical ? Math.min(w.a.y, w.b.y) : Math.min(w.a.x, w.b.x), hi = vertical ? Math.max(w.a.y, w.b.y) : Math.max(w.a.x, w.b.x);
-            return vs.every(v => {
-              const [x, y] = [P[3 * v], P[3 * v + 1]];
-              const across = vertical ? x - w.a.x : y - w.a.y, along = vertical ? y : x;
-              return Math.abs(across) <= tol && along >= lo - tol && along <= hi + tol;
-            });
-          });
-          if (!on) return;
-          onCut++;
-          if (u.tags.table[f].kind !== 'Internal') out.push(`${part.name}: triangle ${t} on the cut plane is ${u.tags.table[f].kind}, not Internal`);
-        });
-      }
-      if (!onCut) out.push(`${prefix}island ${ci}: no raw face lies on its cut's plane`);
-    });
-  }
-  return out;
-}
-
 /** Journal decision 110, C3: every output triangle with a corner off its tag's generating plane. */
 export function tagPlaneViolations(b: ShellBuild): string[] {
   const {mesh, tags} = b.union;
@@ -424,7 +383,7 @@ export function invariantViolations(b: ShellBuild, want: ShellExpectation): stri
     if (loopArea(c.polygon, f.normal) <= 0) out.push(`cell ${c.id} winds clockwise from outside`);
     tiled.set(c.face, (tiled.get(c.face) ?? 0) + Math.abs(area));
   }
-  out.push(...faceLoopViolations(b), ...tagPlaneViolations(b), ...winningRegionViolations(u), ...cutPlaneViolations(u));
+  out.push(...faceLoopViolations(b), ...tagPlaneViolations(b), ...winningRegionViolations(u));
   if (shell.report.unclassifiedEdges !== 0) {
     const at = shell.edges.filter(e => e.kind === 'Unclassified').map(e => segmentText(e.a, e.b));
     out.push(`${shell.report.unclassifiedEdges} Unclassified Edges: ${places(at)}`);

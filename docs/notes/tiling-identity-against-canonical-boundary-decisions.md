@@ -1,7 +1,11 @@
 ---
 title: "Tiling Identity Against the Canonical Boundary: Fixed Design Decisions"
 type: decision-spec
-status: implementer-handoff
+area: subdivision
+status: completed
+date: 2026-08-17
+part_of: [recursive-skeleton-subdivision.md]
+verified_by: [packages/core/tests/straight-skeleton/recursive-subdivision.test.ts]
 ---
 
 # Tiling identity against the canonical boundary

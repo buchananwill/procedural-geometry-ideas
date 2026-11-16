@@ -1,3 +1,11 @@
+---
+title: "Event Priority Rules for the Straight Skeleton Algorithm"
+type: technical-reference
+area: straight-skeleton
+status: archived
+date: 2026-02-25
+---
+
 # Event Priority Rules For The Straight Skeleton Algorithm
 
 There are two distinct prioritizations need to properly order events:

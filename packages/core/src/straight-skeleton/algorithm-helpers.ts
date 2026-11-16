@@ -1,20 +1,20 @@
 import {
     InteriorEdge,
     PolygonEdge,
-    PolygonNode,
+    SkeletonDirection,
     StraightSkeletonSolverContext,
     Vector2, BisectionParams, StraightSkeletonGraph
 } from "./types";
-import {complexLog, solverLog} from "./logger";
+import {complexLog} from "./logger";
 import {
-    assertIsNumber,
     crossProduct,
     makeRay,
     makeWeightedBisectedBasis,
     negateVector,
     sineIsBelow
 } from "./core-functions";
-import {interiorEdgeIndex} from "./graph-helpers";
+import {adjacentExteriorEdge} from "./graph-helpers";
+import {exteriorFaceIsClosed, linkInitialRings, openWavefrontSlot} from "./wavefront-links";
 import {intersectRays} from "./intersection-edges";
 import {
     arrivalOf,
@@ -23,13 +23,7 @@ import {
     rayIntersectionUncertainty,
     timeOf
 } from "./collision-helpers";
-
-/**
- * `addBisectionEdge`'s zero-rate sine bar, HELD (census S19). Three re-derivations were measured and
- * refused: T17's ρ (dispatch 2, decision 161(b)), `k·u` and the forward bound 8u (dispatch 3, decision
- * 164). Each measurement is at the site.
- */
-const ZERO_RATE_SINE_BAR = 0.00000001;
+import {ZERO_RATE_SINE_BAR} from "./constants";
 
 
 /**
@@ -43,28 +37,17 @@ const ZERO_RATE_SINE_BAR = 0.00000001;
  * and flipping it points the bisector out of the polygon. So a turn indistinguishable from
  * zero is treated as no turn at all.
  *
- * SUPERSEDED FOR NEW BISECTORS by {@link bisectorOffsetRate}, which says the same thing in the
- * quantity the solver actually measures and stays determinate over a wider band — see
- * {@link addBisectionEdge}. Kept because it is the exported spelling of the rule and because the
- * two tolerances do not coincide exactly: the rate divides the cross product by `|c + w|`, which is
- * close to 2 for the anti-parallel parents that reach the other branch, so a cross product between
- * one and two epsilons reads as a zero rate and a non-zero turn. This decides that sliver the same
- * way the rate branch would have.
+ * REACHED ONLY WHERE THE OFFSET RATE READS ZERO ({@link addBisectionEdge}). Every other bisector takes
+ * its direction from the sign of {@link bisectorOffsetRate}, which says the same thing in the quantity
+ * the solver actually measures. Kept exported as the spelling of the rule.
  *
- * THE NON-COINCIDENCE ABOVE IS AN OPEN DISAGREEMENT UNDER JOURNAL DECISION 105 (D14). The two
- * sites ask one expression of different operands: this one of `(cw, ws)` directly, the rate of
- * `(bisectedBasis, cw)`, which is the same cross product divided by `|cw − ws|`. Spec A15 closes it
- * by moving BOTH to the angular resolution on `(cw, ws)`. This site moved (2026-09-23, journal
- * decision 146); the rate's zero test did NOT — both readings of that move were refused by the corpus,
- * measured at the site in {@link addBisectionEdge} — so D14 stays open, now the other way round:
- * the rate's zero is reached only below `1e-8`, and every vertex that reaches it reads straight here.
- * (C8 dispatch 3 measured `k·u` and the forward bound 8u there too, and both were refused; see the site.)
- *
- * MEASURED, THE SLIVER THIS MOVE DECIDES IS NOT EMPTY OFF THE CORPUS. The full-graph digest of all
- * 59 fixtures is bit-identical under the move, as the 2026-08 widening measurements predicted; but
- * `NEAR_REGULAR_CIRCLE_32` jittered at one epsilon of its span, seed 5 (a cell of
- * `wavefront-causality.test.ts`'s generator, unpinned) reaches it once, and moves: 53 nodes to 52,
- * offset violations 1 → 2, clearance 6 → 4, direction 2 → 1. Reported rather than pinned.
+ * ONE AXIS AT TWO BARS, AN OPEN DISAGREEMENT UNDER JOURNAL DECISION 105 (D14). The two sites ask one
+ * expression of different operands: this one of `(cw, ws)` directly, at the angular resolution (spec
+ * A15, journal decision 146); the rate's zero test of `(bisectedBasis, cw)`, which is the same cross
+ * product divided by `|cw − ws|`, at the held `ZERO_RATE_SINE_BAR` (its re-derivations are refused; see
+ * {@link addBisectionEdge}). So the rate's zero is reached only below `1e-8`, and every vertex that
+ * reaches it reads straight here.
+ * Measured: angular-predicate-basis-decisions.md, "Measurement record", "ensureBisectionIsInterior: the straight test at the resolution".
  */
 export function ensureBisectionIsInterior(
     clockwiseEdge: PolygonEdge,
@@ -87,8 +70,7 @@ export function ensureBisectionIsInterior(
  * matters: the wavefront clock only ever runs forward, so a bisector whose rate is negative moves
  * BACKWARDS in time along its own ray. Every offset computed for it then decreases with travel, the
  * layer's lowest-offset selection reaches its far end first, and a collision waiting near its source
- * is stepped over. That is how a waist bisector came to be consumed at the wrong end and its partner
- * left to escape the polygon.
+ * is stepped over: a waist bisector is consumed at the wrong end and its partner escapes the polygon.
  *
  * Written against the parent stored on the edge, not against the arguments a caller passed, so this
  * cannot drift away from the rate `sourceOffsetDistance` and `makeOffsetDistance` will read later.
@@ -108,7 +90,7 @@ export function ensureDirectionNotReversed(basis: Vector2, approximateDirection:
  * THE DIRECTION IS DECIDED BY THE OFFSET RATE, and where the rate is zero it is decided by the
  * PARENT ORDERING. A straight-skeleton bisector traces a wavefront vertex, and the wavefront clock
  * runs one way, so the rate against the clockwise parent ({@link bisectorOffsetRate}) is
- * non-negative for every bisector that can exist. That is not a new rule: for the bisected basis
+ * non-negative for every bisector that can exist. It is `ensureBisectionIsInterior`'s rule: for the bisected basis
  * `normalize(c - w)` the rate is `cross(c, w) / |c - w|`, so its sign IS
  * `ensureBisectionIsInterior`'s test — said in the quantity the solver prices collisions with, and
  * determinate over a wider band, because the `1 / |c - w|` keeps near-parallel parents (where the
@@ -128,16 +110,15 @@ export function ensureDirectionNotReversed(basis: Vector2, approximateDirection:
  * the corridor — and the corridor extends the way the departing wall points, which is `c`. The other
  * end of the same corridor is a bisector whose parents are the same two walls in the opposite roles,
  * so its `c` is the other direction, and the two midlines meet head-on. Nothing about the offset can
- * say this, which is why it was mistaken for a genuine ambiguity.
+ * say this; the ring's ordering does, so the case is not an ambiguity.
  *
- * WHAT USED TO DECIDE IT, AND WHY IT COULD NOT. Callers passed an `approximateDirection` hint and
- * this branch flipped `c` to agree with it. `bisectionsForMerge`'s hint is the bisection of the two
- * ARRIVALS bracketing a gap, which is symmetric in them — so a two-run vertex event handed the same
- * hint to BOTH of its gaps, which face opposite ways, and the hint was therefore wrong for at least
- * one of them by construction. Measured, it was wrong for the corridor gap every time it mattered:
- * `COLLINEAR_DUMBBELL`'s bar midline was born pointing out of the bar into a globe (both ends), the
- * `CROSS` drew each arm's midline along the OPPOSITE arm, and `T_SHAPE`'s stem midline pointed up
- * into the head and was retired as a zero-length self-loop — the stem had no ridge at all.
+ * NO CALLER'S DIRECTION HINT MAY OVERRULE IT. A hint drawn from the two ARRIVALS bracketing a gap (the
+ * bisection of the two) is symmetric in them, so a two-run vertex event would hand the same hint to
+ * BOTH of its gaps, which face opposite ways: wrong for at least one of them by construction, and for
+ * the corridor gap every time it matters. Flipped to such a hint, `COLLINEAR_DUMBBELL`'s bar midline is
+ * born pointing out of the bar into a globe (both ends), the `CROSS` draws each arm's midline along the
+ * OPPOSITE arm, and `T_SHAPE`'s stem midline points up into the head and is retired as a zero-length
+ * self-loop, leaving the stem no ridge at all.
  */
 export function addBisectionEdge(context: StraightSkeletonSolverContext, clockwiseExteriorEdgeIndex: number, widdershinsExteriorEdgeIndex: number, source: number): number {
 
@@ -145,29 +126,12 @@ export function addBisectionEdge(context: StraightSkeletonSolverContext, clockwi
     const clockwiseEdge = graph.edges[clockwiseExteriorEdgeIndex];
     const widdershinsEdge = graph.edges[widdershinsExteriorEdgeIndex];
 
-    // KEPT FOR ITS THROW, AND FOR THE LOG. `clockwiseSpanExcludingAccepted` refuses to measure a
-    // span touching an accepted edge, so these two calls are how a caller that tries to bisect
-    // between finished parents is caught here rather than downstream.
-    const spanCwToWs = context.clockwiseSpanExcludingAccepted(clockwiseEdge, widdershinsEdge)
-    const spanWsToCs = context.clockwiseSpanExcludingAccepted(widdershinsEdge, clockwiseEdge);
-
-    // NAMED, NOT ACTED ON — AND THAT IS THE CORRECTION, NOT AN OVERSIGHT. The two branches this
-    // used to have both assigned the parents from the SAME two variables, by shorthand, so they
-    // differed only in the order the keys were written into the object literal: the "inverted"
-    // branch never swapped anything. Reading it as a swap is what made the stored parents look
-    // inconsistent with the `ensureBisectionIsInterior` call below, and they never were. The
-    // condition is now recorded in the log it always wrote and nowhere else, so the next reader
-    // cannot mistake a key ordering for a parent ordering.
-    //
-    // THE CONDITION IS LIVE, WHICH IS WHY THE COLLAPSE IS WORTH MAKING RATHER THAN DEAD CODE TO
-    // DELETE. Measured by mutation: restoring the two branches changes nothing (4345/4345 green),
-    // but making the inverted branch genuinely swap the parents fails 559 tests across 26 suites
-    // and takes the recursive-subdivision census from 0 recorded failures to 298. The branch is
-    // reached often and on this corpus the right answer is always "do not swap", so what looked
-    // like a latent inconsistency was a trap for the reader and never a defect in the output.
-    const parentsInverted = spanWsToCs > spanCwToWs;
-    if (parentsInverted) {
-        solverLog.debug(`Inverted parent ordering: ${clockwiseExteriorEdgeIndex}, ${widdershinsExteriorEdgeIndex}`);
+    // A BISECTOR BETWEEN FINISHED PARENTS IS REFUSED HERE, BY A DIRECT TEST (skeleton wavefront-order
+    // spec, decision 21). An accepted parent has no wavefront left to bisect. The message speaks of a
+    // span, which nothing here computes; it is the text `generate-split-event.ts` throws for the same
+    // refusal, and step failures carry it.
+    if (context.isAccepted(clockwiseExteriorEdgeIndex) || context.isAccepted(widdershinsExteriorEdgeIndex)) {
+        throw new Error('Cannot compute span with accepted edges.');
     }
 
     const id = graph.edges.length;
@@ -185,9 +149,9 @@ export function addBisectionEdge(context: StraightSkeletonSolverContext, clockwi
 
     // W-spec W12–W14, W17. The direction is the KERNEL's — the solution of `v · n₁ = w₁`,
     // `v · n₂ = w₂` — spelled as the scaled difference `normalize(w_ws · c − w_cw · b)` so that at
-    // unit weights it performs today's operations in today's order and is bit-identical. The sign
-    // rule below is untouched: for positive weights the rate's sign is still the sign of `c × b`
-    // (W-spec W13), so convex keeps the numerator and reflex negates it exactly as before.
+    // unit weights it is the unweighted bisected basis bit for bit. For positive weights the rate's
+    // sign is the sign of `c × b` (W-spec W13), so the sign rule below keeps the numerator at a convex
+    // vertex and negates it at a reflex one.
     const bisectedBasis = makeWeightedBisectedBasis(
         fromNodeClockwise,
         fromNodeWiddershins,
@@ -198,75 +162,22 @@ export function addBisectionEdge(context: StraightSkeletonSolverContext, clockwi
     let finalBasis: Vector2;
 
     // THE ZERO TEST IS IN THE ONE ANGULAR FORM; ONLY THE SIGN COMES FROM THE RATE ITSELF. The rate is
-    // `cross(bisectedBasis, clockwiseParent)` and both operands are unit, so `sineIsBelow` is the
-    // same bar and the same number as the `areEqual(offsetRate, 0)` this replaces — but it names the
-    // space, which `areEqual` on a cross product never did (journal decision 105). HELD at 1e-8 (census
-    // S19): three re-derivations were measured and each refused — see the last three paragraphs.
+    // `cross(bisectedBasis, clockwiseParent)` and both operands are unit, so `sineIsBelow` asks the rate's
+    // zero as a sine and names the space of its bar (journal decision 105).
     //
-    // HISTORY: IT STAYED AT THE SCRATCH EPSILON, ON THE RATE'S OWN OPERANDS — A MEASURED STOP, NOT AN
-    // OMISSION (spec A15's `addBisectionEdge` row, A25 STOPs 3 and 4; journal decision 146). The spec
-    // moves it to the angular resolution on the RAW PARENT directions `(cw, ws)`, the operands
-    // `ensureBisectionIsInterior` reads, to close D14. Both readings of that row were measured on
-    // 2026-09-23 and both were refused by the corpus:
-    //
-    //   - LITERALLY, orientation-blind — `sineIsBelow(cw, ws, angularResolution)`: a near-STRAIGHT
-    //     vertex (parents pointing the same way, sine under the bar) then takes this branch, where
-    //     `ensureBisectionIsInterior` calls it straight and never flips a bisector that
-    //     `normalize(c − b)` pointed out of the polygon. `Off-edge Jitter Reflex L (seed 55433)` and
-    //     `Off-edge Jitter Plus (seed 7919)` STOP SOLVING (STOP 3), and four clean fixtures (T-Shape,
-    //     both dumbbells, Three Globe Chain) reach the branch they never reached.
-    //   - ORIENTATION-AWARE — `directionsAreSame(cw, −ws, angularResolution)`, anti-parallel parents
-    //     only, which is what "a zero rate" means: three bisectors are born with a NEGATIVE offset
-    //     rate — `Off-edge Jitter Plus (seed 7919)` e48 at −8.8e-6 and e52 at −3.4e-6,
-    //     `Off-edge Jitter Reflex L (seed 55433, k=4)` e48 at −7.8e-6, every one below the angular
-    //     resolution — breaking the bisector rate rule, which `wavefront-causality.test.ts` holds
-    //     universal over `FULL_CORPUS` (STOP 4). Re-measured 2026-09-23 under the solver's own
-    //     causality check (journal-5 decisions 148, 149): both fixtures stay complete, the offset,
-    //     clearance and direction counts do not move on either instrument, and NO diagnostic is raised
-    //     — the negative rates are seen ONLY by the test-side rate check, which the solver does not run.
-    //
-    // A rate of a few parts in 1e6 is a real, if slow, wavefront direction: pricing it as zero hands
-    // the direction to the parent ordering, which disagrees with the rate's sign. So the rate's own
-    // zero test keeps the arithmetic bar it had, and D14 stays open — now with `ensureBisectionIsInterior`
-    // at the resolution, where the rate's zero is reached only below `1e-8` and every such vertex reads
-    // straight. The tolerance package (register C8) owns this site's re-derivation.
-    //
-    // C8 DISPATCH 2 MEASURED T17 AND IT STOPS (2026-09-24, T37 STOPs 1 and 3). `directionsAreSame(cw, −ws,
-    // ρ)` on the raw parents, with the fourth oracle landed at T18: the three sub-ρ negative rates appear
-    // as F65 found them and the oracle correctly leaves them unflagged, three off-edge jitter cells lose a
-    // direction violation (the L at k = 2 seed 55433, the plus at k = 4 seed 47514 and k = 6 seed 15838) —
-    // but the jittered Circle 32 at 3 × 1e-8, seed 7, STOPS SOLVING (a pair-handler step failure on
-    // e71/e76), and the plus at k = 2, seed 23757 gains an offset violation of 1.77e-6 with its
-    // `causality-violation` diagnostic. The fourth oracle stands on its own (causality-check.ts).
-    //
-    // C8 DISPATCH 3 MEASURED `|rate| ≤ k·u` (decision 161(b)) AND IT MOVES A CLEAN FIXTURE. Over dispatch
-    // 2's 580 cells five births have a rate in (k·u, 1e-8): `Golf Cart` e16 (−7.28e-16) and e21
-    // (+7.28e-16) at 1e-6 and at 1e-5, and the jittered Circle 32 at 1 × 1e-8, seed 5, e70 (−6.22e-9). The
-    // two negative ones are flipped by the sign rule where the parent ordering kept them, and the clean
-    // `Golf Cart` became a SILENT wrong answer — complete, empty diagnostics, all four oracles clean, but
-    // its skeleton no longer a tree and its strips 3.2% short of the canonical area.
-    //
-    // C8 DISPATCH 3 THEN MEASURED THE FORWARD BOUND, 8u (`offsetRateIsArithmeticZero`, journal-5 decision
-    // 164), AND IT MOVES THE SAME FIXTURE ONE LEVEL DOWN. At the ROOT it does what decision 164 asked:
-    // `Golf Cart`'s 3.3u rates are zeroed, and over the 580 cells ONE cell moves — the Circle 32 cell above,
-    // 52 → 53 nodes, e70 a true negative priced by its sign, still complete and clean on all four oracles;
-    // no digest pin moves. But in the recursion, `Golf Cart`'s LEVEL-1 regions carry the same corridor at
-    // rates of 5.2u to 24u (±1.16e-15, ±1.53e-15, ±4.32e-15, ±5.35e-15, on walls tilted 2.3e-15 to 1.07e-14
-    // in the region's own unit space), above 8u; priced by sign, a level-1 region's strips cover 3.2% less
-    // than its canonical area — the root's failure again — and `recursive-subdivision.test.ts` fails (2
-    // tests). Attributed by toggle: this site back at 1e-8, the recursion passes. So the site stays HELD
-    // (journal-5 decision 164's instruction). NOTE, MEASURED: `Golf Cart`'s root rate is NOT rounding.
-    // Its vertex 3 sits at y = 399.99999999999994, one ulp below 400, so wall e2 is tilted by 1.456e-15 and
-    // the exact rate is ±7.28e-16, the computed value; the regions' larger tilts are that same ulp read on
-    // shorter, re-normalised walls. The rates this site must not price by sign are TRUE rates of a
-    // sub-perceptual tilt, which no rounding bound on the rate separates from e70's −6.22e-9.
-    //
-    // REGISTER C12 MEASURED IT AGAIN, AS THE THIRD MEMBER OF THE WINDOW/BOX SET (journal-5 decisions 165,
-    // 167(d)), at the forward bound 8u on the tree with the per-pair window and the exact box: at the root
-    // 0 of 642 sweep cells move; in the recursion `Golf Cart`'s level-1 regions still cover 3.23% less than
-    // their canonical area and `Golf Cart` throws in "subdivides without throwing". The window and box
-    // moving did not change it. HELD by inverse edit, and the window and the box are held beside it
-    // (constants.ts, "THE WINDOW AND THE BOX").
+    // HELD AT `ZERO_RATE_SINE_BAR` (1e-8, census S19), ON THE RATE'S OWN OPERANDS, BY MEASURED STOPS. Every
+    // re-derivation measured is refused: the angular resolution on the raw parents, read orientation-blind
+    // or orientation-aware (spec A15's `addBisectionEdge` row, A25 STOPs 3 and 4; C8 spec T17, T37 STOPs 1
+    // and 3), `k·u` (journal-5 decision 161(b)) and the forward bound 8u (journal-5 decision 164) each stop
+    // a solve, raise a causality violation, or turn the clean `Golf Cart` — at the root or in its level-1
+    // regions — into a silent wrong answer whose strips fall 3.2% short. Two reasons stand under the
+    // measurements. A rate of a few parts in 1e6 is a real, if slow, wavefront direction: pricing it as zero
+    // hands the direction to the parent ordering, which disagrees with the rate's sign. And the rates this
+    // site must not price by sign are TRUE rates of a sub-perceptual tilt (`Golf Cart`'s vertex 3 sits one
+    // ulp below 400), which no rounding bound on the rate separates from a genuine negative rate of
+    // −6.22e-9. The bar is held beside the simultaneity window and the same-point box, measured with them
+    // as one set (register C12; journal-5 decisions 165, 167(d); see constants.ts).
+    // Measured: tolerance-derivation-measurement-record.md, "Measurement record", "addBisectionEdge: the zero-rate bar's re-derivations".
     const zeroRate = sineIsBelow(bisectedBasis, context.clockwiseParent(newEdge).basisVector,
         ZERO_RATE_SINE_BAR);
     if (!zeroRate) {
@@ -295,6 +206,8 @@ export function createBisectionInteriorEdge(context: StraightSkeletonSolverConte
         acceptedEdges.push(false);
     }
     acceptedEdges[edgeIndex] = false;
+    // Its link slots, unlinked until the event that bore it links it (skeleton wavefront-order spec).
+    openWavefrontSlot(context, edgeIndex);
 
 
     const interiorEdge = context.getInteriorWithId(edgeIndex);
@@ -333,118 +246,60 @@ export function bisectWithParams(context: StraightSkeletonSolverContext, params:
     return createBisectionInteriorEdge(context, params.clockwiseExteriorEdgeIndex, params.widdershinsExteriorEdgeIndex, params.source);
 }
 
+/**
+ * ONE RING PER LOOP, IN LOOP ORDER (skeleton loops-input spec, decisions 12 to 15). The bisector at local vertex
+ * `j` of loop `k` has source node and clockwise parent `start_k + j`, and the edge arriving at that node within
+ * its own loop, read through `adjacentExteriorEdge`, as its widdershins parent. Creation follows exterior id
+ * order, so the bisectors' ids follow the loops' vertex order.
+ *
+ * NO HOLE IS SPECIAL HERE. `addBisectionEdge` gives every bisector its direction unchanged (decision 15): with a
+ * hole wound opposite to the outline, the side it bisects into is the building, so a corner convex in the hole's
+ * own shape is reflex in the region. And each bisector's first `maxOffset` tests every exterior edge of every loop
+ * (decision 14): a hole wall bounds an outline bisector's life exactly as an outline wall does.
+ */
 export function initInteriorEdges(context: StraightSkeletonSolverContext) {
-    const exteriorEdges = [...context.graph.edges];
+    const {graph} = context;
 
     // create interior edges from exterior node bisections
-    for (let clockwiseExteriorEdgeIndex = 0; clockwiseExteriorEdgeIndex < exteriorEdges.length; clockwiseExteriorEdgeIndex++) {
-        const widdershinsExteriorEdgeIndex = (clockwiseExteriorEdgeIndex - 1 + exteriorEdges.length) % exteriorEdges.length;
-        createBisectionInteriorEdge(context, clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex, clockwiseExteriorEdgeIndex)
+    const bisectorAtNode: number[] = [];
+    for (const loop of graph.loops) {
+        for (let local = 0; local < loop.count; local++) {
+            const clockwiseExteriorEdgeIndex = loop.start + local;
+            const widdershinsExteriorEdgeIndex = adjacentExteriorEdge(
+                graph, clockwiseExteriorEdgeIndex, SkeletonDirection.Widdershins);
+            bisectorAtNode.push(createBisectionInteriorEdge(
+                context, clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex, clockwiseExteriorEdgeIndex));
+        }
     }
 
+    // THE FIRST RINGS, IN EACH LOOP'S VERTEX ORDER (skeleton wavefront-order spec, decision 8): the bisector
+    // at vertex i is born i-th, its clockwise parent is edge i and its clockwise neighbour is the bisector
+    // at the next vertex of its loop, whose widdershins parent is that same edge.
+    linkInitialRings(context, bisectorAtNode);
 }
 
-export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSkeletonSolverContext): boolean {
-
-
-    // invalid id case
-    if (edge >= graph.edges.length) {
-        return false;
-    }
-    const isExterior = edge < graph.numExteriorNodes;
-    const edgeData = graph.edges[edge];
-
-    // not yet in the accepted array at all
-    if (edge >= acceptedEdges.length) {
-        return false;
-    }
-
-    // has already been accepted (loop is definition of acceptable exterior edge)
-    if (isExterior && acceptedEdges[edge]) {
-        return true;
-    }
-
-    // for interior edges check their parents
-    if (!isExterior) {
-        const interiorEdge = graph.interiorEdges[interiorEdgeIndex(edgeData, graph)];
-        const clockwiseParent = interiorEdge.clockwiseExteriorEdgeIndex;
-        const widdershinsParent = interiorEdge.widdershinsExteriorEdgeIndex;
-        return acceptedEdges[clockwiseParent] || acceptedEdges[widdershinsParent];
-    }
-
-    const targetIndex = edgeData.target;
-    assertIsNumber(targetIndex);
-
-    // hard case/base case: find interior loop from exterior edge
-    const targetNode: PolygonNode = graph.nodes[targetIndex];
-    const visitedEdges = new Set<number>();
-    const candidateEdges: number[] = [...targetNode.outEdges];
-
-    const testAndAddCandidates = (edges: number[]): boolean => {
-        for (const candidateEdge of edges) {
-            if (candidateEdge === edge) {
-                return true;
-            }
-            if (candidateEdge < graph.numExteriorNodes) {
-                continue;
-            }
-            if (visitedEdges.has(candidateEdge)) {
-                continue;
-            }
-            if (candidateEdge >= acceptedEdges.length) {
-                continue;
-            }
-            if (!acceptedEdges[candidateEdge]) {
-                continue;
-            }
-            candidateEdges.push(candidateEdge);
-        }
-        return false;
-    }
-
-    while (candidateEdges.length > 0) {
-        const nextEdge = candidateEdges.pop()
-        assertIsNumber(nextEdge)
-        visitedEdges.add(nextEdge)
-
-        if (nextEdge < graph.numExteriorNodes) {
-            continue;
-        }
-
-        if (!acceptedEdges[nextEdge]) {
-            continue;
-        }
-
-        const nextEdgeData = graph.edges[nextEdge];
-        const nextTargetIndex = nextEdgeData.target;
-
-        const nextSource = graph.nodes[nextEdgeData.source];
-        // We need to skip this test for the source of the very first edge, otherwise we short circuit and get a false positive
-        if (nextEdgeData.source !== targetIndex) {
-            if (testAndAddCandidates(nextSource.outEdges)) {
-                return true;
-            }
-            if (testAndAddCandidates(nextSource.inEdges)) {
-                return true;
-            }
-        }
-        if (nextTargetIndex !== undefined) {
-            const nextTarget = graph.nodes[nextTargetIndex];
-
-            if (testAndAddCandidates(nextTarget.outEdges)) {
-                return true;
-            }
-            if (testAndAddCandidates(nextTarget.inEdges)) {
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
+/**
+ * ACCEPT AN EXTERIOR EDGE EXACTLY WHEN ITS FACE IS CLOSED: when no live bisector names it as a parent (skeleton
+ * edge-acceptance spec, decisions 1 to 4; BSA.D296). Asked at step boundaries only — `runSimplePolygon`,
+ * `runSimplePolygonStepped` and the test-side runners that follow `stepAlgorithm` the same way — where nothing is
+ * pending, so there it is the approved predicate exactly. Once accepted an edge stays accepted: no birth can name
+ * it, because `addBisectionEdge` refuses an accepted parent.
+ *
+ * FACE CLOSURE, NOT CONNECTIVITY. Accepting an edge when any chain of accepted interior edges joins its two end
+ * nodes is wrong: the chain can run through a hub node where several faces' bisectors met within the floor, and
+ * accept the edge while a bisector still traces its face (five single-loop solves; BSA.F95, BSA.F99). The next
+ * birth naming the edge is then refused and its ring breaks.
+ *
+ * Only an exterior edge is ever accepted here; any other id is returned as it stands.
+ *
+ * A CONTEXT WITH NO INTERIOR EDGES ACCEPTS NOTHING (BSA.F100, BSA.D304): before `initInteriorEdges` no bisector has
+ * traced any face, so no face has closed, although no live bisector names any edge either. The predicate alone would
+ * accept every edge there, so the empty context is answered `false` by its own test. No solver caller asks it there.
+ */
 export function tryToAcceptExteriorEdge(context: StraightSkeletonSolverContext, exteriorEdge: number) {
-    if (hasInteriorLoop(exteriorEdge, context)) {
+    if (exteriorEdge >= 0 && exteriorEdge < context.graph.numExteriorNodes
+        && context.graph.interiorEdges.length > 0
+        && exteriorFaceIsClosed(context, exteriorEdge)) {
         context.acceptedEdges[exteriorEdge] = true;
     }
 

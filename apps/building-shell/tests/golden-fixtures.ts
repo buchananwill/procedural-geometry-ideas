@@ -15,7 +15,7 @@
 // `readInput` accepts (`fileGolden`). So spec 16's refusals have no golden: their oracle is the unit tests
 // (tests/wire-input.test.ts).
 import {errorMessage} from '../src/errors.ts';
-import {EXPORTED_FIXTURES, RING_SIDES, RingSides, ShellFixture, fixtureByName, ring} from '../src/fixture.ts';
+import {EXPORTED_FIXTURES, HOLED_FIXTURES, RING_SIDES, RISE_FIXTURES, RingSides, ShellFixture, fixtureByName, ring} from '../src/fixture.ts';
 import {
   GOLDEN_SCHEMA, GenusPerComponent, GoldenEntry, GoldenManifest, GoldenManifestSchema, MANIFEST_FILE, ResidueClass, cppReplayabilityOf, goldenText,
   unionStages,
@@ -25,15 +25,15 @@ import {withFileModelIndices} from '../src/wire/dump.ts';
 import {AdaptedInput, readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {BuildingShellInputV1} from '../src/wire/input-types.ts';
 import {
-  CAP_CHAIN_SEED, CUT_OVERSHOOT_PROBE, F2_COURTYARDS, FULL_WINGS_PROBE, PINCH_SEEDS, RosterPitchName, UPPER_U_EDGE_CONTACT,
-  flushOverReflexFixture, gapFixture, jutCutFixtures, nudgeFixtures, pitchEndFixtures, randomCourtyardFixtures, randomSplitCourtyardFixtures,
+  CAP_CHAIN_SEED, OFF_CENTRE_COURTYARD, F2_COURTYARDS, FULL_WINGS_PROBE, PINCH_SEEDS, RosterPitchName, UPPER_U_EDGE_CONTACT,
+  courtyardJutFixtures, flushOverReflexFixture, gapFixture, nudgeFixtures, pitchEndFixtures, randomCourtyardFixtures, randomSplitCourtyardFixtures,
   randomUFixtures, rosterPitchCases, seededFixture, splitBandFixture,
 } from './robustness-fixtures.ts';
 import {rosterGenus} from './roster-genus.ts';
 import {PinOutcome, PinRecord, ResiduePin, pinClass, throwsOutcome} from './pin-table.ts';
 import {
-  COURTYARD_DEFECTS, CUT_OVERSHOOT_DEFECTS, GAP_DEFECTS, JUT_CUT_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS, SPLIT_COURTYARD_DEFECTS, SeededKey,
-  U_DEFECTS, seededKey,
+  COURTYARD_DEFECTS, GAP_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS, SPLIT_COURTYARD_DEFECTS, SeededKey,
+  seededKey,
 } from './residue-pins.ts';
 import {componentGenera, invariantViolations, roofUndersideLines} from './shell-invariants.ts';
 import {NamedFixture, shellFixture} from './test-builds.ts';
@@ -138,12 +138,15 @@ const allGabled = (f: ShellFixture): ShellFixture =>
   ({...f, rings: f.rings.map(r => ({...r, sides: Object.fromEntries(RING_SIDES.map(s => [s, {form: 'gable'}])) as RingSides}))});
 
 /**
- * Journal decision 164, finding 1: the reviewer's `SB400-600B100S500g60r0`, a split-band courtyard hipped at 30° with the
- * cutting Ring's W side (the whole x = 0 wall) gabled at 60°, steeper than every hip on the island.
+ * Journal decision 164, finding 1: the reviewer's split-band courtyard hipped at 30° with the whole x = 0 wall gabled at
+ * 60°, steeper than every hip on the island. Its x = 0 wall is three Ring sides, Rings 0, 2 and 4's W sides. The
+ * reviewer's `SB400-600B100S500g60r0` gabled Ring 0's alone, which spec 3's whole-wall rule spread along the wall; under
+ * gable rise decision 3 that is a 60° rise over Ring 0's 100 cm (WP-G2, journal decision 206). So all three are gabled,
+ * the wall is a whole-wall gable again, and the name says so: `g60r024`.
  */
 function gableSteeperThanHips(): ShellFixture {
-  const f = splitBandFixture('SB400-600B100S500g60r0', 400, 600, 100, 500, {a: 30, w: 30});
-  f.rings[0] = {...f.rings[0], sides: {...f.rings[0].sides, W: {form: 'gable', deg: 60}}};
+  const f = splitBandFixture('SB400-600B100S500g60r024', 400, 600, 100, 500, {a: 30, w: 30});
+  for (const k of [0, 2, 4]) f.rings[k] = {...f.rings[k], sides: {...f.rings[k].sides, W: {form: 'gable', deg: 60}}};
   return f;
 }
 
@@ -153,7 +156,7 @@ function gableSteeperThanHips(): ShellFixture {
  * measured, then DistantRingConflict and HoleRingConflict (WP3.9).
  */
 export const MODEL_ORDER_CONFLICTS = [
-  'FlushRingConflict', 'OverlapRingConflict', 'PitchRingConflict', 'ThreeRingConflict', 'StoreyRingConflict', 'CutPitchConflict',
+  'FlushRingConflict', 'OverlapRingConflict', 'PitchRingConflict', 'ThreeRingConflict', 'StoreyRingConflict', 'BandPitchConflict',
   'DistantRingConflict', 'HoleRingConflict',
 ] as const;
 
@@ -168,10 +171,12 @@ export const fileReversedName = (name: ModelOrderConflict): FileReversedName => 
 
 /**
  * Journal decisions 165 and 166, N2: the conflicts whose shell reading the Rings in file order cannot move, measured,
- * not assumed. None since WP3.9: CutPitchConflict was the one, its only shared wall agreeing, until its redesign
- * (decision 167, finding 4) gave it a contested wall, so file order now moves it as it moves the others.
+ * not assumed. None from WP3.9 (BandPitchConflict was the one, its only shared wall agreeing, until its redesign,
+ * decision 167, finding 4) until WP-G2. Gable rise decision 3 (journal decision 206) gives each Ring the stretch it
+ * holds with the lowest index, so where two Rings' sides meet end to end without overlapping, as FlushRingConflict's and
+ * DistantRingConflict's do, the order of the Rings decides nothing and file order cannot move the shell: measured.
  */
-export const UNMOVED_BY_FILE_ORDER: readonly ModelOrderConflict[] = [];
+export const UNMOVED_BY_FILE_ORDER: readonly ModelOrderConflict[] = ['FlushRingConflict', 'DistantRingConflict'];
 
 /**
  * Journal decision 164, finding 2: the model-order oracle. Each of `MODEL_ORDER_CONFLICTS` read from a document whose
@@ -185,10 +190,10 @@ export const MODEL_ORDER_ORACLES: readonly CleanGolden[] = MODEL_ORDER_CONFLICTS
 /**
  * Journal decisions 156, F3, 161, findings 2 and 3, and 164, findings 1 and 2: the oracles of the rules WP3.8 changed,
  * each a clean golden that a rejected variant of its rule moves.
- * - `SplitBandFreeCut`: decision 151's counter-case `H300-700B200S500s30n45a30w60`, a split-band courtyard whose cut,
+ * - `SplitBandMixedPitch` (was `SplitBandFreeCut`, renamed by holed roof decision 47): decision 151's counter-case `H300-700B200S500s30n45a30w60`, a split-band courtyard whose cut,
  *   the split's buried wall, is collinear with no wall, so it reads the free branch. The cutting Ring's walls at the
  *   cut's ends stand at 30° and 45° and the wings and far band at 60°, so the cut takes the island's steepest, 60°.
- * - `SplitBandFreeCut45` (decision 161, finding 2): the split-band layout `H400-600B100S500` hipped at 45° throughout,
+ * - `SplitBand45` (was `SplitBandFreeCut45`; decision 161, finding 2): the split-band layout `H400-600B100S500` hipped at 45° throughout,
  *   an island whose steepest pitch is not 60°, so decision 151's rejected constant 60 moves its shell.
  * - `SplitBandAllGable75` (decision 161, finding 2, the reviewer's reproducer): `H300-700B200S500` gabled on every side
  *   at 75°, so the island's steepest wall is a gable. Decision 151's struck hip-only rule finds no hip and falls to 45°,
@@ -201,9 +206,10 @@ export const MODEL_ORDER_ORACLES: readonly CleanGolden[] = MODEL_ORDER_CONFLICTS
  *   (`rotatedSparse`). Its Rings are listed in model order, so it is the oracle for the file's model indices and side
  *   slots, not for Ring order: the `*FileReversed` goldens are that. Its shell is built through `readInput`, and its
  *   provenance names the file's own model indices and side slots: the W gable is model index 7's side 2.
- * - `SB400-600B100S500g60r0` (decision 164, finding 1, the reviewer's reproducer): the split-band layout
- *   `H400-600B100S500` hipped at 30° throughout, with the cutting Ring's W side gabled at 60°, so the island has hips and
- *   a gable steeper than every hip. Its free cut takes the gable's 60°; a hip-first rule takes the hips' 30° and moves it.
+ * - `SB400-600B100S500g60r024` (decision 164, finding 1, the reviewer's reproducer, re-authored by WP-G2): the split-band
+ *   layout `H400-600B100S500` hipped at 30° throughout, with its whole x = 0 wall gabled at 60°, so the island has hips
+ *   and a gable steeper than every hip. Its free cut takes the gable's 60°; a hip-first rule takes the hips' 30° and
+ *   moves it.
  * - The `*FileReversed` goldens (`MODEL_ORDER_ORACLES`).
  *
  * Spec 16's run snap order has no golden: since journal decision 179, finding 1, a document with a multi-run side is
@@ -212,8 +218,8 @@ export const MODEL_ORDER_ORACLES: readonly CleanGolden[] = MODEL_ORDER_CONFLICTS
  * `MULTI_RUN_SEED`, held to `multiRunDocument` by tests/wire-seeds.test.ts and ingested by tests/playtest-ingest.test.ts.
  */
 export const RULE_ORACLES: readonly CleanGolden[] = [
-  cleanGolden(splitBandFixture('SplitBandFreeCut', 300, 700, 200, 500, {a: 30, s: 30, n: 45, w: 60}), [1]),
-  cleanGolden(splitBandFixture('SplitBandFreeCut45', 400, 600, 100, 500, {a: 45, w: 45}), [1]),
+  cleanGolden(splitBandFixture('SplitBandMixedPitch', 300, 700, 200, 500, {a: 30, s: 30, n: 45, w: 60}), [1]),
+  cleanGolden(splitBandFixture('SplitBand45', 400, 600, 100, 500, {a: 45, w: 45}), [1]),
   cleanGolden(allGabled(splitBandFixture('SplitBandAllGable75', 300, 700, 200, 500, {a: 75, w: 75})), [1]),
   cleanGolden(shellFixture('GablePitchL', [
     ring([0, 0, 1000, 400], 0, 1, 30, {W: {form: 'gable', deg: 60}}),
@@ -225,36 +231,104 @@ export const RULE_ORACLES: readonly CleanGolden[] = [
 ];
 
 /**
+ * Journal decisions 260 to 262 (WP-C2): the oracle of the drop of fully internal Rings, in the place the golden set held
+ * it as a residue. `CourtyardJutSwapped`'s Ring `[-200,300,0,700]`, hipped at 45 with its S side at 30, lies wholly
+ * inside Ring `[-200,300,300,700]` and before it in the order. The solve drops the inner Ring, its 30 degree side with
+ * it, so the jut's S wall is at 45 and the shortest cut does not qualify; a solve that keeps it builds decision 175's F55
+ * residue instead. Its report names the dropped Ring, 1. `BandPitchConflict`, its swap and its `FileReversed` golden
+ * each drop the later of two identical bands too, which moves nothing, as the lowest index already won every wall.
+ */
+export const RING_DROP_ORACLES: readonly CleanGolden[] = [cleanGolden(namedCase(courtyardJutFixtures(), 'CourtyardJutSwapped'), [1])];
+
+/**
  * Journal decision 156, F4: one representative of every residue class the port inherits, each with the genus its pin
  * expects, so its manifest entry carries its class (decision 161, Info), its pinned violations or its error and
- * `clean: false`:
- * - the Cheek class, as decision 132's two regressions: s1h250 Court14 and s6h250 Court23;
- * - the Court25 throw (partial face-to-face contact of two storeys on one plane): s1h250 Court25;
- * - U8 (edge contact between opposite coplanar faces): s6h300 U8;
- * - a split-band failure, the split bands' commonest, a `cleanMesh` stuck cap: s2h250 SplitCourt10;
+ * `clean: false`. Re-chosen by WP-G2 (journal decision 206), where gable rise decision 3 cured a representative:
+ * - the Cheek class: s7h250 Court14, algorithm B's own Cheek. Decision 132's two regressions, s1h250 Court14 and s6h250
+ *   Court23, were its representatives until decision 3 cured both, leaving that cause with no member;
+ * - the Court25 throw (partial face-to-face contact of two storeys on one plane): s1h263 Court25, the one member left
+ *   (decision 3 cured s1h250 and s1h300, and s5h250 SplitCourt29);
+ * - U8 (edge contact between opposite coplanar faces): s6h300 U8, until journal decision 272 (WP-C3) labelled its tuck,
+ *   emptying the class; the case is kept as a clean tuck oracle (`TUCK_ORACLES`);
  * - a δ-nudge (decision 122's G5): ApexEdge5;
  * - a pitch-end throw (decision 143): G5.86h250;
  * - Courtyard at content's 22.5° and 45°, laid by side axis (decision 148, F3): its cut-piece overshoot;
  * - BridgeOverBlock at 45° (F52): its block's roof meeting the bridge's floor, genus 2 against 1, with its
  *   Roof-Underside edges' ends, as its pin carries them;
- * - decision 156, F7's two classes (decision 158, 1): s11h250 Court35's Cell-fan throw, and s7h250 SplitCourt9's
- *   Unclassified Gable-Wall edges;
- * - and decision 175's F55: CourtyardJutCutSwapped, a courtyard cut that qualifies while collinear with a jutting wall.
+ * - decision 156, F7's SplitCourt9 class (decision 158, 1): s7h250 SplitCourt9's Unclassified Gable-Wall edges;
+ * - and decision 175's F55: CourtyardJutSwapped, a courtyard cut that qualifies while collinear with a jutting wall.
+ *   Emptied by journal decisions 260 to 262 (WP-C2): the case's 30 degree Ring lies wholly inside the jutting one, the
+ *   solve drops it, and the case builds clean as the drop's oracle (`RING_DROP_ORACLES`, golden.ts's `RETIRED_BY_RING_DROP`).
+ *
+ * The holed roof (holed roof decision 48) cured two representatives, each promoted to a clean golden under its name
+ * (`HOLED_ROOF_PROMOTIONS`): s7h250 Court14, the Cheek class's, whose Cheek stood beside the courtyard cut, and the
+ * Courtyard at 22.5° and 45°, whose cut-piece overshoot emptied its class (golden.ts's `RETIRED_BY_HOLED_ROOF`). The Cheek class's
+ * representative is now s1h250 SplitCourt1, a gable rise's end standing above the wing at (250, 700).
+ *
+ * Emptied by gable rise decision 3, so with no representative: the `cleanMesh` stuck cap (s2h250 SplitCourt10 was its
+ * representative) and decision 156, F7's Cell-fan throw (s11h250 Court35). Emptied by journal decisions 243 to 245
+ * (WP-L2), whose covered rises cure both representatives: the Court25 throw (s1h263 Court25) and decision 156, F7's
+ * SplitCourt9 class (s7h250 SplitCourt9, and s10 Court18 at 263 and 300, its other members). The bullets above for
+ * those two are kept as the record of what they were.
  */
 export const RESIDUE_CLASSES: readonly ResidueGolden[] = [
-  seededResidue(randomCourtyardFixtures, COURTYARD_DEFECTS, 1, 'Court14', 250, [1]),
-  seededResidue(randomCourtyardFixtures, COURTYARD_DEFECTS, 6, 'Court23', 250, [1]),
-  seededResidue(randomCourtyardFixtures, COURTYARD_DEFECTS, 1, 'Court25', 250, [1]),
-  seededResidue(randomUFixtures, U_DEFECTS, 6, 'U8', 300, [0]),
-  seededResidue(randomSplitCourtyardFixtures, SPLIT_COURTYARD_DEFECTS, 2, 'SplitCourt10', 250, [1]),
+  seededResidue(randomSplitCourtyardFixtures, SPLIT_COURTYARD_DEFECTS, 1, 'SplitCourt1', 250, [1]),
   residueGolden(namedCase(nudgeFixtures(), 'ApexEdge5'), [0], NUDGE_DEFECTS, 'ApexEdge5'),
   residueGolden(namedCase(pitchEndFixtures(), 'G5.86h250'), [0], PITCH_END_DEFECTS, 'G5.86h250'),
-  rosterPitchResidue('Courtyard@22.5/45s', 'CourtyardAt22.5-45s'),
   rosterPitchResidue('BridgeOverBlock@45', 'BridgeOverBlockAt45'),
-  seededResidue(randomCourtyardFixtures, COURTYARD_DEFECTS, 11, 'Court35', 250, [1]),
-  seededResidue(randomSplitCourtyardFixtures, SPLIT_COURTYARD_DEFECTS, 7, 'SplitCourt9', 250, [1]),
-  residueGolden(namedCase(jutCutFixtures(), 'CourtyardJutCutSwapped'), [1], JUT_CUT_DEFECTS, 'CourtyardJutCutSwapped'),
 ];
+
+/**
+ * Holed roof decision 48: the residue goldens the holed roof cured, promoted to clean goldens under their names. Each was
+ * a defect on or beside a courtyard cut: s7h250 Court14's Cheek and the Courtyard's mixed-pitch cut-piece overshoot.
+ */
+export const HOLED_ROOF_PROMOTIONS: readonly CleanGolden[] = [
+  (() => {
+    const f = randomCourtyardFixtures(7, DRAWS_PER_SEED, 250).find(x => x.name === 'Court14');
+    if (!f) throw new Error('no case s7h250/Court14');
+    return cleanGolden(named(f, seededName('Court14', 7, 250)), [1]);
+  })(),
+  (() => {
+    const c = rosterPitchCases([fixtureByName('Courtyard')]).find(x => x.name === 'Courtyard@22.5/45s');
+    if (!c) throw new Error('no roster pitch case Courtyard@22.5/45s');
+    return cleanGolden(named(c.fixture, 'CourtyardAt22.5-45s'), rosterGenus('Courtyard'));
+  })(),
+];
+
+/**
+ * Journal decision 272 (WP-C3): the tuck oracle. s6h300 U8, once the U8 class's representative, builds clean with its
+ * union's tuck labelled Tuck on both layers, so the port can check its own tuck pass against it.
+ */
+export const TUCK_ORACLES: readonly CleanGolden[] = (() => {
+  const f = randomUFixtures(6, DRAWS_PER_SEED, 300).find(x => x.name === 'U8');
+  if (!f) throw new Error('no case s6h300/U8');
+  return [cleanGolden(named(f, seededName('U8', 6, 300)), [0])];
+})();
+
+/**
+ * Journal decisions 237 and 243: the rise fixtures that build a Cheek, left out of the golden set. A Cheek there is a fact,
+ * pinned exactly by `tests/rise.test.ts`'s `CHEEKS`; but the writer enrols a violation only as a residue, and a residue
+ * golden of a rise ships no input (decision 17), which the viewer's defect cases cannot load.
+ * `OppositeGablesTPartFacing`'s S rise runs at full height to the N wall's line (rule 1), and over x [400, 450] that line
+ * is the stem's S side, under no gable: the rise's end standing above the stem's roof there is a Cheek.
+ */
+export const RISE_FIXTURES_WITH_CHEEKS: readonly string[] = ['OppositeGablesTPartFacing'];
+
+/**
+ * Gable rise decisions 1 to 12: every rise fixture (`RISE_FIXTURES`) but those with a Cheek, each clean, the courtyards'
+ * genus 1. Every one is marked not yet C++-replayable (decision 17), so none ships an input.
+ */
+export const RISE_GOLDENS: readonly CleanGolden[] = RISE_FIXTURES.filter(f => !RISE_FIXTURES_WITH_CHEEKS.includes(f.name))
+  .map(f => cleanGolden(f, f.name.startsWith('Courtyard') ? [1] : [0]));
+
+/**
+ * Holed roof decision 39: the holed fixtures, each clean, its genus per component its hole count (highest first). The
+ * cured layouts among them join with theirs (skeleton flat-ring and third-front spec, decision 52).
+ */
+const HOLED_GENUS: Readonly<Record<string, GenusPerComponent>> = {
+  TwoCourtyards: [2], CourtyardInCourtyard: [1, 1], TwoHolesProbe: [2], TwoCourtyardsDraft: [2],
+};
+export const HOLED_GOLDENS: readonly CleanGolden[] = HOLED_FIXTURES.map(f => cleanGolden(f, HOLED_GENUS[f.name] ?? [1]));
 
 /**
  * Journal decision 129: every named fixture, the roster, the Ring-conflict pairs, the four Port fixtures and the
@@ -269,11 +343,17 @@ export const GOLDEN_FIXTURES: readonly GoldenFixture[] = [
   ...[300, 250].map(h => cleanGolden(named(seededFixture(CAP_CHAIN_SEED[0], CAP_CHAIN_SEED[1], h), `Seed${CAP_CHAIN_SEED[0]}Fuzz${CAP_CHAIN_SEED[1]}h${h}`), [0])),
   cleanGolden(UPPER_U_EDGE_CONTACT, [0]),
   cleanGolden(FULL_WINGS_PROBE, [1]),
-  residueOfPin(CUT_OVERSHOOT_PROBE, [1], CUT_OVERSHOOT_DEFECTS),
+  // Holed roof decision 48: promoted, its cut-piece overshoot cured with the cut.
+  cleanGolden(OFF_CENTRE_COURTYARD, [1]),
   ...F2_COURTYARDS.map(f => cleanGolden(named(f, f.name.replace(/^s(\d)h(\d+)\/(.*)$/, (_, s: string, h: string, n: string) => seededName(n, s, h))), [1])),
   ...(['Aligned', 'Offset'] as const).map(kind => gapFixture(kind, 1)).map(f => residueGolden(f, [0, 0], GAP_DEFECTS, f.name)),
   ...RULE_ORACLES,
+  ...HOLED_ROOF_PROMOTIONS,
   ...RESIDUE_CLASSES,
+  ...RING_DROP_ORACLES,
+  ...TUCK_ORACLES,
+  ...RISE_GOLDENS,
+  ...HOLED_GOLDENS,
 ];
 
 /**
@@ -310,10 +390,12 @@ export async function goldenFiles(): Promise<Map<string, string>> {
       continue;
     }
     const shell = `${fixture}.json`, union = `${fixture}.union.json`, measuredGenus = componentGenera(b.union.mesh);
+    // Decision 161, finding 3: a shell read from a document names the document's own Rings and sides, and so does its
+    // report's warning of dropped Rings (journal decisions 261 and 262), in the shell file and the manifest alike.
+    const out = g.file ? withFileModelIndices(b.shell, g.file.read) : b.shell;
     // Measured as its pin is (decision 158, 3): a located residue names its Roof-Underside edges too.
-    const report = b.shell.report, violations = [...invariantViolations(b, {genus: expectedGenus, cheeks: 0}), ...(located ? roofUndersideLines(b) : [])];
-    // Decision 161, finding 3: a shell read from a document names the document's own Rings and sides.
-    files.set(shell, goldenText(g.file ? withFileModelIndices(b.shell, g.file.read) : b.shell));
+    const report = out.report, violations = [...invariantViolations(b, {genus: expectedGenus, cheeks: 0}), ...(located ? roofUndersideLines(b) : [])];
+    files.set(shell, goldenText(out));
     files.set(union, goldenText(unionStages(fixture, b.union)));
     if (replay.cppReplayable) {
       entries.push(violations.length

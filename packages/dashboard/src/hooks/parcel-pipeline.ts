@@ -13,9 +13,15 @@ import type {
     Strip,
     Vector2,
 } from '@proc-geo/core';
+import { HOLED_SLICE_REFUSAL_TEXT } from '../components/holed-fixture-text';
 import { EXPLORER_PERCEPTUAL_FLOOR } from '../scene/perceptual-floor';
 import type { Vertex } from '../stores/usePolygonStore';
 import { polygonArea } from '../stores/useParcelStore';
+
+/** One hole of the region, as the polygon store holds it; the page passes it without weights (decision 35). */
+export interface PipelineHole {
+    vertices: Vertex[];
+}
 
 /**
  * The parcel pipeline itself — solve, offset, strips, slice — as one pure function.
@@ -68,6 +74,12 @@ export interface ParcelPipelineResult {
  */
 export interface PipelineParams {
     vertices: Vertex[];
+    /**
+     * The region's holes (dashboard holed-fixtures spec, decision 35). Omitted or `[]`, the pipeline is the
+     * single-loop one, call for call. With holes the skeleton, offset rings and strips are the holed solve's and
+     * slicing is refused.
+     */
+    holes?: readonly PipelineHole[];
     depthPercent: number;
     mitreToleranceDeg: number;
     sliceOptions: SliceOptions;
@@ -77,6 +89,7 @@ export interface PipelineParams {
 export function paramsDiffer(a: PipelineParams, b: PipelineParams): boolean {
     return (
         a.vertices !== b.vertices ||
+        a.holes !== b.holes ||
         a.depthPercent !== b.depthPercent ||
         a.mitreToleranceDeg !== b.mitreToleranceDeg ||
         a.sliceOptions !== b.sliceOptions
@@ -97,6 +110,7 @@ function describe(error: unknown): string {
  */
 export function runParcelPipeline(params: PipelineParams, stale: boolean): ParcelPipelineResult {
     const { vertices, depthPercent, mitreToleranceDeg, sliceOptions } = params;
+    const holes = params.holes ?? [];
 
     const empty: ParcelPipelineResult = {
         vertices,
@@ -110,7 +124,8 @@ export function runParcelPipeline(params: PipelineParams, stale: boolean): Parce
         strips: [],
         parcelsByStrip: [],
         parcels: [],
-        polygonArea: polygonArea(vertices),
+        // THE REGION'S AREA: the outline's less the holes' (decision 35).
+        polygonArea: holes.reduce((area, hole) => area - polygonArea(hole.vertices), polygonArea(vertices)),
         parcelArea: 0,
         coverage: 0,
         sliceOptions,
@@ -128,7 +143,13 @@ export function runParcelPipeline(params: PipelineParams, stale: boolean): Parce
         // two solver pages, so a skeleton computed here at the library's finer 1e-6 would carry arcs
         // this canvas cannot separate — and the strips and parcels cut from them would inherit
         // slivers no viewer can see. One client, one floor.
-        solve = solveSkeleton(vertices, { perceptualFloor: EXPLORER_PERCEPTUAL_FLOOR });
+        // A holed region passes its holes, without weights, as the outline goes without them (decision 35).
+        solve = holes.length > 0
+            ? solveSkeleton(vertices, {
+                perceptualFloor: EXPLORER_PERCEPTUAL_FLOOR,
+                holes: holes.map((hole) => ({ vertices: hole.vertices })),
+            })
+            : solveSkeleton(vertices, { perceptualFloor: EXPLORER_PERCEPTUAL_FLOOR });
     } catch (error) {
         return { ...empty, failure: { stage: 'solve', message: describe(error) } };
     }
@@ -190,6 +211,12 @@ export function runParcelPipeline(params: PipelineParams, stale: boolean): Parce
     }
 
     const withStrips = { ...offset, strips };
+
+    // A HOLED REGION STOPS AT SLICING (decision 35; BSA.D282, BSA.D317): a strip carries no loop, and lots of a holed
+    // footprint are outside this arc. Its skeleton, offset rings and strips stand.
+    if (holes.length > 0) {
+        return { ...withStrips, failure: { stage: 'slice', message: HOLED_SLICE_REFUSAL_TEXT } };
+    }
 
     let parcelsByStrip: Parcel[][];
     try {

@@ -4,12 +4,14 @@
 // do the I/O.
 import {z} from 'zod';
 import {EDGE_KINDS} from './edges.ts';
-import {RING_SIDES} from './fixture.ts';
-import type {ShellFixture} from './fixture.ts';
+import {PlanRefusal} from './errors.ts';
+import {RING_SIDES, storeyRings, storeysOf} from './fixture.ts';
+import type {ShellFixture, StoreyRing} from './fixture.ts';
 import type {ShellMesh} from './mesh.ts';
-import {ringSideLines} from './ring-forms.ts';
+import {ringSideLines, storeyLoops, unionWallForms} from './ring-forms.ts';
 import type {ShellReport} from './shell.ts';
-import type {RawPart} from './storey.ts';
+import {storeyForms} from './storey.ts';
+import type {RawPart, StoreyForms} from './storey.ts';
 import type {FaceTag, PartlessTag, Plane3} from './tags.ts';
 import type {ShellUnion} from './union.ts';
 import {readInput, writeInput} from './wire/input-adapter.ts';
@@ -100,6 +102,43 @@ export const readInputRefusals = (errors: readonly string[]): string[] => errors
 /** The reason `cppReplayability` gives for a document with a side that is not one run of its whole length. */
 export const NOT_ONE_WHOLE_RUN = 'a side not one run from 0 to its length';
 
+/** Gable rise decision 17: the reason `cppReplayability` gives for a document that builds a gable rise. */
+export const BUILDS_A_RISE = 'a gable rise, which the C++ port does not build yet (gable rise decision 17)';
+
+/** What `buildsARise` reads of a storey's planned forms: its union walls and its covered rises. */
+export type RiseForms = Pick<StoreyForms, 'walls' | 'covered'>;
+
+/**
+ * Gable rise decision 17: whether any storey of `f` builds a rise. A rise reached through flush Rings has every side
+ * one whole run, so `isOneWholeRun` alone would offer it as replayable; so has an all-gable wall that journal decision
+ * 220 turns into a rise. Each storey is read in one of three ways (journal decision 222, L1, as ruled in decision 224):
+ * - **The walls the pipeline plans from** (`forms`, `storeyForms` by default): the storey builds a rise where one of
+ *   them carries one, or where it has a covered rise (journal decision 243, rule 3).
+ * - **On a `PlanRefusal` there, the per-extent derivation alone** (`unionWallForms`, without decision 220's claimed
+ *   bands); a refusal from that too reads as no rise, the refusal being `readInput`'s and the build's to report.
+ * - **Any other error propagates.** Decision 220's derivation has throw sites of its own (`algorithmBSpan`, a second
+ *   `buildingOf`); a document failing at one must break the export loudly, never be read as building no rise and so
+ *   offered to the C++ replay.
+ * `forms` is a parameter only so a test can reach each branch.
+ */
+export function buildsARise(f: ShellFixture, forms: (rings: StoreyRing[]) => RiseForms = storeyForms): boolean {
+  return storeysOf(f).some(n => {
+    const rings = storeyRings(f, n);
+    try {
+      const planned = forms(rings);
+      return planned.walls.some(w => w.rises?.length) || planned.covered.length > 0;
+    } catch (e) {
+      if (!(e instanceof PlanRefusal)) throw e;
+    }
+    try {
+      return unionWallForms(rings, storeyLoops(rings.map(r => r.ring.rect))).some(w => w.rises?.length);
+    } catch (e) {
+      if (e instanceof PlanRefusal) return false;
+      throw e;
+    }
+  });
+}
+
 /**
  * One file side of a document `readInput` accepts, with its length between its snapped corners (journal decision 181,
  * N1).
@@ -148,7 +187,10 @@ export function cppReplayabilityOf(input: BuildingShellInputV1): Replayability {
   // Read through JSON, as a file is: `readInput` never sees the writer's own objects.
   const read = readInput(JSON.parse(JSON.stringify(input)), 'cppReplayability');
   if (!read.ok) reasons.push(...readInputRefusals(read.errors));
-  else if (!snappedSides(read).every(isOneWholeRun)) reasons.push(NOT_ONE_WHOLE_RUN);
+  else {
+    if (!snappedSides(read).every(isOneWholeRun)) reasons.push(NOT_ONE_WHOLE_RUN);
+    if (buildsARise(read.fixture)) reasons.push(BUILDS_A_RISE);
+  }
   return reasons.length ? {cppReplayable: false, reasons} : {cppReplayable: true};
 }
 
@@ -158,32 +200,73 @@ export const ShellReportSchema = z.strictObject({
   survivingInternal: z.number(),
   unclassifiedEdges: z.number(),
   cheeks: z.number(),
+  tucks: z.number().int().nonnegative(),
   partialCells: z.number(),
   newEdgeKinds: z.array(z.enum(EDGE_KINDS)),
   newConventions: z.array(z.string()),
+  droppedRings: z.array(z.number().int().nonnegative()),
 });
 
-/**
- * Journal decision 161 (Info): every residue class the golden set enrols, by a stable name. A residue's violation
- * strings carry prototype-internal ids, so the port keys on this name instead.
- */
-export const RESIDUE_CLASS_NAMES = [
+/** The residue classes the golden set enrols a member of, each by its stable name (journal decision 161). */
+export const LIVE_RESIDUE_CLASSES = [
   'algorithm-B Cheek',
-  'algorithm-B cut-piece overshoot',
-  'partial coplanar contact of two storeys',
-  'edge contact between opposite coplanar faces',
-  'cleanMesh stuck cap',
-  'Cell outside its face fan',
-  'Gable-Wall edge Unclassified',
   'sub-tolerance roof feature',
   'low-pitch pocket',
   'roof meets the floor above',
   'near-touching islands',
-  'courtyard cut collinear with a jutting wall',
 ] as const;
+
+/**
+ * Residue classes gable rise decision 3 leaves with no member (WP-G2, journal decision 206): every case pinned to them is
+ * a whole-wall gable over a contested wall, which builds as a hip with a rise. Reported as emptied, never filled with a
+ * weaker case. Journal decisions 243 to 245 (WP-L2) empty two more: the covered rises cure every case pinned to the
+ * Court25 throw and to the SplitCourt9 class's Unclassified Gable-Wall Edges.
+ */
+export const RETIRED_BY_GABLE_RISES = [
+  'cleanMesh stuck cap', 'Cell outside its face fan', 'partial coplanar contact of two storeys', 'Gable-Wall edge Unclassified',
+] as const;
+
+/**
+ * Journal decisions 260 to 262 (WP-C2): the residue class the drop of fully internal Rings leaves with no member. Its one
+ * case, CourtyardJutSwapped, holds a Ring wholly inside another, which the solve drops; it builds as CourtyardJut does,
+ * clean, and is the drop's oracle.
+ */
+export const RETIRED_BY_RING_DROP = ['courtyard cut collinear with a jutting wall'] as const;
+
+/**
+ * Journal decision 272 (WP-C3): the residue class the tuck pass leaves with no member. Every case pinned to the U8 class
+ * is one tuck Manifold's union leaves (BSA.F87), labelled Tuck and given no Cells; each builds clean.
+ */
+export const RETIRED_BY_TUCKS = ['edge contact between opposite coplanar faces'] as const;
+
+/**
+ * Holed roof decisions 48 and 49: the residue class the holed roof leaves with no member. The class is algorithm B's
+ * cut-piece overshoot, a piece built on a courtyard cut (`OffCentreCourtyard`, the s2 Court15, s7 Court38 and s13 Court13
+ * rows, the Courtyard's mixed-pitch roster rows); the holed roof places no cut, so builds no cut piece, and each of
+ * those cases builds clean.
+ */
+export const RETIRED_BY_HOLED_ROOF = ['algorithm-B cut-piece overshoot'] as const;
+
+/**
+ * Every residue class the golden set records as emptied, whatever emptied it: no golden case is of one. Each keeps its
+ * name in `RESIDUE_CLASS_NAMES`, so the manifest's schema still accepts it.
+ */
+export const RETIRED_RESIDUE_CLASSES = [...RETIRED_BY_GABLE_RISES, ...RETIRED_BY_RING_DROP, ...RETIRED_BY_TUCKS, ...RETIRED_BY_HOLED_ROOF] as const;
+
+/**
+ * Journal decision 161 (Info): every residue class, live and retired, by a stable name. A residue's violation strings
+ * carry prototype-internal ids, so the port keys on this name instead.
+ */
+export const RESIDUE_CLASS_NAMES = [...LIVE_RESIDUE_CLASSES, ...RETIRED_RESIDUE_CLASSES] as const;
 
 /** One residue class's stable name. */
 export type ResidueClass = typeof RESIDUE_CLASS_NAMES[number];
+
+/** A residue class the golden set enrols a member of. */
+export type LiveResidueClass = typeof LIVE_RESIDUE_CLASSES[number];
+
+/** A residue class no golden case is of. */
+export type RetiredResidueClass = typeof RETIRED_RESIDUE_CLASSES[number];
 
 /**
  * A genus per connected component, highest first (spec decision 32 as amended; journal decision 163, N5): one name for

@@ -11,7 +11,7 @@
 // generated file fails `typecheck` (tests/wire-types.test.ts, decision 138's B1).
 import {z} from 'zod';
 import {INPUT_USTRUCT_DEFAULTS as D} from '../building-shell-input-defaults.ts';
-import {EModularRoofFormSchema, ERoofSideRequestSchema} from '../building-shell-input-schema.zod.ts';
+import {EGableFacingSchema, EModularRoofFormSchema, ERoofSideRequestSchema} from '../building-shell-input-schema.zod.ts';
 
 const int32 = z.int32();
 
@@ -50,6 +50,9 @@ export const SolvedRunV1Schema = z.strictObject({
   pitchDegrees: z.number().prefault(D.FShellWireSolvedRun.pitchDegrees),
   bEmptied: z.boolean().prefault(D.FShellWireSolvedRun.bEmptied),
   bOutlineRefused: z.boolean().prefault(D.FShellWireSolvedRun.bOutlineRefused),
+  maxHeightCm: z.number().nonnegative().prefault(D.FShellWireSolvedRun.maxHeightCm),
+  facing: EGableFacingSchema.prefault(D.FShellWireSolvedRun.facing),
+  bStandsApart: z.boolean().prefault(D.FShellWireSolvedRun.bStandsApart),
 });
 
 export const SideV1Schema = z.strictObject({

@@ -1,3 +1,11 @@
+---
+title: "Task 245 — Access run provenance and the Region type, review cycle one"
+type: workflow
+area: subdivision
+status: archived
+date: 2026-08-17
+---
+
 # Task 245 — Access run provenance and the Region type, review cycle one
 
 Spec: [`docs/notes/access-run-provenance-decisions.md`](../access-run-provenance-decisions.md)

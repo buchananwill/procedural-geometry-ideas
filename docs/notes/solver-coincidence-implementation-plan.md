@@ -1,8 +1,10 @@
 ---
 title: "Solver Coincidence and Terminal Cases: Implementation Plan"
-type: implementation-plan
-status: in-progress
-spec: ./solver-coincidence-and-terminal-cases-decisions.md
+type: workflow
+area: straight-skeleton
+status: archived
+date: 2026-08-16
+# spec: ./solver-coincidence-and-terminal-cases-decisions.md
 ---
 
 # Implementation plan — solver coincidence and terminal cases

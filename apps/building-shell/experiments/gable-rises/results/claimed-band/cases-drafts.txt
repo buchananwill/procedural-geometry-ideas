@@ -1,0 +1,52 @@
+
+# SingleStoreyT and the user's drafts (F75) under today, Rule A and Rule B
+
+== SingleStoreyT
+  today: CLEAN 
+    Gable s0 on x=1000 [0,500] apex at 250.0, 250.0 above the plate
+  A: CLEAN same shape as today
+    storey 0 x=1000 [0,150] outer ownGable: keptB, bands [0,500]@45
+    storey 0 x=1000 [350,500] outer ownGable: keptB, bands [0,500]@45
+    Gable s0 on x=1000 [0,500] apex at 250.0, 250.0 above the plate
+  B: CLEAN same shape as today
+    storey 0 x=1000 [0,150] outer ownGable: toRise, bands [0,500]@45
+    storey 0 x=1000 [350,500] outer ownGable: toRise, bands [0,500]@45
+    rise [0,500] on x=1000: ends corner/corner, middle buried; planes y=0 x[0,1000] & y=500 x[0,1000] & x=0 y[0,500]; limit x=0 y[0,500]
+    Gable s0 on x=1000 [0,500] apex at 250.0, 250.0 above the plate
+
+== DraftNoWing
+  today: CLEAN 
+    Gable s0 on x=0 [0,600] apex at 300.0, 124.3 above the plate
+    Gable s0 on y=0 [600,1200] apex at 900.0, 124.3 above the plate
+  A: CLEAN same shape as today
+    storey 0 y=0 [0,1200] mixed: mixedToday, bands [600,1200]@22.5
+    storey 0 x=0 [0,600] notWider: keptB, bands [0,600]@22.5
+    rise [600,1200] on y=0: ends reflex/corner; planes x=600 y[600,800] & x=1200 y[0,800] & y=800 x[600,1200]; limit y=800 x[600,1200]
+    Gable s0 on x=0 [0,600] apex at 300.0, 124.3 above the plate
+    Gable s0 on y=0 [600,1200] apex at 900.0, 124.3 above the plate
+  B: CLEAN same shape as today
+    storey 0 y=0 [0,1200] mixed: mixedToday, bands [600,1200]@22.5
+    storey 0 x=0 [0,600] notWider: toRise, bands [0,600]@22.5
+    rise [600,1200] on y=0: ends reflex/corner; planes x=600 y[600,800] & x=1200 y[0,800] & y=800 x[600,1200]; limit y=800 x[600,1200]
+    rise [0,600] on x=0: ends corner/corner; planes y=0 x[0,600] & y=600 x[0,600] & x=1200 y[0,800] & cap 249 on x=0 y[0,600]; limit x=1200 y[0,800]; cap floor 249
+    Gable s0 on y=0 [600,1200] apex at 900.0, 124.3 above the plate
+    Gable s0 on x=0 [0,600] apex at 300.0, 124.3 above the plate
+
+== DraftWithWing
+  today: NOT CLEAN: conflicts 1 
+    Gable s0 on y=0 [400,1200] apex at 600.0, 248.5 above the plate
+    Gable s0 on x=0 [0,600] apex at 300.0, 124.3 above the plate
+  A: CLEAN SHAPE DIFFERS (0.0000,0.3827,0.9239|460.58 differs by 97415.4 cm²)
+    storey 0 y=0 [600,1200] outer hipOther: toRise, bands [600,1200]@22.5
+    storey 0 x=0 [-400,600] mixed: mixedToday, bands [0,600]@22.5
+    rise [600,1200] on y=0: ends reflex/corner; planes x=600 y[600,800] & x=1200 y[0,800] & y=800 x[600,1200]; limit y=800 x[600,1200]
+    rise [0,600] on x=0: ends reflex/corner; planes y=0 x[600,1200] & y=600 x[0,600] & x=1200 y[0,800] & cap 249 on x=0 y[0,600]; limit x=1200 y[0,800]; cap floor 249
+    Gable s0 on y=0 [600,1200] apex at 900.0, 124.3 above the plate
+    Gable s0 on x=0 [0,600] apex at 300.0, 124.3 above the plate
+  B: CLEAN SHAPE DIFFERS (0.0000,0.3827,0.9239|460.58 differs by 97415.4 cm²)
+    storey 0 y=0 [600,1200] outer hipOther: toRise, bands [600,1200]@22.5
+    storey 0 x=0 [-400,600] mixed: mixedToday, bands [0,600]@22.5
+    rise [600,1200] on y=0: ends reflex/corner; planes x=600 y[600,800] & x=1200 y[0,800] & y=800 x[600,1200]; limit y=800 x[600,1200]
+    rise [0,600] on x=0: ends reflex/corner; planes y=0 x[600,1200] & y=600 x[0,600] & x=1200 y[0,800] & cap 249 on x=0 y[0,600]; limit x=1200 y[0,800]; cap floor 249
+    Gable s0 on y=0 [600,1200] apex at 900.0, 124.3 above the plate
+    Gable s0 on x=0 [0,600] apex at 300.0, 124.3 above the plate

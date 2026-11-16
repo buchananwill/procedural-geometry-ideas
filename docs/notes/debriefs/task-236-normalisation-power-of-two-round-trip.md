@@ -1,3 +1,11 @@
+---
+title: "Debrief 0001 — Exact normalisation round trip via a power-of-two scale"
+type: workflow
+area: straight-skeleton
+status: archived
+date: 2026-08-16
+---
+
 # Debrief 0001 — Exact normalisation round trip via a power-of-two scale
 
 Task 236 · spec `docs/notes/normalisation-exact-round-trip-decisions.md` · cycle 0

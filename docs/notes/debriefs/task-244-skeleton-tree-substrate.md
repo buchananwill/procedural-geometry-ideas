@@ -1,3 +1,11 @@
+---
+title: "Task 244 — Skeleton tree substrate"
+type: workflow
+area: subdivision
+status: archived
+date: 2026-08-17
+---
+
 # Task 244 — Skeleton tree substrate
 
 Spec: [`docs/notes/skeleton-tree-substrate-decisions.md`](../skeleton-tree-substrate-decisions.md)

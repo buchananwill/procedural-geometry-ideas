@@ -1,8 +1,15 @@
-import {CLEAN_TEST_POLYGONS} from '@proc-geo/test-fixtures';
+import {
+    CLEAN_TEST_POLYGONS,
+    HOLED_F1,
+    HOLED_TEST_POLYGONS,
+    HoledTestPolygon,
+    holedSolveOptions,
+} from '@proc-geo/test-fixtures';
 import {
     computeMaxOffset,
     computeNodeOffsets,
     computeOffsetRings,
+    projectOffsetWavefront,
     SkeletonSolveResult,
     solveSkeleton,
     Vector2,
@@ -465,5 +472,123 @@ describe('offset projection', () => {
             });
             expect(splitting.length).toBeGreaterThanOrEqual(5);
         });
+    });
+});
+
+/*
+ * ============================================================================
+ *  THE HOLED ROSTER (skeleton loop-consumers spec, decisions 5 to 9 and 38).
+ * ============================================================================
+ *
+ * A holed projection returns a flat list of rings in today's types: an outer ring clockwise, with negative signed
+ * area, and a ring round holes counter-clockwise, with positive signed area, holding only hole edges. At offset 0 it
+ * returns one ring per loop, in loop order, exactly the loops' nodes. A node is dated against its parent's own line
+ * (decision 5, the one single-ring site of offset-projection.ts).
+ */
+describe('offset projection on the holed roster', () => {
+    const solveHoled = (fixture: HoledTestPolygon) => solveSkeleton(fixture.outline, holedSolveOptions(fixture));
+    const holeEdge = (result: SkeletonSolveResult, exteriorEdgeId: number) => exteriorEdgeId >= result.graph.loops[0].count;
+
+    it.each(HOLED_TEST_POLYGONS.map(fixture => [fixture.name, fixture] as const))(
+        '%s: at 0.2 and 0.5 nothing is lost, each ring\'s sign is its kind, and an inner ring holds only hole edges',
+        (_name, fixture) => {
+            const result = solveHoled(fixture);
+            const maxOffset = computeMaxOffset(result);
+            const problems: string[] = [];
+            for (const fraction of [0.2, 0.5]) {
+                const projection = projectOffsetWavefront(result, maxOffset * fraction);
+                if (projection.unclosedChains.length > 0) {
+                    problems.push(`${fraction}: ${projection.unclosedChains.length} unclosed chain(s)`);
+                }
+                if (projection.rings.length === 0) {
+                    problems.push(`${fraction}: no ring at all`);
+                }
+                projection.rings.forEach((ring, index) => {
+                    const area = signedRingArea(ring.vertices.map(vertex => vertex.position));
+                    const holeEdges = ring.segments.filter(segment => holeEdge(result, segment.exteriorEdgeId)).length;
+                    if (area > 0 && holeEdges !== ring.segments.length) {
+                        problems.push(`${fraction}: inner ring ${index} holds ${ring.segments.length - holeEdges} outline edge(s)`);
+                    }
+                    // NOT the converse: an outer ring may hold hole edges alone. F8's pocket, pinched off inside the C,
+                    // is bounded by the C's walls only and is wound clockwise, with the pentagon's ring inside it.
+                    if (area === 0) {
+                        problems.push(`${fraction}: ring ${index} has no area`);
+                    }
+                });
+            }
+            expect(problems).toEqual([]);
+        },
+    );
+
+    it.each(HOLED_TEST_POLYGONS.map(fixture => [fixture.name, fixture] as const))(
+        '%s: offset zero returns the loops, one ring each, in loop order, exactly',
+        (_name, fixture) => {
+            const result = solveHoled(fixture);
+            const {graph} = result;
+            expect(computeOffsetRings(result, 0)).toEqual(graph.loops.map(({start, count}) =>
+                graph.nodes.slice(start, start + count).map(node => node.position)));
+            expect(computeOffsetRings(result, computeMaxOffset(result))).toEqual([]);
+        },
+    );
+
+    // `rawOffsetsOfNode` returns DISTANCES, which are the times only at unit weights, so this property is read on the
+    // unweighted fixtures; the weighted ones' times are held by the causality sweep and the holed battery.
+    const UNWEIGHTED = HOLED_TEST_POLYGONS.filter(fixture =>
+        fixture.weights === undefined && fixture.holes.every(hole => hole.weights === undefined));
+
+    it.each(UNWEIGHTED.map(fixture => [fixture.name, fixture] as const))(
+        '%s: every node\'s offset is a distance its own parent edges give it, within one instant',
+        (_name, fixture) => {
+            // `rawOffsetsOfNode` dates each node against each of its parents' own lines; a re-derivation by
+            // `(parent + 1) % n` would date a node on a loop's last edge against the next loop's first node.
+            const result = solveHoled(fixture);
+            const maxOffset = computeMaxOffset(result);
+            const problems: string[] = [];
+            for (const [nodeId, offset] of computeNodeOffsets(result)) {
+                if (nodeId < result.graph.numExteriorNodes) {
+                    continue;
+                }
+                // EVERY parent's distance, not the nearest: at unit weights a node is equidistant from all the walls
+                // that meet there, so one wrong line is a drift however the others read.
+                const raw = rawOffsetsOfNode(result, nodeId);
+                const drift = Math.max(...raw.map(candidate => Math.abs(candidate - offset)));
+                if (drift > maxOffset * SIMULTANEITY_RELATIVE_BAND) {
+                    problems.push(`n${nodeId}: offset ${offset} is ${drift.toExponential(3)} from its own parents' lines`);
+                }
+            }
+            expect(problems).toEqual([]);
+        },
+    );
+
+    it('dates a node whose parent is a loop\'s last edge against that edge\'s own line (decision 5)', () => {
+        // F1: outline edge 3 runs (10, 0) -> (0, 0) and hole edge 7 runs (7, 4.5) -> (8, 5.5), each its loop's last
+        // edge. A node dated against either must read the distance to that edge's own line over its weight, not the
+        // line from its source to the next loop's first node.
+        const result = solveHoled(HOLED_F1);
+        const {graph} = result;
+        const lastEdges = graph.loops.map(({start, count}) => start + count - 1);
+        const offsets = computeNodeOffsets(result);
+        const dated: string[] = [];
+        for (let nodeId = graph.numExteriorNodes; nodeId < graph.nodes.length; nodeId++) {
+            const node = graph.nodes[nodeId];
+            const first = [...new Set([...node.inEdges, ...node.outEdges])]
+                .find(id => id >= graph.numExteriorNodes);
+            if (first === undefined) {
+                continue;
+            }
+            const parent = graph.interiorEdges[first - graph.numExteriorNodes].clockwiseExteriorEdgeIndex;
+            if (!lastEdges.includes(parent)) {
+                continue;
+            }
+            // The parent's own line, read from the loop table by loop-local arithmetic.
+            const loop = graph.loops.find(({start, count}) => parent >= start && parent < start + count)!;
+            const own = distanceToSupportingLine(node.position, graph.nodes[parent].position,
+                graph.nodes[loop.start + (parent - loop.start + 1) % loop.count].position) / graph.exteriorWeights[parent];
+            dated.push(`n${nodeId} on e${parent}`);
+            expect({node: nodeId, parent, offset: offsets.get(nodeId)})
+                .toEqual({node: nodeId, parent, offset: expect.closeTo(own, 12)});
+        }
+        // Not vacuous: F1 has such nodes (measured: the nodes named here).
+        expect(dated.length).toBeGreaterThan(0);
     });
 });

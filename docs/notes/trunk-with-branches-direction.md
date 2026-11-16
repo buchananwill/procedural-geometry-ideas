@@ -1,3 +1,11 @@
+---
+title: "Trunk-with-Branches Direction Note"
+type: commentary
+area: subdivision
+status: active
+date: 2026-08-09
+---
+
 # Trunk-with-branches — direction note for a follow-up session
 
 Written 2026-08-09 at the close of the parcel-quality session. Status: **approved direction,

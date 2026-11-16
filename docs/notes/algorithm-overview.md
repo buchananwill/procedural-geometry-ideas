@@ -1,3 +1,11 @@
+---
+title: "Review of Algorithm Pseudocode"
+type: technical-reference
+area: straight-skeleton
+status: archived
+date: 2026-02-22
+---
+
 # Review Of Algorithm - Pseudo code
 
 1. Create polygon from clockwise-winding node positions.

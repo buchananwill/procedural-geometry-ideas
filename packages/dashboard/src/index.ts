@@ -3,7 +3,7 @@ export type { DebugDisplayOptions, CollisionSweepLine } from './types';
 
 // Stores
 export { usePolygonStore } from './stores/usePolygonStore';
-export type { Vertex } from './stores/usePolygonStore';
+export type { StoredHole, Vertex } from './stores/usePolygonStore';
 export { useRandomPolygonStore } from './stores/useRandomPolygonStore';
 export { usePlaybackStore } from './stores/usePlaybackStore';
 export type { PlaybackStoreState } from './stores/usePlaybackStore';
@@ -12,12 +12,20 @@ export type { PlaybackStoreState } from './stores/usePlaybackStore';
 export { useSkeletonAnimation } from './hooks/useSkeletonAnimation';
 export type { SkeletonAnimationState } from './hooks/useSkeletonAnimation';
 export {
+    adaptHoledSteppedResult,
+    describeBlockingDiagnostics,
     describeSolverRefusal,
+    holedSolveView,
+    solveHoledSkeletonGuarded,
+    solveHoledSkeletonSteppedGuarded,
     solveSkeletonBoundary,
     solveSkeletonGuarded,
     solveSkeletonSteppedGuarded,
 } from './hooks/skeleton-solve-boundary';
 export type {
+    HoledSolveOutcome,
+    HoledSolveView,
+    HoledSteppedSolveOutcome,
     SkeletonBoundaryOutcome,
     SkeletonSolveOptions,
     SkeletonSolveOutcome,
@@ -28,7 +36,8 @@ export type { CollisionSweepState } from './hooks/useCollisionSweep';
 export type { PlaybackControllerState } from './hooks/PlaybackControllerState';
 
 // Scene DSL
-export type { StrokeStyle, FillStyle, TextStyle, SceneLine, ScenePoint, SceneLabel, SceneGroup, ScenePrimitive } from './scene/types';
+export type { StrokeStyle, FillStyle, TextStyle, SceneLine, ScenePoint, SceneLabel, SceneRegion, SceneGroup, ScenePrimitive } from './scene/types';
+export type { SceneHole } from './scene/adapters/skeletonToScene';
 export { SceneCanvas } from './scene/SceneCanvas';
 export type { SceneCanvasProps } from './scene/SceneCanvas';
 export {
@@ -52,7 +61,16 @@ export { default as RandomPolygonPanel } from './components/RandomPolygonPanel';
 export { default as ControlsPanel } from './components/ControlsPanel';
 export {
     CLEAN_GROUP_LABEL, DEFECT_GROUP_LABEL, DEFECT_OPTION_PREFIX, fixtureByName, FIXTURE_OPTION_GROUPS,
+    HOLED_FIXTURE_OPTION_GROUP, HOLED_GROUP_LABEL, holedFixtureByName, RECURSIVE_FIXTURE_OPTION_GROUPS,
+    RECURSIVE_HOLED_GROUP_LABEL, SKELETON_FIXTURE_OPTION_GROUPS,
 } from './components/fixture-options';
+export {
+    BLOCKING_DIAGNOSTIC_HEADINGS, HOLED_BRIDGE_DISABLED_TEXT, HOLED_COPY_DISABLED_TEXT, HOLED_INSTRUCTION_TEXT,
+    HOLED_REFUSED_CANVAS_TEXT, HOLED_REFUSED_STALE_CANVAS_TEXT,
+    HOLED_SLICE_REFUSAL_TEXT, holedNoticeText, INFORMATIONAL_DIAGNOSTIC_KINDS, isBlockingDiagnosticKind,
+    SKELETON_INCOMPLETE_TITLE, STEP_REFUSAL_KINDS,
+} from './components/holed-fixture-text';
+export type { BlockingDiagnosticKind, InformationalDiagnosticKind } from './components/holed-fixture-text';
 export type { FixtureOption, FixtureOptionGroup } from './components/fixture-options';
 export { interpretGeometryPaste, MIN_POLYGON_VERTICES } from './components/geometry-clipboard';
 export type { GeometryPasteAccepted, GeometryPasteOutcome, GeometryPasteRejected } from './components/geometry-clipboard';
@@ -87,6 +105,7 @@ export type {
     ParcelPipelineFailure,
     ParcelPipelineResult,
     ParcelPipelineStage,
+    PipelineHole,
     PipelineParams,
 } from './hooks/parcel-pipeline';
 export { ParcelControlsPanel, ParcelLayerPanel, ParcelReportPanel, TerrainPanel } from './components/parcels';

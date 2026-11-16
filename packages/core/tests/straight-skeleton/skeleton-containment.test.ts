@@ -1,6 +1,13 @@
-import {CLEAN_TEST_POLYGONS, FULL_CORPUS, KNOWN_DEFECT_POLYGONS} from '@proc-geo/test-fixtures';
-import {solveSkeleton} from '@proc-geo/core';
-import {escapedNodes, isInside} from './containment-helpers';
+import {
+    CLEAN_TEST_POLYGONS,
+    FULL_CORPUS,
+    HOLED_F1,
+    HOLED_TEST_POLYGONS,
+    holedSolveOptions,
+    KNOWN_DEFECT_POLYGONS,
+} from '@proc-geo/test-fixtures';
+import {solveSkeleton, StraightSkeletonGraph} from '@proc-geo/core';
+import {escapedNodes, escapedNodesOf, isInside} from './containment-helpers';
 
 /*
  * ============================================================================
@@ -86,6 +93,64 @@ describe('no skeleton node escapes the polygon it was solved from', () => {
         expect(CLEAN_TEST_POLYGONS).toHaveLength(53);
         expect(KNOWN_DEFECT_POLYGONS).toHaveLength(7);
         expect(FULL_CORPUS).toHaveLength(CLEAN_TEST_POLYGONS.length + KNOWN_DEFECT_POLYGONS.length);
+    });
+});
+
+/*
+ * ============================================================================
+ *  THE HOLED ROSTER: EVERY NODE INSIDE THE OUTLINE AND OUTSIDE EVERY HOLE.
+ * ============================================================================
+ *
+ * Skeleton loop-consumers spec, decision 34. The same definition, read on a region with holes: a node may not leave
+ * the outline, and it may not enter a hole, beyond the outline's own containment tolerance. `escapedNodes` takes the
+ * solve's options and reads `options.holes`; with none it is the single-loop call above. The second test is this
+ * file's "needs no tolerance at all", stated on the region: strictly inside the outline and strictly outside every
+ * hole by the even-odd test.
+ */
+describe('the holed roster: no skeleton node leaves the region it was solved from', () => {
+    it.each(HOLED_TEST_POLYGONS.map(fixture => [fixture.name, fixture] as const))(
+        '%s keeps every interior node inside its outline and outside its holes',
+        (_name, fixture) => {
+            expect(escapedNodes(fixture.outline, holedSolveOptions(fixture))).toEqual([]);
+        },
+    );
+
+    it('the holed roster needs no tolerance at all: every node strictly inside the outline and outside every hole', () => {
+        const leaning: string[] = [];
+        for (const fixture of HOLED_TEST_POLYGONS) {
+            const {graph} = solveSkeleton(fixture.outline, holedSolveOptions(fixture));
+            for (let id = graph.numExteriorNodes; id < graph.nodes.length; id++) {
+                const position = graph.nodes[id].position;
+                if (!isInside(position, fixture.outline)) {
+                    leaning.push(`${fixture.name}: node ${id} not inside the outline`);
+                }
+                fixture.holes.forEach((hole, k) => {
+                    if (isInside(position, [...hole.vertices])) {
+                        leaning.push(`${fixture.name}: node ${id} inside hole ${k}`);
+                    }
+                });
+            }
+        }
+        expect(leaning).toEqual([]);
+    });
+
+    it('is not vacuous: a node moved into a hole is reported, naming the hole', () => {
+        // THE MUTATION, BUILT IN (decision 48): F1's solved graph with its first interior node moved to the centre of
+        // the hole, (7, 5.5). Inside the outline, so only the hole test can see it; an `escapedNodes` that ignored
+        // `options.holes` would pass every fixture above.
+        const {graph} = solveSkeleton(HOLED_F1.outline, holedSolveOptions(HOLED_F1));
+        const moved = graph.numExteriorNodes;
+        const intoTheHole: StraightSkeletonGraph = {
+            ...graph,
+            nodes: graph.nodes.map(node => node.id === moved ? {...node, position: {x: 7, y: 5.5}} : node),
+        };
+        expect(escapedNodesOf(graph, HOLED_F1.outline, HOLED_F1.holes)).toEqual([]);
+        const escaped = escapedNodesOf(intoTheHole, HOLED_F1.outline, HOLED_F1.holes);
+        expect(escaped).toHaveLength(1);
+        expect(escaped[0]).toContain(`node ${moved} at (7, 5.5)`);
+        expect(escaped[0]).toContain('inside hole 0');
+        // Without the holes, the same node is inside the outline and nothing is reported.
+        expect(escapedNodesOf(intoTheHole, HOLED_F1.outline)).toEqual([]);
     });
 });
 

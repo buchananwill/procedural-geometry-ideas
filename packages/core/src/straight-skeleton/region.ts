@@ -18,16 +18,15 @@ import {Vector2} from './types';
  * egress invariant passes them, because their frontage is non-degenerate and contiguous. That
  * invariant is a proxy for reachability which happens to be exact only at the first level.
  *
- * ## This generalises `Strip`, and replaces nothing yet
+ * ## This generalises `Strip`, and replaces nothing
  *
  * `Strip.supportingEdgeIds` names the exterior edges a strip fronts and `Strip.frontage` is their
- * polyline — already "the road-bearing part of this region's boundary", derived from exterior-edge
- * identity. The generalisation is that frontage stops being DERIVED from exterior edges and becomes
- * LABELLED on the boundary, so a spine-facing or lane-facing run is frontage on the same footing.
- * Nothing here performs that generalisation: `computeStrips` and `sliceStrip` are the producers and
- * they emit provenance in the task that makes them recursive. This module fixes the vocabulary and
- * the root so that when they change there is a target to emit into rather than a shape invented at
- * the call site.
+ * polyline — "the road-bearing part of this region's boundary", derived from exterior-edge
+ * identity. The generalisation is that frontage is LABELLED on the boundary rather than DERIVED from
+ * exterior edges, so a spine-facing or lane-facing run is frontage on the same footing. This module
+ * does not perform that generalisation: `computeStrips` and `sliceStrip` are the producers, and they
+ * do not emit provenance. It fixes the vocabulary and the root, so that a producer that does emit
+ * provenance has a target to emit into rather than a shape invented at the call site.
  *
  * ## Plain data plus free functions
  *
@@ -193,10 +192,10 @@ export function accessRuns(region: Region): BoundaryRun[] {
 /**
  * A root region from a bare polygon, whose access runs default to the WHOLE perimeter.
  *
- * The default matches today's behaviour, where the perimeter is the street, so nothing existing
- * changes. A supplied `access` subset is what a region marked against a cliff, an existing piste or
- * another region needs, and it is the same mechanism a region's entrance points will use — it is
- * built now and left unused rather than retrofitted through the recursion driver later.
+ * The default reads the whole perimeter as street, which is what every caller that supplies no
+ * access subset means. A supplied `access` subset is what a region marked against a cliff, an
+ * existing piste or another region needs, and it is the same mechanism a region's entrance points
+ * use.
  *
  * THE SUBSET IS VALIDATED AGAINST THE BOUNDARY AND A MALFORMED ONE IS REJECTED LOUDLY: indices
  * integral and in range, and runs non-overlapping. This is caller input, and a silently-dropped
@@ -222,8 +221,8 @@ export function makeRootRegion(boundary: Vector2[], access?: BoundaryRun[]): Reg
     };
 
     // The partition is asserted on the way out rather than trusted: this constructor is the one
-    // place a region enters the system, and decision 3's check is worthless if it only ever runs on
-    // regions someone else already validated.
+    // place a region enters the system, and the exact-partition check (access-run provenance spec,
+    // decision 3) is worthless if it only ever runs on regions someone else already validated.
     assertBoundaryPartition(region);
     return region;
 }
@@ -232,7 +231,7 @@ export function makeRootRegion(boundary: Vector2[], access?: BoundaryRun[]): Reg
  * One provenance per edge, from the supplied access runs, with everything they did not claim left
  * `perimeter-plain`.
  *
- * An edge claimed twice is the malformed case decision 10 names, and it is reported as an overlap
+ * An edge claimed twice is a malformed subset (access-run provenance spec, decision 10), and it is reported as an overlap
  * rather than resolved by last-writer-wins — a silently-dropped access run produces parcels with no
  * road and no complaint.
  */
@@ -313,7 +312,7 @@ function groupIntoRuns(labels: readonly BoundaryProvenance[]): BoundaryRun[] {
  *
  * Run `k` starts on edge `startIndex`, whose first vertex has the same index; on a valid partition
  * that vertex is exactly where run `k - 1` stopped. A SINGLE run has no such vertex — it gives way
- * to nothing — so a whole-perimeter region pins nothing and canonicalises exactly as it does today.
+ * to nothing — so a whole-perimeter region pins nothing and canonicalises as an unlabelled polygon does.
  */
 export function runBoundaryVertexIndices(runs: readonly BoundaryRun[]): number[] {
     if (runs.length < 2) {
