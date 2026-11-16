@@ -179,39 +179,6 @@ export const fileReversedName = (name: ModelOrderConflict): FileReversedName => 
 export const UNMOVED_BY_FILE_ORDER: readonly ModelOrderConflict[] = ['FlushRingConflict', 'DistantRingConflict'];
 
 /**
- * Residue classes gable rise decision 3 left with no member (WP-G2, journal decision 206): their every pinned case was a
- * whole-wall gable over a contested wall, now a hip with a rise. Reported as emptied, never filled with a weaker case.
- * Journal decisions 243 to 245 (WP-L2) empty two more: the covered rises cure every pinned case of the Court25 throw and
- * of the SplitCourt9 class's Unclassified Gable-Wall Edges.
- */
-export const EMPTIED_BY_GABLE_RISES: readonly ResidueClass[] = [
-  'cleanMesh stuck cap', 'Cell outside its face fan', 'partial coplanar contact of two storeys', 'Gable-Wall edge Unclassified',
-];
-
-/**
- * Journal decisions 260 to 262 (WP-C2): the residue class the drop of fully internal Rings left with no member. Its one
- * case, CourtyardJutSwapped, held a Ring wholly inside another, which the solve now drops; it builds as
- * CourtyardJut does, clean, and is the drop's oracle (`RING_DROP_ORACLES`).
- */
-export const EMPTIED_BY_RING_DROP: readonly ResidueClass[] = ['courtyard cut collinear with a jutting wall'];
-
-/**
- * Journal decision 272 (WP-C3): the residue class the tuck pass left with no member. Every pinned case of the U8 class
- * was one tuck Manifold's union leaves (BSA.F87), now labelled Tuck and given no Cells; each builds clean.
- */
-export const EMPTIED_BY_TUCKS: readonly ResidueClass[] = ['edge contact between opposite coplanar faces'];
-
-/**
- * Holed roof decisions 48 and 49: the residue class the holed roof left with no member. Every pinned case of algorithm
- * B's cut-piece overshoot was a piece built on a courtyard cut (`OffCentreCourtyard`, the s2 Court15, s7 Court38 and s13
- * Court13 rows, the Courtyard's mixed-pitch roster rows); with no cut there is no cut piece, and each builds clean.
- */
-export const EMPTIED_BY_HOLED_ROOF: readonly ResidueClass[] = ['algorithm-B cut-piece overshoot'];
-
-/** Every residue class the golden set records as emptied, whatever emptied it. */
-export const EMPTIED_CLASSES: readonly ResidueClass[] = [...EMPTIED_BY_GABLE_RISES, ...EMPTIED_BY_RING_DROP, ...EMPTIED_BY_TUCKS, ...EMPTIED_BY_HOLED_ROOF];
-
-/**
  * Journal decision 164, finding 2: the model-order oracle. Each of `MODEL_ORDER_CONFLICTS` read from a document whose
  * file order reverses its model order (`scrambled`), named `fileReversedName` of it. `readInput` orders the Rings by
  * model index, so each reads back as its fixture, and its shell names the file's own model indices and side slots
@@ -291,11 +258,11 @@ export const RING_DROP_ORACLES: readonly CleanGolden[] = [cleanGolden(namedCase(
  * - decision 156, F7's SplitCourt9 class (decision 158, 1): s7h250 SplitCourt9's Unclassified Gable-Wall edges;
  * - and decision 175's F55: CourtyardJutSwapped, a courtyard cut that qualifies while collinear with a jutting wall.
  *   Emptied by journal decisions 260 to 262 (WP-C2): the case's 30 degree Ring lies wholly inside the jutting one, the
- *   solve drops it, and the case builds clean as the drop's oracle (`RING_DROP_ORACLES`, `EMPTIED_BY_RING_DROP`).
+ *   solve drops it, and the case builds clean as the drop's oracle (`RING_DROP_ORACLES`, golden.ts's `RETIRED_BY_RING_DROP`).
  *
  * The holed roof (holed roof decision 48) cured two representatives, each promoted to a clean golden under its name
  * (`HOLED_ROOF_PROMOTIONS`): s7h250 Court14, the Cheek class's, whose Cheek stood beside the courtyard cut, and the
- * Courtyard at 22.5° and 45°, whose cut-piece overshoot emptied its class (`EMPTIED_BY_HOLED_ROOF`). The Cheek class's
+ * Courtyard at 22.5° and 45°, whose cut-piece overshoot emptied its class (golden.ts's `RETIRED_BY_HOLED_ROOF`). The Cheek class's
  * representative is now s1h250 SplitCourt1, a gable rise's end standing above the wing at (250, 700).
  *
  * Emptied by gable rise decision 3, so with no representative: the `cleanMesh` stuck cap (s2h250 SplitCourt10 was its

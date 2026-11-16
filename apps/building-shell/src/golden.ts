@@ -206,27 +206,65 @@ export const ShellReportSchema = z.strictObject({
   droppedRings: z.array(z.number().int().nonnegative()),
 });
 
-/**
- * Journal decision 161 (Info): every residue class the golden set enrols, by a stable name. A residue's violation
- * strings carry prototype-internal ids, so the port keys on this name instead.
- */
-export const RESIDUE_CLASS_NAMES = [
+/** The residue classes the golden set enrols a member of, each by its stable name (journal decision 161). */
+export const LIVE_RESIDUE_CLASSES = [
   'algorithm-B Cheek',
-  'algorithm-B cut-piece overshoot',
-  'partial coplanar contact of two storeys',
-  'edge contact between opposite coplanar faces',
-  'cleanMesh stuck cap',
-  'Cell outside its face fan',
-  'Gable-Wall edge Unclassified',
   'sub-tolerance roof feature',
   'low-pitch pocket',
   'roof meets the floor above',
   'near-touching islands',
-  'courtyard cut collinear with a jutting wall',
 ] as const;
+
+/**
+ * Residue classes gable rise decision 3 left with no member (WP-G2, journal decision 206): their every pinned case was a
+ * whole-wall gable over a contested wall, now a hip with a rise. Reported as emptied, never filled with a weaker case.
+ * Journal decisions 243 to 245 (WP-L2) empty two more: the covered rises cure every pinned case of the Court25 throw and
+ * of the SplitCourt9 class's Unclassified Gable-Wall Edges.
+ */
+export const RETIRED_BY_GABLE_RISES = [
+  'cleanMesh stuck cap', 'Cell outside its face fan', 'partial coplanar contact of two storeys', 'Gable-Wall edge Unclassified',
+] as const;
+
+/**
+ * Journal decisions 260 to 262 (WP-C2): the residue class the drop of fully internal Rings left with no member. Its one
+ * case, CourtyardJutSwapped, held a Ring wholly inside another, which the solve now drops; it builds as
+ * CourtyardJut does, clean, and is the drop's oracle.
+ */
+export const RETIRED_BY_RING_DROP = ['courtyard cut collinear with a jutting wall'] as const;
+
+/**
+ * Journal decision 272 (WP-C3): the residue class the tuck pass left with no member. Every pinned case of the U8 class
+ * was one tuck Manifold's union leaves (BSA.F87), now labelled Tuck and given no Cells; each builds clean.
+ */
+export const RETIRED_BY_TUCKS = ['edge contact between opposite coplanar faces'] as const;
+
+/**
+ * Holed roof decisions 48 and 49: the residue class the holed roof left with no member. Every pinned case of algorithm
+ * B's cut-piece overshoot was a piece built on a courtyard cut (`OffCentreCourtyard`, the s2 Court15, s7 Court38 and s13
+ * Court13 rows, the Courtyard's mixed-pitch roster rows); with no cut there is no cut piece, and each builds clean.
+ */
+export const RETIRED_BY_HOLED_ROOF = ['algorithm-B cut-piece overshoot'] as const;
+
+/**
+ * Every residue class the golden set records as emptied, whatever emptied it: no golden case is of one. Each keeps its
+ * name in `RESIDUE_CLASS_NAMES`, so the manifest's schema still accepts it.
+ */
+export const RETIRED_RESIDUE_CLASSES = [...RETIRED_BY_GABLE_RISES, ...RETIRED_BY_RING_DROP, ...RETIRED_BY_TUCKS, ...RETIRED_BY_HOLED_ROOF] as const;
+
+/**
+ * Journal decision 161 (Info): every residue class, live and retired, by a stable name. A residue's violation strings
+ * carry prototype-internal ids, so the port keys on this name instead.
+ */
+export const RESIDUE_CLASS_NAMES = [...LIVE_RESIDUE_CLASSES, ...RETIRED_RESIDUE_CLASSES] as const;
 
 /** One residue class's stable name. */
 export type ResidueClass = typeof RESIDUE_CLASS_NAMES[number];
+
+/** A residue class the golden set enrols a member of. */
+export type LiveResidueClass = typeof LIVE_RESIDUE_CLASSES[number];
+
+/** A residue class no golden case is of. */
+export type RetiredResidueClass = typeof RETIRED_RESIDUE_CLASSES[number];
 
 /**
  * A genus per connected component, highest first (spec decision 32 as amended; journal decision 163, N5): one name for

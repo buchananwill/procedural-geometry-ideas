@@ -1,16 +1,14 @@
-// The only place the upstream straight skeleton is touched: @proc-geo/core at f7b6091, imported from source, read-only.
+// The only place the upstream straight skeleton is touched: @proc-geo/core, aliased to its source, read-only.
 // Holed roof decisions 9 to 17: an island is solved as its outline and its holes, each wall at its own pitch, and a
 // refused island comes back as a refusal with its cause in the user's terms, never as a roof.
 import {
-  solveSkeleton, computeStrips, computeMaxOffset, maxWeightRatio, setSkeletonLogLevel, SKELETON_NOISE_FLOOR,
+  solveSkeleton, computeStrips, computeMaxOffset, setSkeletonLogLevel,
   INFORMATIONAL_DIAGNOSTIC_KINDS, SkeletonInputRefusal,
 } from '@proc-geo/core';
 import type {SkeletonDiagnosticKind, SkeletonInputRefusalKind, SkeletonSolveResult, Strip} from '@proc-geo/core';
-import {Comp, Pt, Wall, cross, dist, dot, polyArea, sub} from './model.ts';
+import {Comp, Pt, Wall, cross, dot, polyArea, sub} from './model.ts';
 
 setSkeletonLogLevel('silent');
-
-export const UPSTREAM_MAX_RATIO: number = maxWeightRatio(SKELETON_NOISE_FLOOR);
 
 export interface RawFace { wall: Wall; poly: Pt[] }
 export interface SolveOk {
@@ -199,16 +197,3 @@ export function facesOfStrips(comp: Comp, result: SkeletonSolveResult, strips: r
   return {ok: true, faces, diagnostics, causality: causalityDetail.length, causalityDetail, tilingError: Math.abs(area - footprint) / footprint};
 }
 
-/** Nodes clustered by position, so faces can name a shared node. */
-export interface NodeSet { pos: Pt[]; find(p: Pt): number }
-export function makeNodeSet(seed: Pt[], tol: number): NodeSet {
-  const pos: Pt[] = [...seed];
-  return {
-    pos,
-    find(p: Pt): number {
-      for (let i = 0; i < pos.length; i++) if (dist(pos[i], p) <= tol) return i;
-      pos.push(p);
-      return pos.length - 1;
-    },
-  };
-}

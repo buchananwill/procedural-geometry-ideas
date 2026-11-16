@@ -10,7 +10,7 @@ import {
   CatalogueGroup, CatalogueSources, InputFile, PLAYTEST_SEED_STEMS, catalogueGroups, choosableCount, filterCatalogue, filterTerms,
   goldenInputFiles, leftOutValue, playtestFiles,
 } from '../src/viewer/catalogue.ts';
-import {RESIDUE_CLASS_NAMES} from '../src/golden.ts';
+import {RESIDUE_CLASS_NAMES, RETIRED_RESIDUE_CLASSES} from '../src/golden.ts';
 import {parseDefectCases} from '../src/viewer/defect-cases.ts';
 import {inMemorySources} from '../src/viewer/defect-sources.ts';
 import {draftFixtureOfJson, editDraftOf} from '../src/viewer/draft.ts';
@@ -19,7 +19,7 @@ import {selectionFromHash, selectionName} from '../src/viewer/hash.ts';
 import {CONFLICT_TABLE_NAMES, PINNED_CASES, PIN_TABLES, RESIDUE_TABLE_NAMES} from '../src/viewer/pinned-cases.ts';
 import {RESEARCH_ENTRIES, RESEARCH_FIXTURES} from '../src/viewer/research-cases.ts';
 import {readInput} from '../src/wire/input-adapter.ts';
-import {EMPTIED_CLASSES, GOLDEN_FIXTURES} from './golden-fixtures.ts';
+import {GOLDEN_FIXTURES} from './golden-fixtures.ts';
 import {pinClass} from './pin-table.ts';
 
 const APP = new URL('../', import.meta.url);
@@ -100,8 +100,8 @@ describe('catalogueGroups', () => {
     ]);
     // The user's reference class keeps its group; a class the golden set records as emptied has none.
     expect(pinnedGroups).toContain('Pinned: algorithm-B Cheek');
-    expect(EMPTIED_CLASSES.length).toBeGreaterThan(0);
-    for (const c of EMPTIED_CLASSES) expect(groups.map(g => g.label)).not.toContain(`Pinned: ${c}`);
+    expect(RETIRED_RESIDUE_CLASSES.length).toBeGreaterThan(0);
+    for (const c of RETIRED_RESIDUE_CLASSES) expect(groups.map(g => g.label)).not.toContain(`Pinned: ${c}`);
     expect(catalogueGroups({...sources, draft: {value: 'draft', label: 'x-draft'}}).at(-1)).toEqual({label: 'Draft', entries: [{value: 'draft', label: 'x-draft'}]});
   });
 

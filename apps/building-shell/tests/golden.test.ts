@@ -10,7 +10,8 @@ import {PlanRefusal, errorMessage} from '../src/errors.ts';
 import {UnionWall, storeyLoops, unionWallForms} from '../src/ring-forms.ts';
 import {RING_SIDES, ShellFixture, fixtureByName, ring, storeyRings, storeysOf} from '../src/fixture.ts';
 import {
-  BUILDS_A_RISE, GoldenEntry, GoldenEntrySchema, GoldenManifest, GoldenManifestSchema, MANIFEST_FILE, NOT_ONE_WHOLE_RUN, RESIDUE_CLASS_NAMES, Replayability, UnionStages, buildsARise,
+  BUILDS_A_RISE, GoldenEntry, GoldenEntrySchema, GoldenManifest, GoldenManifestSchema, LIVE_RESIDUE_CLASSES, MANIFEST_FILE, NOT_ONE_WHOLE_RUN, RESIDUE_CLASS_NAMES,
+  RETIRED_RESIDUE_CLASSES, Replayability, UnionStages, buildsARise,
   cppReplayability, cppReplayabilityOf, goldenText, unionStages,
 } from '../src/golden.ts';
 import {BuildingShell, buildShellDetailed} from '../src/shell.ts';
@@ -19,7 +20,7 @@ import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {BuildingShellInputV1, WireRun, WireVec2} from '../src/wire/input-types.ts';
 import {planStorey, storeyForms} from '../src/storey.ts';
 import {
-  EMPTIED_CLASSES, GOLDEN_FIXTURES, MODEL_ORDER_CONFLICTS, MODEL_ORDER_ORACLES, RESIDUE_CLASSES, RING_DROP_ORACLES, RULE_ORACLES, UNMOVED_BY_FILE_ORDER, fileReversedName,
+  GOLDEN_FIXTURES, MODEL_ORDER_CONFLICTS, MODEL_ORDER_ORACLES, RESIDUE_CLASSES, RING_DROP_ORACLES, RULE_ORACLES, UNMOVED_BY_FILE_ORDER, fileReversedName,
   goldenFiles, goldenInput,
 } from './golden-fixtures.ts';
 import {ORDER_FLAG, multiRunDocument} from './wire-round-trip-cases.ts';
@@ -225,8 +226,9 @@ describe("the manifest's residue classes and genus (journal decision 161, findin
   // (journal decisions 260 to 262) empties one more, by dropping fully internal Rings.
   it('every residue class is represented but those emptied, and every class is a stable name with no prototype id in it', () => {
     const classes = new Set(MANIFEST.fixtures.flatMap(e => ('residueClass' in e ? [e.residueClass] : [])));
-    expect([...classes].sort()).toEqual(RESIDUE_CLASS_NAMES.filter(c => !EMPTIED_CLASSES.includes(c)).sort());
-    for (const c of EMPTIED_CLASSES) expect(RESIDUE_CLASS_NAMES).toContain(c);
+    expect([...classes].sort()).toEqual([...LIVE_RESIDUE_CLASSES].sort());
+    for (const c of RETIRED_RESIDUE_CLASSES) expect(RESIDUE_CLASS_NAMES).toContain(c);
+    for (const c of RETIRED_RESIDUE_CLASSES) expect(LIVE_RESIDUE_CLASSES).not.toContain(c);
   });
 
   // The pin's genus is an expectation: a port must not read it as the shell's own (finding 5).

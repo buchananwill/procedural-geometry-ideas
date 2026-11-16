@@ -67,26 +67,19 @@ export function planBuilding(label: string, storey: number, floor: number, plate
 }
 
 /**
- * Spec decisions 2 and 3 as amended (journal decisions 115, 116, 132 and 135; holed roof decisions 7 and 30): one
- * storey's Building from its Rings. Every union wall takes its Rings' form and pitch as a roof-gable `Sel`, and the plan
- * goes through roof-gable's own `buildFromRects` with those `Sel`s, holes and all: an island holds any number of holes,
- * each wall of each loop at its own union wall's form and pitch.
- */
-export function storeyBuilding(rings: StoreyRing[]): Building {
-  return storeyForms(rings).building;
-}
-
-/**
  * A storey's Building and the union walls it was derived from, whose `rises` gable rise decision 8 builds, and its
  * covered rises: claimed gable bands on no union wall (journal decision 243, rule 3).
  */
 export interface StoreyForms { building: Building; walls: UnionWall[]; covered: CoveredRise[] }
 
 /**
- * `storeyBuilding`, with the union walls it read. The walls are derived per extent (`unionWallForms`), then gable rise
- * decision 5 as amended by journal decisions 220 and 243 decides which all-gable walls algorithm B keeps and which bands
- * are covered rises (`claimedWalls`), which reads algorithm B's span off the Building those walls give. Where a wall
- * changes form the Building is built again.
+ * Spec decisions 2 and 3 as amended (journal decisions 115, 116, 132 and 135; holed roof decisions 7 and 30): one
+ * storey's Building from its Rings, with the union walls it read. Every union wall takes its Rings' form and pitch as a
+ * roof-gable `Sel`, and the plan goes through roof-gable's own `buildFromRects` with those `Sel`s, holes and all: an
+ * island holds any number of holes, each wall of each loop at its own union wall's form and pitch. The walls are
+ * derived per extent (`unionWallForms`), then gable rise decision 5 as amended by journal decisions 220 and 243 decides
+ * which all-gable walls algorithm B keeps and which bands are covered rises (`claimedWalls`), which reads algorithm B's
+ * span off the Building those walls give. Where a wall changes form the Building is built again.
  */
 export function storeyForms(rings: StoreyRing[]): StoreyForms {
   const rects = rings.map(r => r.ring.rect);
@@ -121,7 +114,7 @@ export function planChecked(label: string, storey: number, floor: number, plate:
 
 /**
  * Spec decisions 2 to 4 and 9: storey `n`'s plan is the union of its Rings' rectangles, its walls' forms derived from
- * the Rings', roofed as if it were the top storey (`storeyBuilding`, then `planChecked`). A Ring side authored with a
+ * the Rings', roofed as if it were the top storey (`storeyForms`, then `planChecked`). A Ring side authored with a
  * form other than hip or gable is a hard error naming the fixture and storey.
  */
 export function planStorey(f: ShellFixture, n: number): StoreyPlan {
