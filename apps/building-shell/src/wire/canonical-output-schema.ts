@@ -1,6 +1,6 @@
 // STAND-IN, HAND-WRITTEN: the `<subject>.output.json` half of a playtest dump (journal decision 140, F6), until the
 // port's output structs exist (decisions 126 and 127). It carries one engine's shell already in the canonical form of
-// `canonical.ts`, so a dump can be diffed today. Kinds are validated into `ShellKind` and `EdgeKind` at this boundary
+// `canonical.ts`, so a dump can be diffed without them. Kinds are validated into `ShellKind` and `EdgeKind` at this boundary
 // (decision 138, B6). An output whose edges all carry ends gets the full diff; one whose edges carry none, as the
 // legacy C++ net's do, gets the baseline (decision 140, F9). A file mixing the two is refused. Browser-safe.
 import {z} from 'zod';

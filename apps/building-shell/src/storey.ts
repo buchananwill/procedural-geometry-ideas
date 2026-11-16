@@ -132,7 +132,7 @@ export function planStorey(f: ShellFixture, n: number): StoreyPlan {
     throw relabelled(`${f.name} storey ${n}`, e);
   }
   const plan = planChecked(f.name, n, n * f.storeyHeight, (n + 1) * f.storeyHeight, forms.building);
-  // Gable rise decision 8: a storey with no rise carries none, so its plan is exactly what it was before rises.
+  // Gable rise decision 8: a storey with no rise carries none, so its plan is the roof solve's alone.
   if (!forms.walls.some(w => w.rises?.length) && !forms.covered.length) return plan;
   try {
     plan.rises = risePieces(f, plan, forms.walls, forms.covered);
@@ -185,7 +185,7 @@ function triangulateLoops(wasm: Wasm, loops: Pt[][]): TriIndices[] {
  * The island's outline extruded from floor to plate, for part `id`: its floor cap and its Wall sides, and with
  * `plateCap` its Internal cap at the plate (holed roof decision 24). Each loop of `compLoops` is written at the floor and
  * then each at the plate, the caps are triangulated from the loops together, the holes holes in them, and wall `j` of
- * loop `k` is the side from that loop's vertex `j` to `j + 1`. An island with no hole writes its one loop as before.
+ * loop `k` is the side from that loop's vertex `j` to `j + 1`. An island with no hole writes its one loop.
  */
 function extrudeOutline(ctx: PartContext, plan: StoreyPlan, comp: Comp, id: number, plateCap: boolean): TriSoup {
   const tag = (t: LocalTag, pl: Plane3): number => addFace(ctx.tags, {...t, storey: plan.storey, part: id}, pl);
@@ -232,10 +232,10 @@ function wallPrism(ctx: PartContext, plan: StoreyPlan, ci: number, comp: Comp): 
  * Spec decision 7: the island's roof, closed by the default hip's skeleton faces.
  * - An island with no hole has its bottom at the plate.
  * - A holed island's hip solid stands from the floor, its sides and floor the wall prism's own (same tags, so the union
- *   merges them as one identity), as it did under the cut (journal decision 132). Holed roof decision 25 put its bottom
- *   at the plate, and with it Manifold's union left tucks on 36 all-gable split-band courtyards that build none from the
- *   floor; ISSUE-building-shell-all-gable-courtyard-tuck.md has the measurement. Why the bottom at the plate leads
- *   Manifold to leave a tuck is not established (BSA.F87 found the same of every tuck).
+ *   merges them as one identity; journal decision 132). It does not take holed roof decision 25's bottom at the plate:
+ *   with that bottom Manifold's union leaves tucks on 36 all-gable split-band courtyards that build none from the floor
+ *   (ISSUE-building-shell-all-gable-courtyard-tuck.md has the measurement). Why the bottom at the plate leads Manifold
+ *   to leave a tuck is not established (BSA.F87 found the same of every tuck).
  */
 function hipSolid(ctx: PartContext, plan: StoreyPlan, ci: number, comp: Comp): RawPart {
   const id = ctx.parts.length;
@@ -363,7 +363,7 @@ const axisAlong = (p: Plane3): AlongAxis => (Math.abs(p.n[0]) > 0.5 ? 1 : 0);
  *     piece made it);
  *   - then each island wall on the plane over that wall's own span, in `comp.walls` order, a hole's walls among them.
  * - The plate, Cheek.
- * (The Internal zone of a courtyard cut's pieces went with the cut: holed roof decision 27.)
+ * No zone is Internal: the holed roof places no courtyard cut, so no piece stands on one (holed roof decision 27).
  */
 export function gableGenerating(plan: StoreyPlan, piece: Piece, far: number): Generating[] {
   const b = plan.building;

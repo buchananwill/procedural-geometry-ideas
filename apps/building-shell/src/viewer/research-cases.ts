@@ -1,5 +1,5 @@
 // WP-V1: the roof-gable research cases (`src/roof/cases.ts`, `CASES`) as single-storey shell fixtures, for the viewer's
-// selector. Pure data: no scene, no DOM, no fetch. `src/roof/` is a pinned copy, so it is imported, never edited.
+// selector. Pure data: no scene, no DOM, no fetch. The case table is imported from `src/roof/cases.ts` as it stands.
 //
 // A research case is a roof `Building`: the union of its rects, its walls broken at every rect corner, each wall given a
 // form and pitch by the case's `Sel`s. A `Sel` picks whole walls (its line, an overlap of `from`/`to` with the wall's span,
@@ -36,7 +36,10 @@ export interface CourtyardFootprint { kind: 'courtyard'; outer: Readonly<Rect>; 
 /** A case left out before conversion, with the reason. */
 export interface NoFootprint { kind: 'none'; reason: string }
 
-/** What a research case is built from, restated literally: `cases.ts` does not export its rects. A test pins each. */
+/**
+ * What a research case is built from, restated literally: `cases.ts` keeps its rects module-private, and a case carries
+ * only its `build`. A test pins each.
+ */
 export type ResearchFootprint = RectsFootprint | CourtyardFootprint | NoFootprint;
 
 /** A shared rect table: read-only, since several cases list one. A fixture is given copies (`copyRect`). */

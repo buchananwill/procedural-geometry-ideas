@@ -15,10 +15,10 @@
 // - Per-stretch gable settings decisions 12 to 14: a GableEnd run carries its maximum height (0 for none), its facing
 //   strategy and whether it stands apart. A run carrying any of them at other than its default is always a run of its
 //   side, never folded into the side's one form, so `readInput(writeInput(f))` keeps every setting; a file without them
-//   reads every run at its defaults, so every existing file means what it meant. Only a GableEnd run may carry one.
+//   reads every run at its defaults, the roof built without the settings. Only a GableEnd run may carry one.
 // - The fixture is built from each side's agreed run (decisions 126, 136, 140 and 153): Pitched is a hip at its
-//   solved pitch; GableEnd is a gable at its solved pitch, which is geometry in algorithm B, not an inert weight (decision
-//   140's F1 is struck); a formless side is unlisted, refused only where it wins a union wall. The request is carried,
+//   solved pitch; GableEnd is a gable at its solved pitch, which is geometry in algorithm B, not an inert weight
+//   (decision 153); a formless side is unlisted, refused only where it wins a union wall. The request is carried,
 //   never read. A Ring's `defaultDeg` is read only by its unlisted sides.
 // - Rings are ordered by model index, the key the conflict rule reads (spec decision 3, journal decision 128).
 //

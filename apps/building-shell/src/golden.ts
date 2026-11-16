@@ -114,10 +114,11 @@ export type RiseForms = Pick<StoreyForms, 'walls' | 'covered'>;
  * 220 turns into a rise. Each storey is read in one of three ways (journal decision 222, L1, as ruled in decision 224):
  * - **The walls the pipeline plans from** (`forms`, `storeyForms` by default): the storey builds a rise where one of
  *   them carries one, or where it has a covered rise (journal decision 243, rule 3).
- * - **On a `PlanRefusal` there, the per-extent derivation alone** (`unionWallForms`), as before decision 220; a refusal
- *   from that too reads as no rise, the refusal being `readInput`'s and the build's to report.
- * - **Any other error propagates.** Decision 220 added throw sites (`algorithmBSpan`, a second `buildingOf`); a document
- *   failing at one must break the export loudly, never be read as building no rise and so offered to the C++ replay.
+ * - **On a `PlanRefusal` there, the per-extent derivation alone** (`unionWallForms`, without decision 220's claimed
+ *   bands); a refusal from that too reads as no rise, the refusal being `readInput`'s and the build's to report.
+ * - **Any other error propagates.** Decision 220's derivation has throw sites of its own (`algorithmBSpan`, a second
+ *   `buildingOf`); a document failing at one must break the export loudly, never be read as building no rise and so
+ *   offered to the C++ replay.
  * `forms` is a parameter only so a test can reach each branch.
  */
 export function buildsARise(f: ShellFixture, forms: (rings: StoreyRing[]) => RiseForms = storeyForms): boolean {
@@ -216,32 +217,33 @@ export const LIVE_RESIDUE_CLASSES = [
 ] as const;
 
 /**
- * Residue classes gable rise decision 3 left with no member (WP-G2, journal decision 206): their every pinned case was a
- * whole-wall gable over a contested wall, now a hip with a rise. Reported as emptied, never filled with a weaker case.
- * Journal decisions 243 to 245 (WP-L2) empty two more: the covered rises cure every pinned case of the Court25 throw and
- * of the SplitCourt9 class's Unclassified Gable-Wall Edges.
+ * Residue classes gable rise decision 3 leaves with no member (WP-G2, journal decision 206): every case pinned to them is
+ * a whole-wall gable over a contested wall, which builds as a hip with a rise. Reported as emptied, never filled with a
+ * weaker case. Journal decisions 243 to 245 (WP-L2) empty two more: the covered rises cure every case pinned to the
+ * Court25 throw and to the SplitCourt9 class's Unclassified Gable-Wall Edges.
  */
 export const RETIRED_BY_GABLE_RISES = [
   'cleanMesh stuck cap', 'Cell outside its face fan', 'partial coplanar contact of two storeys', 'Gable-Wall edge Unclassified',
 ] as const;
 
 /**
- * Journal decisions 260 to 262 (WP-C2): the residue class the drop of fully internal Rings left with no member. Its one
- * case, CourtyardJutSwapped, held a Ring wholly inside another, which the solve now drops; it builds as
- * CourtyardJut does, clean, and is the drop's oracle.
+ * Journal decisions 260 to 262 (WP-C2): the residue class the drop of fully internal Rings leaves with no member. Its one
+ * case, CourtyardJutSwapped, holds a Ring wholly inside another, which the solve drops; it builds as CourtyardJut does,
+ * clean, and is the drop's oracle.
  */
 export const RETIRED_BY_RING_DROP = ['courtyard cut collinear with a jutting wall'] as const;
 
 /**
- * Journal decision 272 (WP-C3): the residue class the tuck pass left with no member. Every pinned case of the U8 class
- * was one tuck Manifold's union leaves (BSA.F87), now labelled Tuck and given no Cells; each builds clean.
+ * Journal decision 272 (WP-C3): the residue class the tuck pass leaves with no member. Every case pinned to the U8 class
+ * is one tuck Manifold's union leaves (BSA.F87), labelled Tuck and given no Cells; each builds clean.
  */
 export const RETIRED_BY_TUCKS = ['edge contact between opposite coplanar faces'] as const;
 
 /**
- * Holed roof decisions 48 and 49: the residue class the holed roof left with no member. Every pinned case of algorithm
- * B's cut-piece overshoot was a piece built on a courtyard cut (`OffCentreCourtyard`, the s2 Court15, s7 Court38 and s13
- * Court13 rows, the Courtyard's mixed-pitch roster rows); with no cut there is no cut piece, and each builds clean.
+ * Holed roof decisions 48 and 49: the residue class the holed roof leaves with no member. The class is algorithm B's
+ * cut-piece overshoot, a piece built on a courtyard cut (`OffCentreCourtyard`, the s2 Court15, s7 Court38 and s13 Court13
+ * rows, the Courtyard's mixed-pitch roster rows); the holed roof places no cut, so builds no cut piece, and each of
+ * those cases builds clean.
  */
 export const RETIRED_BY_HOLED_ROOF = ['algorithm-B cut-piece overshoot'] as const;
 

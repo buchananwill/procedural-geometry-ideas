@@ -213,7 +213,7 @@ export function classifyEdge(ta: FaceTag, tb: FaceTag, g: EdgeGeometry, storeyHe
     // WP3.7, F50 (for the lead's ruling on spec 21): a flat Gable-Gable edge that is neither vertical nor horizontal is
     // `GableSloped`, as the Wall-Gable row reads it. It arises wherever a lower storey's gable rises above the plate of
     // the storey over it on the same wall line: the lower Gable wins its own triangle (decision 14), and its rake is a
-    // sloped seam between two storeys' Gable faces on one plane. The table gave such an edge as none.
+    // sloped seam between two storeys' Gable faces on one plane. Spec 21's table names no kind for it.
     const flat: EdgeKind = vertical ? 'GableVertical' : horizontal ? 'GableHorizontal' : 'GableSloped';
     return byShape(flat, 'ExternalCorner', 'InternalCorner');
   }

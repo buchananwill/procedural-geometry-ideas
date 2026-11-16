@@ -1,5 +1,5 @@
 // Gable rise decisions 8 to 12 (journal decision 204): each rise of a storey's union walls as one synthetic gable
-// `Piece`, built by the unchanged `gablePiece` beside the storey's own pieces. The rise is never part of the roof solve:
+// `Piece`, built by `gablePiece` as the storey's own pieces are, beside them. The rise is never part of the roof solve:
 // its wall enters the skeleton as a hip (decision 6), and the rise is one more raw solid for the union.
 // - Decision 8: wall = the union wall, band = the rise, far distance = algorithm B's piece rule (`farWall`), planes =
 //   two rakes plus the limit and cap planes.
@@ -39,7 +39,7 @@ export const FLOOR_CAP_GAP_CM = 1;
 
 /**
  * Decision 12 (WP-S1.1, journal decision 256, H1): **a rise whose lowest cap stands this close to its plate, or closer,
- * builds no piece**, whatever the cap's source, as a rise capped at or below its plate always has. It is the thinnest
+ * builds no piece**, whatever the cap's source, as a rise capped at or below its plate does. It is the thinnest
  * capped rise the pipeline builds cleanly, measured, with a margin; nothing is refused for a cap below it.
  * - **The sweep** (WP-S1.1, about 5,400 builds on `maxHeight`): caps from 0.0101 cm up, rise pitches 30 to 75, hip pitches
  *   7 to 75, bands 50 to 400 cm, on a mid-wall rise, a corner rise, a rise spanning the wall, a covered rise and a
@@ -81,13 +81,13 @@ const ALONG_EPS = 1e-9;
  * `bands` are those bands, in order along the line; `span` is algorithm B's (`algorithmBSpan`).
  * - One band: the plain rule.
  * - **Journal decision 264: an extent claimed gable at two or more pitches is given up**, so that each band is built as
- *   a rise at the pitch its Ring asked for. STRUCK by decision 264: decision 220's two-pitch sub-rule, which kept such an
- *   extent as algorithm B's one gable at the lowest index's pitch and so did not build the other pitch.
+ *   a rise at the pitch its Ring asked for: kept as algorithm B's one gable, the extent would build only the lowest
+ *   index's pitch.
  * - Bands are split where pitch, limit, `maxHeight` or facing differ (decision 6). Algorithm B reads none of the last
  *   three, and a single band's settings are not read on a kept gable either (decision 5: no rise is built for it), so
  *   bands of one pitch that differ only in limit, `maxHeight` or facing still keep algorithm B.
  * - **Per-stretch gable settings decision 11: an extent where any band that counts stands apart is given up**, so that
- *   each of its stretches is built as a rise, its own gable. An extent with no such band is decided exactly as before.
+ *   each of its stretches is built as a rise, its own gable. An extent with no such band is decided by the rules above.
  */
 export function algorithmBBuildsGable(bands: readonly GableRise[], span: readonly [number, number]): boolean {
   if (!bands.length) return false;
@@ -109,9 +109,8 @@ const overlapsAlong = (w: AlongSpan, r: AlongSpan): boolean => Math.min(w.hi, r.
 
 /**
  * Journal decision 243, rule 3 (the band rule, on an extent): **a claimed band counts on algorithm B's extent where it
- * overlaps the extent's span**, whether or not any of it is on a union wall. STRUCK by rule 3: decision 220's "a band
- * counts only where it is on a union wall", which read the extent's walls here. A band wholly covered at plate level
- * inside the span is a buried stretch of the line, as decision 220 counts buried stretches.
+ * overlaps the extent's span**, whether or not any of it is on a union wall. A band wholly covered at plate level inside
+ * the span is a buried stretch of the line, as decision 220 counts buried stretches.
  */
 export type BandCountsOnExtent = (span: readonly [number, number], band: GableRise) => boolean;
 
@@ -140,7 +139,7 @@ export type BandsOfLine = (line: LineId) => GableRise[];
  * Journal decision 243, rule 3 (the band rule, for covered bands): **a gable stretch is built even where a neighbouring
  * Ring covers all of it at plate level**; the union shows whatever stands above the neighbour's roof. Every claimed band
  * of every Ring side line that algorithm B and the union walls have not taken, and that overlaps no union wall on its
- * line, is one rise. STRUCK by rule 3: decision 220's "a band counts only if part of it is on a union wall".
+ * line, is one rise, though no part of it is on a union wall.
  */
 export type CoveredBands = (rings: readonly StoreyRing[], walls: readonly UnionWall[], bandsOf: BandsOfLine, taken: ReadonlySet<GableRise>) => CoveredRise[];
 
@@ -462,8 +461,7 @@ function staysInside(comp: Comp, o: Pt, n: Pt, d: number): boolean {
  * facing back, that holds a storey gable over the walk line, reached without leaving the island. Undefined where there
  * is none. The walk reads nothing beyond it, and the rise's reach stops there. The storey's gables include algorithm B's
  * whole-wall gables (`storeyGables`), so a rise facing a wall gabled along its whole length ends there too, rather than
- * walking on past it into a wing (journal decision 243, which so changes decision 238's gabled-bar T; the lead's reading,
- * confirmed by journal decision 244). Per-stretch gable settings decision 4: which lines' gables stand over the rise's
+ * walking on past it into a wing (journal decisions 243 and 244; decision 238's gabled-bar T is such a case). Per-stretch gable settings decision 4: which lines' gables stand over the rise's
  * path is the rise's facing strategy's (`RISE_FACING_STRATEGIES`).
  */
 export type RiseEnd = (ctx: LimitContext) => number | undefined;
@@ -559,8 +557,8 @@ export type LimitPolicies = Readonly<Record<RiseLimit, LimitPolicy>>;
 /**
  * Decision 11 (journal decisions 204 and 231, F70): no point of the rise stands above the roof slope just beyond the main
  * ridge its own ridge runs into, extended back to its wall; a slope that is not in the finished building is no such
- * slope. Read by `RIDGE_SLOPE_READINGS`. **A rise none of them limits has no slope limit** (journal decision 231, which
- * replaces decision 206's `PlanRefusal`): its rakes and caps alone bound it. Such a rise runs to its far wall, and where
+ * slope. Read by `RIDGE_SLOPE_READINGS`. **A rise none of them limits has no slope limit**, and is not refused (journal
+ * decision 231): its rakes and caps alone bound it. Such a rise runs to its far wall, and where
  * it stands above the roof there it shows as a second gable on that wall (journal decision 233: accepted as built).
  */
 export const ridgeSlope: LimitPolicy = ctx => {
@@ -636,7 +634,7 @@ function splitParts(ctx: LimitContext): AlongSpan[] {
 }
 
 /**
- * Decision 5, `centreLine`: today's test (journal decision 243, F81). The rise's path is the middle of its band walked
+ * Decision 5, `centreLine`, the default (journal decision 243, F81). The rise's path is the middle of its band walked
  * inward, and a line's gables stand over it where one holds that middle strictly inside its band. One answer for the
  * whole width.
  */
@@ -785,7 +783,7 @@ export const storeyRises = (walls: readonly UnionWall[], covered: readonly Cover
 
 /**
  * Decisions 8 to 12: one storey's rises as pieces, from its union walls' `rises` and its covered rises (journal
- * decision 243, rule 3), each beside the storey's own pieces and built by the unchanged `gablePiece`. A rise whose lowest
+ * decision 243, rule 3), each beside the storey's own pieces and built by `gablePiece`, as they are. A rise whose lowest
  * cap is at or below its plate builds no piece. Every plane a rise adds is keyed into the storey's Building (decision
  * 9). The limit reads the storey's roof without any rise, so rises never limit one another (journal decision 204); it
  * reads the storey's gables by their bands alone (journal decision 243, rule 1). A rise its policy gives no limit
