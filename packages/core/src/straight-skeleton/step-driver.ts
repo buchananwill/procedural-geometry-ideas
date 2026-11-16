@@ -100,6 +100,37 @@ export function stepAlgorithm(context: StraightSkeletonSolverContext, inputs: Al
     }
 }
 
+/**
+ * What happens at one step boundary (skeleton wavefront-order spec, decision 6): called once after initialisation,
+ * with the whole wavefront as the inputs to run and no errors, and once after each step's acceptance pass, with the
+ * inputs still to run and the errors that step recorded. The driver ignores what it does.
+ */
+export type StepBoundaryHook = (inputs: readonly AlgorithmStepInput[], stepErrors: readonly string[]) => void;
+
+/**
+ * THE STEP LOOP, STATED ONCE. From an initialised context (`initInteriorEdges` has run), the whole wavefront is one
+ * step input; `stepAlgorithm` runs until no input remains, and after each step every exterior edge is offered for
+ * acceptance, AT THE STEP BOUNDARY AND ONLY THERE (skeleton edge-acceptance spec, decision 4): nothing is pending.
+ * `atBoundary` is called at every boundary, the first included. Returns every step's errors, in order; a throw from
+ * a step's acceptance or from `atBoundary` escapes to the caller.
+ */
+export function driveSteps(context: StraightSkeletonSolverContext, atBoundary?: StepBoundaryHook): string[] {
+    let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}];
+    const errors: string[] = [];
+    atBoundary?.(inputs, []);
+    while (inputs.length > 0) {
+        const output = stepAlgorithm(context, inputs);
+        errors.push(...output.errors);
+        inputs = output.childSteps;
+        // The exterior edges are the first `numExteriorNodes` of the graph, ids 0 onwards.
+        for (let exteriorEdge = 0; exteriorEdge < context.graph.numExteriorNodes; exteriorEdge++) {
+            tryToAcceptExteriorEdge(context, exteriorEdge);
+        }
+        atBoundary?.(inputs, output.errors);
+    }
+    return errors;
+}
+
 /** Outcome of solving one simple (non-self-intersecting) polygon. */
 export interface SimplePolygonRun {
     context: StraightSkeletonSolverContext;
@@ -127,27 +158,16 @@ export function runSimplePolygon(
     observer?: SolveStepObserver,
 ): SimplePolygonRun {
     const context = makeStraightSkeletonSolverContext(nodes, perceptualFloor, weights, loops);
-    const exteriorEdges = [...context.graph.edges]
-    const errors: string[] = [];
-
     initInteriorEdges(context);
-    observer?.(context, []);
 
-    // THE STEP BOUNDARIES (skeleton wavefront-order spec, decision 6), where the standing gate's probe checks
-    // the links (decision 23), and the end of the solve, where it counts it. `null` in a normal solve.
+    // THE STEP BOUNDARIES (skeleton wavefront-order spec, decision 6), where the observer reads and then the
+    // standing gate's probe checks the links (decision 23), and the end of the solve, where the probe counts it.
+    // `null` in a normal solve.
     const probe = context.probe;
-
-    let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}]
-    probe?.stepBoundary?.(context, inputs);
-    while (inputs.length > 0) {
-        const output = stepAlgorithm(context, inputs);
-        errors.push(...output.errors);
-        inputs = output.childSteps
-        // AT THE STEP BOUNDARY, AND ONLY HERE (skeleton edge-acceptance spec, decision 4): nothing is pending.
-        exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id))
-        observer?.(context, output.errors);
+    const errors = driveSteps(context, (inputs, stepErrors) => {
+        observer?.(context, stepErrors);
         probe?.stepBoundary?.(context, inputs);
-    }
+    });
     probe?.solveFinished?.(context, errors);
 
     return {context, errors}
@@ -166,23 +186,17 @@ export function runSimplePolygonStepped(
     weights?: readonly number[],
 ): SteppedAlgorithmResult {
     const context = makeStraightSkeletonSolverContext(nodes, perceptualFloor, weights);
-    const exteriorEdges = [...context.graph.edges];
-
     initInteriorEdges(context);
 
-    const snapshots: StraightSkeletonGraph[] = [structuredClone(context.graph)];
-    let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}];
-    // The same step boundaries as `runSimplePolygon` (skeleton wavefront-order spec, decision 6).
+    // The same step boundaries as `runSimplePolygon` (skeleton wavefront-order spec, decision 6), the probe first and
+    // then the snapshot, and no `solveFinished`. A throw takes one last snapshot and is reported on `error`.
     const probe = context.probe;
-    probe?.stepBoundary?.(context, inputs);
-
+    const snapshots: StraightSkeletonGraph[] = [];
     try {
-        while (inputs.length > 0) {
-            inputs = stepAlgorithm(context, inputs).childSteps;
-            exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
+        driveSteps(context, inputs => {
             probe?.stepBoundary?.(context, inputs);
             snapshots.push(structuredClone(context.graph));
-        }
+        });
         return {snapshots, error: null};
     } catch (e) {
         snapshots.push(structuredClone(context.graph));

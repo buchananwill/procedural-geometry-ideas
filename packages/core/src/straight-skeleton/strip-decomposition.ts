@@ -429,7 +429,7 @@ function traceFaceByGeometry(
  *
  * An interior edge the solver never terminated has no target and cannot bound anything, so it is
  * left out. So is a self-loop: the degenerate-closure path deliberately retires a surplus bisector
- * as an arc from a node to itself (see `algorithm-termination-cases.ts`), which bounds no area and
+ * as an arc from a node to itself (see `terminal-ladder.ts`), which bounds no area and
  * would only stall the walk.
  */
 function faceIncidence(graph: StraightSkeletonGraph, edgeId: number): Map<number, number[]> {

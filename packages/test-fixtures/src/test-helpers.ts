@@ -8,8 +8,7 @@ import type {
 import {
     makeStraightSkeletonSolverContext,
     initInteriorEdges,
-    tryToAcceptExteriorEdge,
-    stepAlgorithm,
+    driveSteps,
     collideEdges,
 } from '@proc-geo/core';
 
@@ -54,44 +53,44 @@ export interface StepSnapshot {
 }
 
 /**
- * Run the V5 algorithm step-by-step, capturing a snapshot after each
- * iteration.  If the algorithm throws, we catch the error and return
- * what we have so far.
+ * Run the V5 algorithm step-by-step through core's `driveSteps`, capturing a snapshot after each
+ * step.  If the algorithm throws, we catch the error and return what we have so far.
+ * `lastInputs` are the inputs of the last step run, or of the step that threw.
  */
 export function stepWithCapture(vertices: Vector2[]): {
     snapshots: StepSnapshot[];
     error: string | null;
     context: StraightSkeletonSolverContext;
-    lastInputs: AlgorithmStepInput[];
+    lastInputs: readonly AlgorithmStepInput[];
 } {
     const context = initContext(vertices);
-    const exteriorEdges = context.graph.edges.slice(0, context.graph.numExteriorNodes);
-
-    let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}];
     const snapshots: StepSnapshot[] = [];
-    let step = 0;
+    let boundary = 0;
     let error: string | null = null;
-    let lastInputs = inputs;
+    let lastInputs: readonly AlgorithmStepInput[] = [];
 
-    while (inputs.length > 0) {
-        try {
-            lastInputs = inputs;
-            inputs = stepAlgorithm(context, inputs).childSteps;
-            exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
-
-            snapshots.push({
-                step: step++,
-                inputCount: inputs.length,
-                inputs: inputs.map(i => ({edges: [...i.interiorEdges]})),
-                acceptedEdges: [...context.acceptedEdges],
-                nodeCount: context.graph.nodes.length,
-                edgeCount: context.graph.edges.length,
-                interiorEdgeCount: context.graph.interiorEdges.length,
-            });
-        } catch (e) {
-            error = e instanceof Error ? e.message : String(e);
-            break;
-        }
+    try {
+        driveSteps(context, inputs => {
+            // The first boundary is the initialisation; every later one follows a step.
+            if (boundary > 0) {
+                snapshots.push({
+                    step: boundary - 1,
+                    inputCount: inputs.length,
+                    inputs: inputs.map(i => ({edges: [...i.interiorEdges]})),
+                    acceptedEdges: [...context.acceptedEdges],
+                    nodeCount: context.graph.nodes.length,
+                    edgeCount: context.graph.edges.length,
+                    interiorEdgeCount: context.graph.interiorEdges.length,
+                });
+            }
+            boundary++;
+            // The next step runs these; the last boundary has none, and keeps the step it followed.
+            if (inputs.length > 0) {
+                lastInputs = inputs;
+            }
+        });
+    } catch (e) {
+        error = e instanceof Error ? e.message : String(e);
     }
 
     return {snapshots, error, context, lastInputs};

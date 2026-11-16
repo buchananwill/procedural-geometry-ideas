@@ -200,7 +200,7 @@ export {
   handleInteriorEdgeTriangle,
   TRIANGLE_INTERSECT_PAIRINGS,
 } from './straight-skeleton/algorithm-termination-cases';
-export { handleAlgorithmStepInput, stepAlgorithm } from './straight-skeleton/step-driver';
+export { driveSteps, handleAlgorithmStepInput, stepAlgorithm } from './straight-skeleton/step-driver';
 export { assertWeightsChangeOnlyAtVisibleCorners, canonicaliseForSolve } from './straight-skeleton/boundary-stage';
 export {
   runAlgorithmV5,
