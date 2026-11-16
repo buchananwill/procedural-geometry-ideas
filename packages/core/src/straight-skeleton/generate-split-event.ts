@@ -27,7 +27,7 @@ import {
     weightedRateSumRoundingBound,
 } from "./constants";
 import {intersectRays} from "./intersection-edges";
-import {linkGuardRefuses} from "./wavefront";
+import {linkGuardRefuses} from "./wavefront-links";
 import {
     exteriorRayTerms,
     interiorDirectionError,

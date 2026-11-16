@@ -34,18 +34,17 @@ import {
     wallFacingGap,
 } from "./coincident-events";
 import {closeFlatRings} from "./flat-rings";
+import {retireBisectors, ringsOfWavefront} from "./wavefront-links";
 import {
     birthsClosedAtOneNode,
-    componentsOfRings,
     droppableBirths,
     LayerLinks,
     linkBirth,
     partitionArc,
-    refuseStep,
-    retireBisectors,
-    ringsOfWavefront,
-    settleLayerLinks
-} from "./wavefront";
+    settleLayerLinks,
+} from "./layer-links";
+import {componentsOfRings} from "./ring-components";
+import {refuseStep} from "./step-scope";
 
 /**
  * A NODE CARRIES WHERE IT WAS PUT (journal-5 decisions 170 and 171(c)): raise `nodeId`'s position budget to

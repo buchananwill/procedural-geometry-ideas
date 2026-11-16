@@ -12,7 +12,9 @@ import {inwardDistanceFromWall, wallsAreAntiparallel} from "./wall-time";
 import {ringPerimeter, segmentSegmentIntersection, signedArea} from "./planar-geometry";
 import {isEndpointTouch} from "./polygon-decomposition";
 import {bisectWithParams} from "./algorithm-helpers";
-import {refuseStep, retireBisectors, ringPolygonAt, ringsOfWavefront} from "./wavefront";
+import {retireBisectors, ringsOfWavefront} from "./wavefront-links";
+import {ringPolygonAt} from "./ring-components";
+import {refuseStep} from "./step-scope";
 
 /**
  * FLAT-RING TERMINATION (skeleton flat-ring and third-front spec, decisions 7 to 29). A ring a layer of a step of

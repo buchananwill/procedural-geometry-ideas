@@ -43,7 +43,8 @@ export { findLoopConflict, groupLoopsByNesting } from './straight-skeleton/skele
 export type { LoopConflict, LoopConflictKind, LoopGroup } from './straight-skeleton/skeleton-loops';
 
 // ── The wavefront's stored order (skeleton wavefront-order spec, stage 1) ────
-export { checkWavefront, ringsOfWavefront } from './straight-skeleton/wavefront';
+export { ringsOfWavefront } from './straight-skeleton/wavefront-links';
+export { checkWavefront } from './straight-skeleton/wavefront-check';
 
 // ── Post-solve wavefront causality check (journal-5 decision 148) ────────────
 export { checkWavefrontCausality } from './straight-skeleton/causality-check';
@@ -183,7 +184,7 @@ export {
 // ── Collision handling ───────────────────────────────────────────────────────
 export { default as handleCollisionEvent } from './straight-skeleton/collision-handling';
 // The link state of the layer an event belongs to, which `handleCollisionEvent` writes its pending births into.
-export { LayerLinks } from './straight-skeleton/wavefront';
+export { LayerLinks } from './straight-skeleton/layer-links';
 
 // ── Split events ─────────────────────────────────────────────────────────────
 export {

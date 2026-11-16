@@ -18,7 +18,7 @@ import {ARITHMETIC_SAME_POINT_BOX} from "./constants";
 import {byArrival} from "./collision-helpers";
 import {byEdgeIds} from "./event-order";
 import {wallsAreAntiparallel} from "./wall-time";
-import {LayerLinks, linkMergeGap, linkMergeGapOnWall} from "./wavefront";
+import {LayerLinks, linkMergeGap, linkMergeGapOnWall} from "./layer-links";
 
 /**
  * Are these two arrivals the same vertex event, as far as anything that will ever look at the

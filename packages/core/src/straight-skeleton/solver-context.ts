@@ -11,7 +11,9 @@ import {
     Vector2,
     WavefrontSegment
 } from "./types";
-import {activeWavefrontProbe, currentStepMembers, makeWavefront, wavefrontSegmentsOf} from "./wavefront";
+import {makeWavefront, wavefrontSegmentsOf} from "./wavefront-links";
+import {currentStepMembers} from "./step-scope";
+import {activeWavefrontProbe} from "./wavefront-check";
 import {addInEdges, initBoundingPolygon} from "./graph-helpers";
 import {
     addVectors,

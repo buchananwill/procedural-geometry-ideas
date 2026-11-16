@@ -14,7 +14,7 @@ import {
     sineIsBelow
 } from "./core-functions";
 import {adjacentExteriorEdge} from "./graph-helpers";
-import {exteriorFaceIsClosed, linkInitialRings, openWavefrontSlot} from "./wavefront";
+import {exteriorFaceIsClosed, linkInitialRings, openWavefrontSlot} from "./wavefront-links";
 import {intersectRays} from "./intersection-edges";
 import {
     arrivalOf,

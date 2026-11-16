@@ -1,6 +1,7 @@
 import type { Vector2 } from '../shared/types';
 import type { SkeletonNormalisation } from './normalisation';
-import type { StepScope, WavefrontProbe } from './wavefront';
+import type { StepScope } from './step-scope';
+import type { WavefrontProbe } from './wavefront-check';
 export type { Vector2 } from '../shared/types';
 
 export interface PolygonNode {

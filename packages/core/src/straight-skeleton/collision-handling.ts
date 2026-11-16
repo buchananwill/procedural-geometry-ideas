@@ -1,5 +1,6 @@
 import {BisectionParams, ResolvableEvent, StraightSkeletonSolverContext} from "./types";
-import {LayerLinks, linkPairCollapse, linkSplit, linkVertexToVertex, pairCollapseSides} from "./wavefront";
+import {pairCollapseSides} from "./wavefront-links";
+import {LayerLinks, linkPairCollapse, linkSplit, linkVertexToVertex} from "./layer-links";
 
 
 /**

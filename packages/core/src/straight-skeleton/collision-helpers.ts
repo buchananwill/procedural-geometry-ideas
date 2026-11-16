@@ -36,7 +36,7 @@ import {
     weightedRateSumForwardBound,
     weightedRateSumRoundingBound,
 } from "./constants";
-import {areNeighbours} from "./wavefront";
+import {areNeighbours} from "./wavefront-links";
 import {
     generateSplitEventFromTheEdgeItself,
     generateSplitEventViaBisector,

@@ -39,7 +39,8 @@ import {makeStraightSkeletonSolverContext} from "./solver-context";
 import {initInteriorEdges, tryToAcceptExteriorEdge} from "./algorithm-helpers";
 import {addInEdges} from "./graph-helpers";
 import {handleInteriorNGon} from "./algorithm-complex-cases";
-import {beginStep, endStep, refuseStep, retireBisectors, ringsOfWavefront} from "./wavefront";
+import {retireBisectors, ringsOfWavefront} from "./wavefront-links";
+import {beginStep, endStep, refuseStep} from "./step-scope";
 import {describeLoopConflict, findLoopConflict, isDegenerateHole} from "./skeleton-loops";
 import {
     cramerQuotientRoundingBound,
