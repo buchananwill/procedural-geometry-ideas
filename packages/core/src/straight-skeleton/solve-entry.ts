@@ -64,6 +64,8 @@ function pushSolveDiagnostics(diagnostics: SkeletonDiagnostic[], run: SimplePoly
  *
  * Prefer {@link solveSkeleton}, which normalises winding, reports every one of those on
  * `diagnostics`, and returns `context: null` instead of a throwing stub for the merged path.
+ *
+ * @deprecated Use {@link solveSkeleton}.
  */
 export function runAlgorithmV5(
     nodes: Vector2[],
@@ -395,6 +397,13 @@ function denormaliseSnapshots(snapshots: StraightSkeletonGraph[], normalisation:
     }
 }
 
+/**
+ * Legacy stepped entry point: snapshots of the solve {@link runAlgorithmV5} performs, a single loop only, with a
+ * rejected polygon reported on `error` and no diagnostics channel.
+ *
+ * @deprecated Use {@link solveSkeletonStepped}, which takes holes and every option and reports every failure and
+ * refusal of a step on `result.diagnostics`.
+ */
 export function runAlgorithmV5Stepped(
     nodes: Vector2[],
     options?: PerceptualFloorOptions & WeightOptions,
