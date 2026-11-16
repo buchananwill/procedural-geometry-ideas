@@ -3,9 +3,8 @@
 // the playtest seeds and the defect cases, grouped, with a text filter.
 import {existsSync, readFileSync, readdirSync} from 'node:fs';
 import {HOLED_CAUSES} from '../src/roof/skeleton.ts';
-import {HOLED_REFUSALS} from './robustness-fixtures.ts';
 import {describe, expect, it} from 'vitest';
-import {GABLE_SETTING_FIXTURES, HOLED_FIXTURES, PORT_FIXTURES, RING_CONFLICT_FIXTURES, RING_SIDES, RISE_FIXTURES, SHELL_FIXTURES} from '../src/fixture.ts';
+import {GABLE_SETTING_FIXTURES, HOLED_FIXTURES, HOLED_REFUSALS, PORT_FIXTURES, RING_CONFLICT_FIXTURES, RING_SIDES, RISE_FIXTURES, SHELL_FIXTURES} from '../src/fixture.ts';
 import {
   CatalogueGroup, CatalogueSources, InputFile, PLAYTEST_SEED_STEMS, catalogueGroups, choosableCount, filterCatalogue, filterTerms,
   goldenInputFiles, leftOutValue, playtestFiles,
@@ -17,16 +16,15 @@ import {draftFixtureOfJson, editDraftOf} from '../src/viewer/draft.ts';
 import {settledSettings} from '../src/viewer/edit.ts';
 import {selectionFromHash, selectionName} from '../src/viewer/hash.ts';
 import {CONFLICT_TABLE_NAMES, PINNED_CASES, PIN_TABLES, RESIDUE_TABLE_NAMES} from '../src/viewer/pinned-cases.ts';
-import {RESEARCH_ENTRIES, RESEARCH_FIXTURES} from '../src/viewer/research-cases.ts';
+import {RESEARCH_ENTRIES} from '../src/viewer/research-cases.ts';
+// The page's own roster and refused layouts (holed roof decision 58), each refused layout with its cause.
+import {LISTED_FIXTURES as LISTED, REFUSED_LAYOUTS as REFUSED} from '../src/viewer/rosters.ts';
 import {readInput} from '../src/wire/input-adapter.ts';
 import {GOLDEN_FIXTURES} from './golden-fixtures.ts';
 import {pinClass} from './pin-table.ts';
 
 const APP = new URL('../', import.meta.url);
 const manifest: unknown = JSON.parse(readFileSync(new URL('golden/manifest.json', APP), 'utf8'));
-/** Holed roof decision 58: the refused layouts the selector lists, each with its cause. */
-const REFUSED = HOLED_REFUSALS.map(r => ({fixture: r.fixture, cause: HOLED_CAUSES[r.kind]}));
-const LISTED = [...SHELL_FIXTURES, ...RISE_FIXTURES, ...GABLE_SETTING_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...HOLED_FIXTURES, ...REFUSED.map(r => r.fixture), ...RESEARCH_FIXTURES];
 const goldens = goldenInputFiles(manifest, new Set(LISTED.map(f => f.name)));
 const cases = parseDefectCases(manifest, inMemorySources(GOLDEN_FIXTURES, PINNED_CASES, LISTED));
 

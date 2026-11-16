@@ -1,4 +1,5 @@
 // Fixtures (spec decisions 1 to 4) and the roster (spec decisions 34 to 40). Every length is in centimetres.
+import type {SkeletonDiagnosticKind} from '@proc-geo/core';
 import {Rect} from './roof/model.ts';
 
 /**
@@ -348,6 +349,25 @@ export const GABLE_SETTING_FIXTURES: readonly ShellFixture[] = (() => {
   ];
 })();
 
+// ---- The holed layouts, by role --------------------------------------------------------------------------------------
+// Every named layout on an island with a hole, by the role it plays for the port, in one table (R10, BSA.D356).
+// - Oracle input: built and held to the oracles (spec decision 32's invariants, the golden set, and for the
+//   `HOLED_FIXTURES` the L-infinity height oracle). A port builds each and compares.
+// - Known refusal: a hard error by name, naming the island and its cause (holed roof decisions 17 and 41 to 43). A port
+//   refuses each the same way until the skeleton is cured.
+// - Legacy-named: a test-side name that still tells the courtyard cut's history; the layout is an oracle input like
+//   any other, and only its name is owed a change.
+//
+// | Role          | List                                    | Layouts                                                         |
+// |---------------|-----------------------------------------|-----------------------------------------------------------------|
+// | Oracle input  | `HOLED_FIXTURES`                        | every entry, below                                              |
+// | Oracle input  | `SHELL_FIXTURES`                        | `Courtyard`                                                     |
+// | Oracle input  | `RING_CONFLICT_FIXTURES`                | `HoleRingConflict`, `BandPitchConflict`, and the swap of each   |
+// | Oracle input  | `RISE_FIXTURES`                         | `CourtyardRiseFacingWing`, `CourtyardRiseOnOuterWall`           |
+// | Known refusal | `HOLED_REFUSALS`                        | `GridDraw523`, `GridDraw1977`                                   |
+// | Legacy-named  | tests/robustness-fixtures.ts            | `jutCutFixtures` (`CourtyardJut`, `CourtyardJutSwapped`), `FULL_WINGS_PROBE` |
+// | Legacy-named  | tests/residue-pins.ts                   | `JUT_CUT_DEFECTS`, the pin table keyed by `JutCutName` (empty)  |
+
 /**
  * Holed roof decision 39: the holed fixtures, each one storey, every Ring hipped at 30°, each roofed by the skeleton of
  * its outline and holes, and each measured sound. The golden set and the viewer list them. The roster's `Courtyard`
@@ -398,6 +418,50 @@ export const HOLED_FIXTURES: readonly ShellFixture[] = (() => {
     at30('TwoHolesProbe', [[0, 0, 700, 100], [0, 200, 700, 300], [0, 100, 100, 200], [300, 100, 400, 200], [600, 100, 700, 200]]),
     at30('TwoCourtyardsDraft', [[0, 0, 1600, 300], [0, 700, 1600, 1000], [0, 300, 300, 700], [700, 300, 900, 700], [1300, 300, 1600, 700]]),
     at30('CourtL-draft', [[0, 0, 1000, 300], [0, 700, 1000, 1000], [0, 300, 300, 700], [700, 300, 1000, 700], [1000, 0, 1700, 300]]),
+  ];
+})();
+
+/** The skeleton's diagnostic kinds a `HOLED_REFUSALS` entry is refused by, each named in `HOLED_CAUSES`. */
+export type HoledRefusalKind = Extract<SkeletonDiagnosticKind, 'simultaneous-across-rings' | 'multi-ring-step-refused'>;
+
+/** The issue note that records what each refusal kind holds back (holed roof decision 42). */
+export const HOLED_REFUSAL_ISSUES: Readonly<Record<HoledRefusalKind, string>> = {
+  'simultaneous-across-rings': 'ISSUE-skeleton-three-front-meeting-refused.md',
+  'multi-ring-step-refused': 'ISSUE-skeleton-straight-vertex-in-zero-area-ring.md',
+};
+
+/** One layout the holed solve refuses by name: its fixture (its Rings), the skeleton's kind, and the issue note. */
+export interface HoledRefusal { fixture: ShellFixture; kind: HoledRefusalKind; issue: string }
+
+/**
+ * Holed roof decisions 41 to 43 and 58: the layouts the holed solve refuses by name. Each is one storey, every Ring
+ * hipped at 30°. Each entry's test asserts the hard error naming the island and its kind, a guard in production code
+ * (BSA.D266, BSA.D311); a cure turns it red, and the entry is promoted to a fixture. None is asserted as roofed.
+ *
+ * The ten layouts this list once held (the 8 footprints that built clean under the cut, `TwoHolesProbe` and the draft's
+ * `TwoCourtyards`) are cured by the skeleton's flat-ring and third-front rules and are `HOLED_FIXTURES` entries (skeleton
+ * flat-ring and third-front spec, decisions 52 and 53). What it holds now are two grid draws of the two-courtyard fuzz
+ * (`holed-grid-fuzz.test.ts`, seed 1), refused before and after those rules, neither rule firing: in each, one hole's two
+ * corners and the other hole's one corner meet at one node at one moment, a vertex event across rings of three runs,
+ * whose pairing the links cannot read (simultaneous-rings decision 21).
+ * - `GridDraw523` (`uniform-1-523`): a 1350 by 700 block with a wing on its E side, round the holes `[900, 300, 1150,
+ *   450]` and `[150, 200, 550, 600]`.
+ * - `GridDraw1977` (`uniform-1-1977`): a 1750 by 1000 block with a wing on its E side, round the holes `[1050, 500,
+ *   1550, 700]` and `[100, 450, 250, 700]`.
+ */
+export const HOLED_REFUSALS: readonly HoledRefusal[] = (() => {
+  const at30 = (name: string, rects: Rect[]): ShellFixture => fixture(name, rects.map(r => ring(r, 0, 1, 30)));
+  const entry = (kind: HoledRefusalKind, name: string, rects: Rect[]): HoledRefusal => ({fixture: at30(name, rects), kind, issue: HOLED_REFUSAL_ISSUES[kind]});
+  const three = 'simultaneous-across-rings';
+  return [
+    entry(three, 'GridDraw523', [
+      [0, 0, 1350, 200], [0, 200, 150, 300], [550, 200, 1350, 300], [0, 300, 150, 450], [550, 300, 900, 450],
+      [1150, 300, 1350, 450], [0, 450, 150, 600], [550, 450, 1700, 600], [0, 600, 1700, 650], [0, 650, 1350, 700],
+    ]),
+    entry(three, 'GridDraw1977', [
+      [0, 0, 1750, 450], [0, 450, 100, 500], [250, 450, 1750, 500], [0, 500, 100, 700], [250, 500, 1050, 700],
+      [1550, 500, 1750, 700], [0, 700, 2000, 900], [0, 900, 1750, 1000],
+    ]),
   ];
 })();
 

@@ -4,12 +4,11 @@ import {describe, expect, it} from 'vitest';
 import {solveSkeleton} from '@proc-geo/core';
 import type {SkeletonSolveResult, Strip} from '@proc-geo/core';
 import {computeMaxOffset, computeStrips} from '@proc-geo/core';
-import {COURTYARD_RECTS, ring} from '../src/fixture.ts';
+import {COURTYARD_RECTS, HOLED_REFUSALS, HOLED_REFUSAL_ISSUES, ring} from '../src/fixture.ts';
 import {IslandRefusal} from '../src/errors.ts';
 import {Comp, Rect, buildCourtyard, buildFromRects, compLoops, polyArea} from '../src/roof/model.ts';
 import {HOLED_CAUSES, facesOfSolve, facesOfStrips, footprintArea, loopWeights, skeletonInput, solveFaces} from '../src/roof/skeleton.ts';
 import {planStorey} from '../src/storey.ts';
-import {HOLED_REFUSALS, HOLED_REFUSAL_ISSUES} from './robustness-fixtures.ts';
 import {shellFixture} from './test-builds.ts';
 
 const t30 = Math.tan(Math.PI / 6);

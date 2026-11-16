@@ -4,8 +4,6 @@
 // case's build is held to its pin, and each golden's to its manifest entry, so the table never records a result that
 // disagrees with a pin.
 import {readFileSync, writeFileSync} from 'node:fs';
-import {HOLED_CAUSES} from '../src/roof/skeleton.ts';
-import {HOLED_REFUSALS} from './robustness-fixtures.ts';
 import {describe, expect, it} from 'vitest';
 import {errorMessage} from '../src/errors.ts';
 import {GABLE_SETTING_FIXTURES, HOLED_FIXTURES, PORT_FIXTURES, RING_CONFLICT_FIXTURES, RISE_FIXTURES, SHELL_FIXTURES, storeysOf} from '../src/fixture.ts';
@@ -22,7 +20,9 @@ import {parseDefectCases} from '../src/viewer/defect-cases.ts';
 import {inMemoryFixture, inMemorySources} from '../src/viewer/defect-sources.ts';
 import {PINNED_CASES, pinnedFixture} from '../src/viewer/pinned-cases.ts';
 import type {PinnedCase} from '../src/viewer/pinned-cases.ts';
-import {RESEARCH_ENTRIES, RESEARCH_FIXTURES} from '../src/viewer/research-cases.ts';
+import {RESEARCH_ENTRIES} from '../src/viewer/research-cases.ts';
+// The page's own roster and refused layouts (holed roof decision 58), each refused layout with its cause.
+import {LISTED_FIXTURES as LISTED, REFUSED_LAYOUTS as REFUSED} from '../src/viewer/rosters.ts';
 import {readInput} from '../src/wire/input-adapter.ts';
 import {GOLDEN_FIXTURES} from './golden-fixtures.ts';
 import {throwsOutcome} from './pin-table.ts';
@@ -30,9 +30,6 @@ import {throwsOutcome} from './pin-table.ts';
 const APP = new URL('../', import.meta.url);
 const FACTS_FILE = new URL('src/viewer/catalogue-facts.ts', APP);
 const manifest: unknown = JSON.parse(readFileSync(new URL('golden/manifest.json', APP), 'utf8'));
-/** Holed roof decision 58: the refused layouts the selector lists, each with its cause. */
-const REFUSED = HOLED_REFUSALS.map(r => ({fixture: r.fixture, cause: HOLED_CAUSES[r.kind]}));
-const LISTED: readonly ShellFixture[] = [...SHELL_FIXTURES, ...RISE_FIXTURES, ...GABLE_SETTING_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...HOLED_FIXTURES, ...REFUSED.map(r => r.fixture), ...RESEARCH_FIXTURES];
 const goldens = goldenInputFiles(manifest, new Set(LISTED.map(f => f.name)));
 const cases = parseDefectCases(manifest, inMemorySources(GOLDEN_FIXTURES, PINNED_CASES, LISTED));
 const sources = (facts: FactsLookup): CatalogueSources => ({

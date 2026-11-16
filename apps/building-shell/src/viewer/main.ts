@@ -4,8 +4,6 @@
 // `(await buildShellDetailed(f)).shell`.
 import {errorMessage} from '../errors.ts';
 import {GABLE_SETTING_FIXTURES, HOLED_FIXTURES, PORT_FIXTURES, RING_CONFLICT_FIXTURES, RISE_FIXTURES, SHELL_FIXTURES, ShellFixture, storeysOf} from '../fixture.ts';
-import {HOLED_CAUSES} from '../roof/skeleton.ts';
-import {HOLED_REFUSALS} from '../../tests/robustness-fixtures.ts';
 import {ShellBuild, buildShellDetailed, droppedRingsWarning} from '../shell.ts';
 import type {Vec3} from '../tags.ts';
 import {readInput} from '../wire/input-adapter.ts';
@@ -25,7 +23,8 @@ import {DRAFT_HASH, Selection, SelectionSources, draftLinkHash, selectionFromHas
 import {LegendEntry, LegendGroup, legendEntries} from './legend.ts';
 import {cssColour} from './palette.ts';
 import {Hit, readoutSections} from './readout.ts';
-import {RESEARCH_ENTRIES, RESEARCH_FIXTURES, researchNote} from './research-cases.ts';
+import {RESEARCH_ENTRIES, researchNote} from './research-cases.ts';
+import {LISTED_FIXTURES, REFUSED_LAYOUTS} from './rosters.ts';
 import {CATALOGUE_FACTS} from './catalogue-facts.ts';
 import {PINNED_CASES, pinnedDraftSource, pinnedFixture, pinnedFocus, pinnedNote} from './pinned-cases.ts';
 import {ScreenPoint, ShellScene} from './scene.ts';
@@ -431,18 +430,6 @@ function renderFixtureNote(sel: Selection): void {
   const entry = sel.kind === 'fixture' ? RESEARCH_ENTRIES.find(e => e.name === sel.fixture.name) : undefined;
   $('fixture-note').textContent = entry ? researchNote(entry) : '';
 }
-
-/** Holed roof decision 58: every layout the holed solve refuses, with its cause, so it can be loaded and its error read. */
-const REFUSED_LAYOUTS = HOLED_REFUSALS.map(r => ({fixture: r.fixture, cause: HOLED_CAUSES[r.kind]}));
-
-/**
- * Every fixture the selector lists by name: the roster, the gable rises and settings, the Ring conflicts, the port's,
- * the holed fixtures and refusals, the research cases.
- */
-const LISTED_FIXTURES: readonly ShellFixture[] = [
-  ...SHELL_FIXTURES, ...RISE_FIXTURES, ...GABLE_SETTING_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...HOLED_FIXTURES,
-  ...REFUSED_LAYOUTS.map(r => r.fixture), ...RESEARCH_FIXTURES,
-];
 
 /** WP-V3: the in-memory source of each defect case the golden set ships no input for, derived from the golden set itself. */
 const IN_MEMORY_SOURCES = inMemorySources(GOLDEN_FIXTURES, PINNED_CASES, LISTED_FIXTURES);
