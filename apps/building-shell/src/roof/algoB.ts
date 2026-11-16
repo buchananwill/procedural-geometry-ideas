@@ -1,8 +1,9 @@
 // Algorithm B, projected intersection: the default hip over the footprint, plus one added piece per promoted line,
 // the two end walls' planes clipped to the wall's side and band, composed with the higher surface winning.
-import {Building, Comp, Pt, Wall, compLoops, dot, sub} from './model.ts';
+import {Building, Comp, Pt, Wall, compLoops, dot, loopWalls, sub} from './model.ts';
 import {PlaneFace, Sample, Surface, emptyInfo, evalFaces, makeFace} from './surface.ts';
 import {RawFace, solveFaces} from './skeleton.ts';
+import {along, atAlong, endWall, extentOf, farWall, fixedOf, spanOf} from './wall-line.ts';
 
 export type FarEdge = 'plane' | 'none' | 'contact' | 'ridge';
 
@@ -20,47 +21,7 @@ export interface Piece {
   label: string;
 }
 
-const EPS = 0.01;
 const sameDir = (a: Pt, b: Pt): boolean => dot(a, b) > 0.5;
-const along = (w: Wall, p: Pt): number => (Math.abs(w.dir.x) > 0.5 ? p.x : p.y);
-const fixedOf = (w: Wall): number => (Math.abs(w.dir.x) > 0.5 ? w.a.y : w.a.x);
-const atAlong = (w: Wall, s: number, d: number): Pt => (Math.abs(w.dir.x) > 0.5
-  ? {x: s, y: w.a.y + w.n.y * d}
-  : {x: w.a.x + w.n.x * d, y: s});
-const spanOf = (w: Wall): [number, number] => {
-  const a = along(w, w.a), b = along(w, w.b);
-  return [Math.min(a, b), Math.max(a, b)];
-};
-
-/** The wall's straight line, walked along its inward side until it leaves the footprint, breaking at every loop's vertices. */
-function extentOf(b: Building, comp: Comp, w: Wall): [number, number] {
-  const breaks = [...new Set(compLoops(comp).flat().map(p => along(w, p)))].sort((p, q) => p - q);
-  let [lo, hi] = spanOf(w);
-  for (;;) {
-    const prev = breaks.filter(s => s < lo).pop();
-    if (prev === undefined || !b.inside(atAlong(w, (prev + lo) / 2, EPS))) break;
-    lo = prev;
-  }
-  for (;;) {
-    const next = breaks.find(s => s > hi);
-    if (next === undefined || !b.inside(atAlong(w, (next + hi) / 2, EPS))) break;
-    hi = next;
-  }
-  return [lo, hi];
-}
-
-/** The wall standing across the line's end at coordinate `s`, its inward normal pointing back along the line. */
-function endWall(comp: Comp, w: Wall, s: number, intoLine: number): Wall | undefined {
-  const point = atAlong(w, s, EPS);
-  const axis: Pt = Math.abs(w.dir.x) > 0.5 ? {x: 1, y: 0} : {x: 0, y: 1};
-  return comp.walls.find(o => {
-    if (Math.abs(dot(o.n, axis)) < 0.5) return false;
-    if (dot(o.n, axis) * intoLine < 0) return false;
-    if (Math.abs(along(w, o.a) - s) > 1e-6) return false;
-    const t = dot(sub(point, o.a), o.dir);
-    return t >= -1e-6 && t <= o.len + 1e-6;
-  });
-}
 
 const planeUsable = (o: Wall | undefined): o is Wall => !!o && !o.dead;
 
@@ -76,21 +37,6 @@ function endPlanes(comp: Comp, w: Wall, ext: [number, number]): number[] {
   if (planeUsable(a)) out.push(a.plane);
   if (planeUsable(b)) out.push(b.plane);
   return out;
-}
-
-/** The nearest wall facing back at this one across the band; of two at one distance, the first in `comp.walls`. */
-function farWall(comp: Comp, w: Wall, lo: number, hi: number): Wall | undefined {
-  let best: Wall | undefined;
-  let bestD = Infinity;
-  for (const o of comp.walls) {
-    if (dot(o.n, w.n) > -0.5) continue;
-    const d = dot(sub(o.a, w.a), w.n);
-    if (d <= EPS) continue;
-    const [p, q] = spanOf(o);
-    if (Math.min(q, hi) - Math.max(p, lo) <= EPS) continue;
-    if (d < bestD) { bestD = d; best = o; }
-  }
-  return best;
 }
 
 function buildPieces(b: Building, comp: Comp, opt: BOptions, notes: string[]): Piece[] {
@@ -207,7 +153,7 @@ export function runB(b: Building, opt: BOptions): Surface {
 }
 
 /** Holed roof decision 9: `1 / tan` of each loop's walls in edge order, the outer loop first. */
-export const loopWeights = (comp: Comp): number[][] => compLoops(comp).map((_, k) => comp.walls.filter(w => w.loop === k).map(w => 1 / w.tan));
+export const loopWeights = (comp: Comp): number[][] => compLoops(comp).map((_, k) => loopWalls(comp, k).map(w => 1 / w.tan));
 
 /** What `solveRoofParts` returns: the parts `runB` composes, and `buildPieces`' notes. */
 export interface RoofParts {

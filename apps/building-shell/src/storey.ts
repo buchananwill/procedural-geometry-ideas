@@ -8,6 +8,7 @@ import {UnionWall, storeyLoops, unionWallForms, wallSel} from './ring-forms.ts';
 import {CoveredRise, RisePiece, claimedWalls, risePieces} from './rise.ts';
 import {Piece, RoofParts, solveRoofParts} from './roof/algoB.ts';
 import {Building, Comp, Plane, Pt, Rect, Wall, buildFromRects, compLoops, planeAt, polyArea} from './roof/model.ts';
+import {alongX, atAlong, bboxReach} from './roof/wall-line.ts';
 import {PlanRefusal, errorMessage} from './errors.ts';
 import {LocalTag, PartlessTag, Plane3, ShellTags, Vec3, addFace, samePlane} from './tags.ts';
 import {TriIndices, TriSoup, WeldStats, triCross, weldAndSnap} from './weld.ts';
@@ -261,17 +262,6 @@ function hipSolid(ctx: PartContext, plan: StoreyPlan, ci: number, comp: Comp): R
     for (const [a, bb, c] of triangulate(ctx.wasm, poly)) { tris.push(start + a, start + bb, start + c); faceIDs.push(f); }
   }
   return finishPart(ctx, plan, 'hip', `hip solid island ${ci}`, {positions, tris, faceIDs});
-}
-
-const alongX = (w: Wall): boolean => Math.abs(w.dir.x) > 0.5;
-const atAlong = (w: Wall, s: number, d: number): Pt => (alongX(w) ? {x: s, y: w.a.y + w.n.y * d} : {x: w.a.x + w.n.x * d, y: s});
-
-/** How far the storey's bounding box reaches from the wall line along the wall's inward normal. */
-function bboxReach(b: Building, w: Wall): number {
-  if (w.n.y > 0.5) return b.bbox.y1 - w.a.y;
-  if (w.n.y < -0.5) return w.a.y - b.bbox.y0;
-  if (w.n.x > 0.5) return b.bbox.x1 - w.a.x;
-  return w.a.x - b.bbox.x0;
 }
 
 /** A stretch of a wall-line plane, `[lo, hi]` along the line, over which a face is Gable with `wall`. */

@@ -118,6 +118,9 @@ export interface Comp { walls: Wall[]; outer: Pt[]; holes: Pt[][] }
 /** An island's loops, the outer loop first and then its holes. */
 export const compLoops = (c: Comp): Pt[][] => [c.outer, ...c.holes];
 
+/** The island's walls on its loop `k`, in edge order: loop 0 the outer loop, loop `k` hole `k - 1`. */
+export const loopWalls = (c: Comp, k: number): Wall[] => c.walls.filter(w => w.loop === k);
+
 export interface Plane { id: number; gx: number; gy: number; c: number; walls: number[]; label: string }
 
 export interface Building {
@@ -161,7 +164,7 @@ export function finishBuilding(rawComps: RawComp[]): Building {
   for (const c of comps) {
     c.walls.forEach(w => {
       if (w.form !== 'mono') return;
-      const loop = c.walls.filter(o => o.loop === w.loop);
+      const loop = loopWalls(c, w.loop);
       const i = w.edge;
       const high = dist(w.a, w.low!) < 1e-6 ? w.b : w.a;
       const prev = loop[(i - 1 + loop.length) % loop.length];
@@ -291,7 +294,7 @@ export function transformBuilding(src: Building, f: (p: Pt) => Pt): Building {
   const raw = src.comps.map((c): RawComp => {
     const loops = compLoops(c).map(l => l.map(f).reverse());
     const attrs = loops.map((loop, k) => {
-      const own = c.walls.filter(w => w.loop === k);
+      const own = loopWalls(c, k);
       const n = loop.length;
       return loop.map((_, i): Partial<Wall> => {
         // New edge i runs from old vertex n-1-i to old vertex n-2-i, which is old edge n-2-i reversed.

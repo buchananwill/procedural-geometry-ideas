@@ -24,6 +24,7 @@ import {RiseFacing, RiseLimit, ShellFixture, StoreyRing, storeyRings, storeysOf}
 import {GableRise, LineId, UnionWall, WallLine, claimedBands, ringSideLines, tanDeg} from './ring-forms.ts';
 import type {Piece} from './roof/algoB.ts';
 import {Building, Comp, Plane, Pt, Wall, compLoops, dot, planeAt, pointInPoly, sub, wallLabel} from './roof/model.ts';
+import {WALL_LINE_EPS, alongX, atAlong, bboxReach, endWall, extentOf, farWall, spanOf} from './roof/wall-line.ts';
 import type {StoreyPlan} from './storey.ts';
 
 /**
@@ -55,67 +56,8 @@ export const FLOOR_CAP_GAP_CM = 1;
  */
 export const RISE_MIN_CAP_CM = 5;
 
-const EPS = 0.01;
 /** Coordinates within this are one point, for the walk's exact intersections. */
 const WALK_EPS = 1e-7;
-
-const alongX = (w: Wall): boolean => Math.abs(w.dir.x) > 0.5;
-const along = (w: Wall, p: Pt): number => (alongX(w) ? p.x : p.y);
-const spanOf = (w: Wall): [number, number] => { const a = along(w, w.a), b = along(w, w.b); return [Math.min(a, b), Math.max(a, b)]; };
-const atAlong = (w: Wall, s: number, d: number): Pt => (alongX(w) ? {x: s, y: w.a.y + w.n.y * d} : {x: w.a.x + w.n.x * d, y: s});
-
-/**
- * algoB.ts's `farWall`, copied (it is not exported): the nearest wall facing back across the band; of two at one distance,
- * the first in `comp.walls` (holed roof decision 23).
- */
-function farWall(comp: Comp, w: Wall, lo: number, hi: number): Wall | undefined {
-  let best: Wall | undefined;
-  let bestD = Infinity;
-  for (const o of comp.walls) {
-    if (dot(o.n, w.n) > -0.5) continue;
-    const d = dot(sub(o.a, w.a), w.n);
-    if (d <= EPS) continue;
-    const [p, q] = spanOf(o);
-    if (Math.min(q, hi) - Math.max(p, lo) <= EPS) continue;
-    if (d < bestD) { bestD = d; best = o; }
-  }
-  return best;
-}
-
-/** algoB.ts's `endWall`, copied: the wall standing across the line's end at `s`, its inward normal pointing back along it. */
-function endWall(comp: Comp, w: Wall, s: number, intoLine: number): Wall | undefined {
-  const point = atAlong(w, s, EPS);
-  const axis: Pt = alongX(w) ? {x: 1, y: 0} : {x: 0, y: 1};
-  return comp.walls.find(o => {
-    if (Math.abs(dot(o.n, axis)) < 0.5) return false;
-    if (dot(o.n, axis) * intoLine < 0) return false;
-    if (Math.abs(along(w, o.a) - s) > 1e-6) return false;
-    const t = dot(sub(point, o.a), o.dir);
-    return t >= -1e-6 && t <= o.len + 1e-6;
-  });
-}
-
-/**
- * algoB.ts's `extentOf`, copied (it is not exported): the span along `w`'s line that
- * algorithm B's gable piece for `w` covers. It is the wall's own span, run on past each end, one vertex of the island's
- * loops at a time (holed roof decision 5), while the line just inside the wall stays inside the building. `tests/rise.test.ts` ties this copy to algorithm B's
- * own pieces over the corpus, so a drift on either side fails.
- */
-export function extentOf(b: Building, comp: Comp, w: Wall): [number, number] {
-  const breaks = [...new Set(compLoops(comp).flat().map(p => along(w, p)))].sort((p, q) => p - q);
-  let [lo, hi] = spanOf(w);
-  for (;;) { const prev = breaks.filter(s => s < lo).pop(); if (prev === undefined || !b.inside(atAlong(w, (prev + lo) / 2, EPS))) break; lo = prev; }
-  for (;;) { const next = breaks.find(s => s > hi); if (next === undefined || !b.inside(atAlong(w, (next + hi) / 2, EPS))) break; hi = next; }
-  return [lo, hi];
-}
-
-/** storey.ts's `bboxReach`: how far the storey's bounding box reaches from the wall's line along its inward normal. */
-function bboxReach(b: Building, w: Wall): number {
-  if (w.n.y > 0.5) return b.bbox.y1 - w.a.y;
-  if (w.n.y < -0.5) return w.a.y - b.bbox.y0;
-  if (w.n.x > 0.5) return b.bbox.x1 - w.a.x;
-  return w.a.x - b.bbox.x0;
-}
 
 // ---- Which gables algorithm B keeps (decision 5 as amended, journal decision 220) -----------------------------------
 
@@ -501,7 +443,7 @@ export const gableOverWalk: GableOverWalk = (ctx, wall) => {
 };
 
 /** The parameters along the walk's line where it crosses the island's outline: its outer loop and its holes. */
-const islandCuts = (comp: Comp, o: Pt, n: Pt): number[] => [comp.outer, ...comp.holes].flatMap(poly => lineCuts(o, n, poly));
+const islandCuts = (comp: Comp, o: Pt, n: Pt): number[] => compLoops(comp).flatMap(poly => lineCuts(o, n, poly));
 
 /** Whether the walk from `o` along `n` stays strictly inside the island over `(0, d)`. */
 function staysInside(comp: Comp, o: Pt, n: Pt, d: number): boolean {
@@ -575,7 +517,7 @@ const walkStart = (ctx: LimitContext): [Pt, Pt] => [atAlong(ctx.wall, walkAt(ctx
 export const hipRoofReadingOf = (rules: WalkRules): RidgeSlopeReading => ctx => {
   const b = ctx.plan.building, faces = islandFaces(ctx, rules);
   const [o, n] = walkStart(ctx);
-  return walk(b, ctx.comp, o, n, [...faces.map(f => f.poly), ctx.comp.outer, ...ctx.comp.holes], faces.map(f => f.plane), hipSurface(faces), rules.end(ctx));
+  return walk(b, ctx.comp, o, n, [...faces.map(f => f.poly), ...compLoops(ctx.comp)], faces.map(f => f.plane), hipSurface(faces), rules.end(ctx));
 };
 
 /**
@@ -589,7 +531,7 @@ export const builtRoofReadingOf = (rules: WalkRules): RidgeSlopeReading => ctx =
   const b = ctx.plan.building, faces = islandFaces(ctx, rules);
   const pieces = ctx.plan.roof.pieces.filter(p => p.wall.comp === ctx.wall.comp);
   const [o, n] = walkStart(ctx);
-  const polys = [...faces.map(f => f.poly), ...pieces.map(p => pieceRect(b, p)), ctx.comp.outer, ...ctx.comp.holes];
+  const polys = [...faces.map(f => f.poly), ...pieces.map(p => pieceRect(b, p)), ...compLoops(ctx.comp)];
   return walk(b, ctx.comp, o, n, polys, [...faces.map(f => f.plane), ...pieces.flatMap(p => p.planes)], builtSurface(b, ctx.comp, faces, pieces), rules.end(ctx));
 };
 
@@ -805,7 +747,7 @@ export const NO_WALL = -1;
 function coveredRiseWall(b: Building, line: LineId, rise: GableRise): Wall {
   const n = inwardOf(line.n), mid = (rise.lo + rise.hi) / 2;
   const onLine = (s: number, d: number): Pt => (line.axis === 'y' ? {x: s, y: line.at + n.y * d} : {x: line.at + n.x * d, y: s});
-  const comp = b.comps.findIndex(c => insideIsland(c, onLine(mid, EPS)));
+  const comp = b.comps.findIndex(c => insideIsland(c, onLine(mid, WALL_LINE_EPS)));
   if (comp < 0) throw new Error(`no island holds the covered rise [${rise.lo}, ${rise.hi}] on ${line.axis} = ${line.at}`);
   const gap = (w: Wall): number => Math.max(spanOf(w)[0] - rise.hi, rise.lo - spanOf(w)[1], 0);
   const near = wallsOnLine(b, line).filter(w => w.comp === comp).sort((p, q) => gap(p) - gap(q) || spanOf(p)[0] - spanOf(q)[0])[0];

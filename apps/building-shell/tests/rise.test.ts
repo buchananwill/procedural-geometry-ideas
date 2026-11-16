@@ -4,22 +4,20 @@
 // F69's conflict, pinned as the re-tag pass reports it today.
 import {describe, expect, it} from 'vitest';
 import {PlanRefusal} from '../src/errors.ts';
-import {COURTYARD_RECTS, EXPORTED_FIXTURES, RING_SIDES, RISE_FIXTURES, ShellFixture, SideForm, fixtureByName, ring, storeyRings, storeysOf} from '../src/fixture.ts';
+import {COURTYARD_RECTS, EXPORTED_FIXTURES, RING_SIDES, RISE_FIXTURES, ShellFixture, SideForm, fixtureByName, ring, storeyRings} from '../src/fixture.ts';
 import {BUILDS_A_RISE, NOT_ONE_WHOLE_RUN, buildsARise, cppReplayability} from '../src/golden.ts';
 import {getManifold} from '../src/manifold.ts';
 import {GableRise, claimedBands, ringSideLines, storeyLoops, unionWallForms} from '../src/ring-forms.ts';
 import {
-  FLOOR_CAP_GAP_CM, LimitContext, NO_WALL, RisePiece, algorithmBBuildsGable, algorithmBSpan, builtRoofReading, claimedWalls, extentOf, hipRoofReading, ridgeSlope,
+  FLOOR_CAP_GAP_CM, LimitContext, NO_WALL, RisePiece, algorithmBBuildsGable, algorithmBSpan, builtRoofReading, claimedWalls, hipRoofReading, ridgeSlope,
   ridgeSlopeReadings, risePieces, slopeInBuilding, storeyGables, storeyRises,
 } from '../src/rise.ts';
-import {solveRoofParts} from '../src/roof/algoB.ts';
 import {ShellBuild, buildShellDetailed, buildShellFromUnion} from '../src/shell.ts';
 import {StoreyPlan, buildingOf, planChecked, planStorey, storeyForms} from '../src/storey.ts';
 import {unionPlans} from '../src/union.ts';
 import {WIRE_FORMS, readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {BuildingShellInputV1} from '../src/wire/input-types.ts';
 import {RISE_ORACLE_TOL_CM, intervalTop, riseBreakthrough, riseOracle} from './rise-oracle.ts';
-import {gapFixture, nudgeFixtures, randomCourtyardFixtures, randomFixtures, randomSplitCourtyardFixtures, randomUFixtures} from './robustness-fixtures.ts';
 import {componentGenera, invariantViolations} from './shell-invariants.ts';
 import {memoBuilds, shellFixture} from './test-builds.ts';
 
@@ -562,46 +560,6 @@ describe('journal decision 222: algorithm B\'s verdict is the line extent\'s, no
     const rings = storeyRings(f, 0);
     expect(claimedBands(rings, {axis: 'y', at: 0, n: '+y'}).map(r => [r.lo, r.hi, r.maxHeight])).toEqual([[0, 500, 200], [500, 1000, undefined]]);
     expect(storeyForms(rings).walls.filter(w => w.axis === 'y' && w.at === 0).map(w => [w.form, w.deg, w.rises])).toEqual([['gable', 45, undefined]]);
-  });
-});
-
-// ---- The copy of algorithm B's extentOf, tied to algorithm B over the corpus ------------------------------------------
-
-describe('journal decision 220: rise.ts\'s copy of extentOf is algorithm B\'s', () => {
-  // Every whole-line gable piece algorithm B builds on the per-extent walls (before decision 220 turns any wall into a
-  // rise) spans exactly what the copy gives for its wall. Convicted by one mutation: the copy without its forward loop
-  // fails here. The corpus holds footprints off the 50 cm lattice (journal decision 222, L3): the random Rings on a
-  // 10 cm lattice, the courtyards shifted by (0.3, 0.7) cm, and the nudges and gaps at k/1024 cm.
-  it('agrees with every whole-line piece algorithm B builds, over the roster, the rise fixtures, the random courtyards, split courtyards and U shapes, and footprints off the lattice', () => {
-    const shifted = (f: ShellFixture): ShellFixture => ({...f, name: `${f.name}+0.3,0.7`, rings: f.rings.map(r => ({...r, rect: [r.rect[0] + 0.3, r.rect[1] + 0.7, r.rect[2] + 0.3, r.rect[3] + 0.7]}))});
-    const fixtures = [...EXPORTED_FIXTURES, ...RISE_FIXTURES, ...[1, 2].flatMap(s => [250, 300].flatMap(h => [
-      ...randomCourtyardFixtures(s, 40, h), ...randomSplitCourtyardFixtures(s, 40, h), ...randomUFixtures(s, 40, h)])),
-    ...[1, 2, 3, 4].flatMap(s => randomFixtures(s, 140, 300)), ...randomCourtyardFixtures(1, 40, 300).map(shifted), ...randomSplitCourtyardFixtures(1, 40, 300).map(shifted),
-    ...nudgeFixtures(), ...[1, 3, 5, 8, 12].flatMap(k => (['Aligned', 'Offset'] as const).map(kind => gapFixture(kind, k)))];
-    let offLattice = 0;
-    let pieces = 0, wider = 0;
-    for (const f of fixtures) for (const n of storeysOf(f)) {
-      const rings = storeyRings(f, n);
-      const rects = rings.map(r => r.ring.rect);
-      let b;
-      try {
-        const loops = storeyLoops(rects);
-        b = buildingOf(rings, rects, loops, unionWallForms(rings, loops));
-      } catch { continue; }
-      let roof;
-      try { roof = solveRoofParts(b, {far: 'plane'}); } catch { continue; }
-      for (const p of roof.pieces.filter(q => q.label.includes(' whole ') && q.wall.form === 'gable')) {
-        pieces++;
-        const ext = extentOf(b, b.comps[p.wall.comp], p.wall);
-        expect(ext, `${f.name} storey ${n} ${p.label}`).toEqual([p.bandLo, p.bandHi]);
-        const span = p.wall.a.x === p.wall.b.x ? [Math.min(p.wall.a.y, p.wall.b.y), Math.max(p.wall.a.y, p.wall.b.y)] : [Math.min(p.wall.a.x, p.wall.b.x), Math.max(p.wall.a.x, p.wall.b.x)];
-        if (ext[0] < span[0] || ext[1] > span[1]) wider++;
-        if (ext.some(v => Math.abs(v - 50 * Math.round(v / 50)) > 1e-9)) offLattice++;
-      }
-    }
-    expect(pieces).toBeGreaterThan(1000);
-    expect(wider).toBeGreaterThan(100);
-    expect(offLattice).toBeGreaterThan(100);
   });
 });
 
