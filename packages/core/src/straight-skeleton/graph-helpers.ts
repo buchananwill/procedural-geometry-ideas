@@ -71,8 +71,50 @@ export function adjacentExteriorEdge(
     direction: SkeletonDirection,
 ): number {
     const {start, count} = graph.loops[loopOfExteriorEdge(graph, exteriorEdgeId)];
-    const step = direction === SkeletonDirection.Clockwise ? 1 : count - 1;
-    return start + (exteriorEdgeId - start + step) % count;
+    return direction === SkeletonDirection.Clockwise
+        ? nextInLoop(start, count, exteriorEdgeId)
+        : previousInLoop(start, count, exteriorEdgeId);
+}
+
+/** The vertex (or edge) after `index` in the loop of `count` starting at `start`, wrapping within that loop. */
+export function nextInLoop(start: number, count: number, index: number): number {
+    return start + (index - start + 1) % count;
+}
+
+/** The vertex (or edge) before `index` in the loop of `count` starting at `start`, wrapping within that loop. */
+export function previousInLoop(start: number, count: number, index: number): number {
+    return start + (index - start - 1 + count) % count;
+}
+
+/**
+ * The next and previous vertex WITHIN ITS OWN LOOP, for each of `n` vertices in exterior id order, by the table
+ * `loops`; omitted, one loop of all `n`, for which they are `(i + 1) % n` and `(i - 1 + n) % n`. It reads the table
+ * as given and checks nothing: a caller checks it with {@link loopTableBreach}.
+ */
+export function loopNeighbours(
+    loops: readonly SkeletonLoop[] | undefined,
+    n: number,
+): {next: (i: number) => number; previous: (i: number) => number} {
+    const loopStart: number[] = new Array(n);
+    const loopCount: number[] = new Array(n);
+    for (const {start, count} of loops ?? [{start: 0, count: n}]) {
+        for (let i = start; i < start + count; i++) {
+            loopStart[i] = start;
+            loopCount[i] = count;
+        }
+    }
+    return {
+        next: i => nextInLoop(loopStart[i], loopCount[i], i),
+        previous: i => previousInLoop(loopStart[i], loopCount[i], i),
+    };
+}
+
+/**
+ * W-spec W1's default: an omitted or empty weight array means all ones. Any other array holds exactly one weight per
+ * vertex, and each caller refuses a mismatched length in its own words.
+ */
+export function weightsAreOmitted(weights: readonly number[] | undefined): boolean {
+    return weights === undefined || weights.length === 0;
 }
 
 /**
@@ -89,26 +131,55 @@ export function skeletonHoleCount(graph: StraightSkeletonGraph): number {
 /** The smallest loop a table may hold: below three vertices a ring is not a polygon. */
 const MINIMUM_LOOP_SIZE = 3;
 
+/** The first way a loop table breaks its rule, as {@link loopTableBreach} finds it. */
+export type LoopTableBreach =
+    | {kind: 'too-small'; loop: number; count: number}
+    | {kind: 'wrong-start'; loop: number; start: number; expected: number}
+    | {kind: 'wrong-cover'; covered: number};
+
 /**
- * A loop table passed by a caller, checked against the nodes it describes (decision 10): contiguous from 0,
- * every count at least 3, the counts summing to the node count. Thrown, by name, otherwise.
+ * THE LOOP TABLE'S RULE (skeleton loops-input spec, decision 10; dashboard holed-fixtures spec, decision 22): the
+ * loops tile `0 .. vertexCount - 1` in order, contiguous from 0, and no loop holds fewer than three. Returns the first
+ * breach, loop by loop, or `undefined`. With `integerCounts` a count that is not an integer is a `too-small` breach
+ * too, as the solver's own table requires; the debug overlay's check does not ask it.
  */
-function validatedLoops(loops: readonly SkeletonLoop[], nodeCount: number): SkeletonLoop[] {
+export function loopTableBreach(
+    loops: readonly SkeletonLoop[],
+    vertexCount: number,
+    integerCounts: boolean,
+): LoopTableBreach | undefined {
     let next = 0;
-    loops.forEach(({start, count}, index) => {
-        if (!Number.isInteger(count) || count < MINIMUM_LOOP_SIZE) {
-            throw new Error(`Loop ${index} has ${count} vertices; every loop must have at least 3.`);
+    for (const [loop, {start, count}] of loops.entries()) {
+        if ((integerCounts && !Number.isInteger(count)) || count < MINIMUM_LOOP_SIZE) {
+            return {kind: 'too-small', loop, count};
         }
         if (start !== next) {
-            throw new Error(
-                `Loop ${index} starts at ${start}, not ${next}: the loop table must tile the ${nodeCount} nodes, `
-                + `contiguous from 0.`);
+            return {kind: 'wrong-start', loop, start, expected: next};
         }
         next += count;
-    });
-    if (next !== nodeCount) {
-        throw new Error(
-            `The loop table covers ${next} nodes but there are ${nodeCount}: it must tile the nodes, contiguous from 0.`);
+    }
+    return next === vertexCount ? undefined : {kind: 'wrong-cover', covered: next};
+}
+
+/**
+ * A loop table passed by a caller, checked against the nodes it describes by {@link loopTableBreach}, with integer
+ * counts. Thrown, by name, otherwise.
+ */
+function validatedLoops(loops: readonly SkeletonLoop[], nodeCount: number): SkeletonLoop[] {
+    const breach = loopTableBreach(loops, nodeCount, true);
+    if (breach !== undefined) {
+        switch (breach.kind) {
+            case 'too-small':
+                throw new Error(`Loop ${breach.loop} has ${breach.count} vertices; every loop must have at least 3.`);
+            case 'wrong-start':
+                throw new Error(
+                    `Loop ${breach.loop} starts at ${breach.start}, not ${breach.expected}: the loop table must tile `
+                    + `the ${nodeCount} nodes, contiguous from 0.`);
+            case 'wrong-cover':
+                throw new Error(
+                    `The loop table covers ${breach.covered} nodes but there are ${nodeCount}: it must tile the nodes, `
+                    + `contiguous from 0.`);
+        }
     }
     return loops.map(({start, count}) => ({start, count}));
 }
@@ -131,9 +202,9 @@ export function initBoundingPolygon(
     weights?: readonly number[],
     loops?: readonly SkeletonLoop[],
 ): StraightSkeletonGraph {
-    if (weights !== undefined && weights.length > 0 && weights.length !== nodes.length) {
+    if (!weightsAreOmitted(weights) && weights!.length !== nodes.length) {
         throw new Error(
-            `Weight array has ${weights.length} entries but the polygon has ${nodes.length} vertices; `
+            `Weight array has ${weights!.length} entries but the polygon has ${nodes.length} vertices; `
             + `there must be exactly one weight per vertex (the edge leaving it).`);
     }
 
@@ -143,9 +214,9 @@ export function initBoundingPolygon(
         edges: [],
         numExteriorNodes: nodes.length,
         interiorEdges: [],
-        exteriorWeights: weights !== undefined && weights.length > 0
-            ? [...weights]
-            : nodes.map(() => 1),
+        exteriorWeights: weightsAreOmitted(weights)
+            ? nodes.map(() => 1)
+            : [...weights!],
         loops: loops === undefined ? [{start: 0, count: nodes.length}] : validatedLoops(loops, nodes.length),
     };
 

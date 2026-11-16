@@ -10,7 +10,15 @@ import {
 import {crossProduct, makeBasis} from "./core-functions";
 import {maxWeightRatio, minWeightTurnSine} from "./constants";
 import {isClockwise} from "./planar-geometry";
-import {describeLoopConflict, findLoopConflict, isDegenerateHole} from "./skeleton-loops";
+import {
+    describeDegenerateHole,
+    describeLoopConflict,
+    findLoopConflict,
+    isDegenerateHole,
+    loopName,
+    loopRefusalPrefix,
+} from "./skeleton-loops";
+import {weightsAreOmitted} from "./graph-helpers";
 import {SkeletonNormalisation, makeSkeletonNormalisation, normalisePolygon} from "./normalisation";
 import {
     CanonicalPolygon,
@@ -56,9 +64,9 @@ export function canonicaliseForSolve(
     // nothing and pin nothing, exactly as before.
     const normalisation = makeSkeletonNormalisation(vertices);
     const unitVertices = normalisePolygon(vertices, normalisation);
-    const pinned = options?.weights === undefined || options.weights.length === 0
+    const pinned = weightsAreOmitted(options?.weights)
         ? []
-        : weightChangeVertexIndices(weightsAtTheDoor(unitVertices, options.weights, resolvePerceptualFloor(options)));
+        : weightChangeVertexIndices(weightsAtTheDoor(unitVertices, options!.weights, resolvePerceptualFloor(options)));
     return canonicalisePolygon(unitVertices, resolvePerceptualFloor(options), pinned);
 }
 
@@ -114,15 +122,15 @@ export function loopSolvabilityComplaint(vertices: readonly Vector2[]): string |
 
 /** The caller's weights, or all ones. Rejects a mismatched length by name (W-spec W1). */
 function resolveWeightArray(vertexCount: number, weights?: readonly number[]): number[] {
-    if (weights === undefined || weights.length === 0) {
+    if (weightsAreOmitted(weights)) {
         return new Array<number>(vertexCount).fill(1);
     }
-    if (weights.length !== vertexCount) {
+    if (weights!.length !== vertexCount) {
         throw new Error(
-            `Weight array has ${weights.length} entries but the polygon has ${vertexCount} vertices; `
+            `Weight array has ${weights!.length} entries but the polygon has ${vertexCount} vertices; `
             + `there must be exactly one weight per vertex — the speed of the edge leaving it.`);
     }
-    return [...weights];
+    return [...weights!];
 }
 
 /** W-spec W2: every weight is a finite, strictly positive double. Zero and infinite are out of contract. */
@@ -270,7 +278,7 @@ function weightsAtTheDoor(
     weights: readonly number[] | undefined,
     perceptualFloor: number,
 ): number[] {
-    return weightsAtTheDoorForLoops([unitVertices], [{vertices: unitVertices, weights, prefix: ''}], perceptualFloor)[0];
+    return weightsAtTheDoorForLoops([unitVertices], [{vertices: unitVertices, weights, loop: 0}], perceptualFloor)[0];
 }
 
 /**
@@ -290,9 +298,9 @@ function weightsAtTheDoorForLoops(
     perceptualFloor: number,
 ): number[][] {
     const resolved = unitLoops.map((unitLoop, k) =>
-        refuseInLoop(callerLoops[k].prefix, () => resolveWeightArray(unitLoop.length, callerLoops[k].weights)));
+        refuseInLoop(callerLoops[k].loop, () => resolveWeightArray(unitLoop.length, callerLoops[k].weights)));
     resolved.forEach((weights, k) =>
-        refuseInLoop(callerLoops[k].prefix, () => assertWeightsAreFinitePositive(weights)));
+        refuseInLoop(callerLoops[k].loop, () => assertWeightsAreFinitePositive(weights)));
 
     const every = resolved.flat();
     const loopOf = resolved.flatMap((weights, k) => weights.map(() => k));
@@ -303,7 +311,7 @@ function weightsAtTheDoorForLoops(
     assertWeightRatioIsInContract(every, perceptualFloor, edgeName);
 
     const slowest = Math.min(...every);
-    unitLoops.forEach((unitLoop, k) => refuseInLoop(callerLoops[k].prefix,
+    unitLoops.forEach((unitLoop, k) => refuseInLoop(callerLoops[k].loop,
         () => assertWeightsChangeOnlyAtVisibleCorners(unitLoop, resolved[k], perceptualFloor, slowest)));
     return resolved.map(weights => normaliseWeights(weights, slowest));
 }
@@ -382,12 +390,12 @@ function reverseWeights(weights: readonly number[]): number[] {
  * normalisation, the weight ratio and the division by the smallest weight are global.
  */
 
-/** One loop as the caller gave it: its vertices, its weights, and the prefix its refusals carry. */
+/** One loop as the caller gave it: its vertices, its weights, and its index among the loops. */
 interface CallerLoop {
     vertices: readonly Vector2[];
     weights: readonly number[] | undefined;
-    /** `''` for the outline, whose messages stay word for word; `Hole k: ` for the caller's hole `k`. */
-    prefix: string;
+    /** 0 for the outline, `k + 1` for the caller's hole `k`; its refusals carry {@link loopRefusalPrefix}. */
+    loop: number;
 }
 
 /** One loop after the boundary stage: the ring the solver is given, its weights, and how it got there. */
@@ -399,16 +407,12 @@ interface SolvedLoop {
     reversed: boolean;
 }
 
-/** A loop's name in a message: loop 0 is the outline and loop `k` the caller's hole `k - 1`. */
-function loopName(loop: number): string {
-    return loop === 0 ? 'the outline' : `hole ${loop - 1}`;
-}
-
 /**
- * Run a check of one loop, prefixing its refusal with the loop's name (decision 16). The outline's refusal is
- * passed through untouched, so its message is today's word for word.
+ * Run a check of one loop, prefixing its refusal with {@link loopRefusalPrefix} (decision 16). The outline's refusal
+ * is passed through untouched, so its message is today's word for word.
  */
-function refuseInLoop<T>(prefix: string, check: () => T): T {
+function refuseInLoop<T>(loop: number, check: () => T): T {
+    const prefix = loopRefusalPrefix(loop);
     if (prefix === '') {
         return check();
     }
@@ -423,7 +427,7 @@ function refuseInLoop<T>(prefix: string, check: () => T): T {
 function assertLoopIsSolvable(loop: CallerLoop): void {
     const complaint = loopSolvabilityComplaint(loop.vertices);
     if (complaint !== undefined) {
-        throw new Error(`${loop.prefix}${complaint}`);
+        throw new Error(`${loopRefusalPrefix(loop.loop)}${complaint}`);
     }
 }
 
@@ -498,8 +502,8 @@ export interface PreparedBoundary {
 export function prepareBoundary(request: BoundaryRequest, diagnostics: SkeletonDiagnostic[]): PreparedBoundary {
     const {holes, perceptualFloor, noiseFloor, normaliseWinding} = request;
     const callerLoops: CallerLoop[] = [
-        {vertices: request.vertices, weights: request.weights, prefix: ''},
-        ...holes.map((hole, k) => ({vertices: hole.vertices, weights: hole.weights, prefix: `Hole ${k}: `})),
+        {vertices: request.vertices, weights: request.weights, loop: 0},
+        ...holes.map((hole, k) => ({vertices: hole.vertices, weights: hole.weights, loop: k + 1})),
     ];
     // THROWN, NOT DIAGNOSED, PER LOOP, BEFORE NORMALISATION (decision 16). `diagnostics` reports a solve that
     // ran and came back degraded; too few vertices or a non-finite one is input this entry point cannot solve
@@ -522,7 +526,7 @@ export function prepareBoundary(request: BoundaryRequest, diagnostics: SkeletonD
     const doorWeights = weightsAtTheDoorForLoops(unitLoops, callerLoops, perceptualFloor);
 
     const solvedLoops = unitLoops.map((unitLoop, k): SolvedLoop => {
-        const prefix = callerLoops[k].prefix;
+        const prefix = loopRefusalPrefix(k);
 
         // CANONICALISED IMMEDIATELY AFTER, AND STILL IN UNIT SPACE. The floor is a unit-space constant,
         // which is what makes it relative by construction rather than a second tolerance system living
@@ -569,8 +573,7 @@ export function prepareBoundary(request: BoundaryRequest, diagnostics: SkeletonD
                 // Under `normaliseWinding: true` the sign only reverses it, and the loop relations below refuse it
                 // in decision 27's order.
                 if (k > 0 && isDegenerateHole(workingVertices, perceptualFloor)) {
-                    throw new Error(describeLoopConflict({kind: 'degenerate-hole', loops: [k], edges: []},
-                        [], () => REMOVED_VERTEX_INDEX));
+                    throw new Error(describeDegenerateHole(k));
                 }
                 // DECISION 22: the option says the caller's winding is already right, and a holed solve has no
                 // meaning on the wrong side of a wall. A single loop is left to solve as it always did.

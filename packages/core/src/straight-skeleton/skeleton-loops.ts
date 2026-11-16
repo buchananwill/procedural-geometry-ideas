@@ -222,9 +222,23 @@ export function findLoopConflict(loops: readonly (readonly Vector2[])[], percept
         ?? findNestingConflict(loops);
 }
 
-/** A loop's name in a refusal: loop 0 is the outline and loop `k` the caller's hole `k - 1`. */
-function loopName(loop: number): string {
+/** A loop's name in a message: loop 0 is the outline and loop `k` the caller's hole `k - 1`. */
+export function loopName(loop: number): string {
     return loop === 0 ? 'the outline' : `hole ${loop - 1}`;
+}
+
+/**
+ * The prefix a refusal of one loop carries (decision 16): `''` for the outline, whose messages stay word for word, and
+ * `Hole k: ` for the caller's hole `k`, which is loop `k + 1`.
+ */
+export function loopRefusalPrefix(loop: number): string {
+    return loop === 0 ? '' : `Hole ${loop - 1}: `;
+}
+
+/** The refusal of a degenerate hole, loop `loop` (decisions 28 and 50): it names one loop and no edge of it. */
+export function describeDegenerateHole(loop: number): string {
+    return `Loop conflict (degenerate-hole): ${loopName(loop)} has an area under degenerateAreaBar at the perceptual `
+        + `floor, so its winding has no sign the solver can trust.`;
 }
 
 /**
@@ -250,8 +264,7 @@ export function describeLoopConflict(
             return `${prefix}${loopName(conflict.loops[0])} crosses itself: ${edgeName(0)} crosses ${edgeName(1)}. `
                 + `A holed input needs simple loops; only a single loop with no holes is decomposed.`;
         case 'degenerate-hole':
-            return `${prefix}${loopName(conflict.loops[0])} has an area under degenerateAreaBar at the perceptual `
-                + `floor, so its winding has no sign the solver can trust.`;
+            return describeDegenerateHole(conflict.loops[0]);
         case 'crossing':
             return `${prefix}${edgeName(0)} crosses ${edgeName(1)}. Loops that cross are refused.`;
         case 'contact':

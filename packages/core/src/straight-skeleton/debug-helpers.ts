@@ -10,6 +10,7 @@ import {collideEdges} from './collision-helpers';
 import {nodeBirthArrival, timeOf} from './collision-helpers';
 import {addVectors, makeBasis, makeWeightedBisectedBasis, scaleVector} from "./core-functions";
 import {intersectRays} from "./intersection-edges";
+import {loopNeighbours, loopTableBreach, weightsAreOmitted} from "./graph-helpers";
 
 export interface CollisionSweepEvent {
     instigatorEdgeId: number;
@@ -126,28 +127,18 @@ export function computePrimaryInteriorEdges(
     if (vertices.length < 3) return [];
 
     const n = vertices.length;
-    if (weights !== undefined && weights.length > 0 && weights.length !== n) {
+    if (!weightsAreOmitted(weights) && weights!.length !== n) {
         throw new Error(
-            `computePrimaryInteriorEdges received ${weights.length} weights for ${n} vertices; `
+            `computePrimaryInteriorEdges received ${weights!.length} weights for ${n} vertices; `
             + `a weight array must be parallel to the vertices, one speed per edge.`);
     }
-    // Each vertex's loop, as its start and count. One ring of all the vertices when no table is given, for which
+    // Each vertex's neighbours within its own loop. One ring of all the vertices when no table is given, for which
     // `next` and `previous` are `(i + 1) % n` and `(i - 1 + n) % n`, the same integers as before the table existed.
-    const loopStart: number[] = new Array(n);
-    const loopCount: number[] = new Array(n);
-    for (const {start, count} of loops ?? [{start: 0, count: n}]) {
-        for (let i = start; i < start + count; i++) {
-            loopStart[i] = start;
-            loopCount[i] = count;
-        }
-    }
+    const {next, previous} = loopNeighbours(loops, n);
     if (loops !== undefined) {
         assertLoopsTile(loops, n);
     }
-    const next = (i: number): number => loopStart[i] + (i - loopStart[i] + 1) % loopCount[i];
-    const previous = (i: number): number => loopStart[i] + (i - loopStart[i] - 1 + loopCount[i]) % loopCount[i];
-    const weightOf = (index: number): number =>
-        weights === undefined || weights.length === 0 ? 1 : weights[index];
+    const weightOf = (index: number): number => weightsAreOmitted(weights) ? 1 : weights![index];
     const result: PrimaryInteriorEdge[] = [];
 
     for (let i = 0; i < n; i++) {
@@ -205,24 +196,24 @@ export function computePrimaryInteriorEdges(
 
 /**
  * A loop table must tile `0 .. n − 1` in order, contiguous from 0, and hold no loop of fewer than three (decision 22;
- * the graph's own contract, `StraightSkeletonGraph.loops`). Throws, naming the first loop that breaks it.
+ * the graph's own contract, `StraightSkeletonGraph.loops`), by {@link loopTableBreach} without its integer test.
+ * Throws, naming the first loop that breaks it, in this overlay's own words.
  */
 function assertLoopsTile(loops: readonly SkeletonLoop[], n: number): void {
-    let expectedStart = 0;
-    for (const [k, {start, count}] of loops.entries()) {
-        if (count < 3) {
-            throw new Error(`computePrimaryInteriorEdges received loop ${k} of ${count} vertices; a loop holds no `
-                + `fewer than three.`);
-        }
-        if (start !== expectedStart) {
-            throw new Error(`computePrimaryInteriorEdges received loop ${k} starting at ${start}, where ${expectedStart} `
-                + `was expected; the loop table must tile the ${n} vertices in order.`);
-        }
-        expectedStart = start + count;
+    const breach = loopTableBreach(loops, n, false);
+    if (breach === undefined) {
+        return;
     }
-    if (expectedStart !== n) {
-        throw new Error(`computePrimaryInteriorEdges received loops covering ${expectedStart} vertices of ${n}; the loop `
-            + `table must tile the vertices in order.`);
+    switch (breach.kind) {
+        case 'too-small':
+            throw new Error(`computePrimaryInteriorEdges received loop ${breach.loop} of ${breach.count} vertices; a `
+                + `loop holds no fewer than three.`);
+        case 'wrong-start':
+            throw new Error(`computePrimaryInteriorEdges received loop ${breach.loop} starting at ${breach.start}, `
+                + `where ${breach.expected} was expected; the loop table must tile the ${n} vertices in order.`);
+        case 'wrong-cover':
+            throw new Error(`computePrimaryInteriorEdges received loops covering ${breach.covered} vertices of ${n}; `
+                + `the loop table must tile the vertices in order.`);
     }
 }
 
