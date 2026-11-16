@@ -3,7 +3,7 @@
 import {IslandRefusal} from '../errors.ts';
 import {Building, Comp, Pt, Wall, dot, sub} from './model.ts';
 import {PlaneFace, Sample, Surface, emptyInfo, evalFaces, makeFace} from './surface.ts';
-import {RawFace, solveIsland} from './skeleton.ts';
+import {RawFace, SolveOk, SolveRefused, solveIsland} from './skeleton.ts';
 import {along, atAlong, endWall, extentOf, farWall, fixedOf, spanOf} from './wall-line.ts';
 
 export type FarEdge = 'plane' | 'none' | 'contact' | 'ridge';
@@ -88,24 +88,45 @@ function buildPieces(b: Building, comp: Comp, opt: BOptions, notes: string[]): P
   return pieces;
 }
 
+/** One island's default hip: the skeleton's solve and its faces as plane faces, or the skeleton's refusal. */
+type IslandFaces = (SolveOk & {defaults: PlaneFace[]}) | SolveRefused;
+
+/** One island solved by the skeleton (`solveIsland`), each face made a plane face on its wall's plane. */
+function solveIslandFaces(b: Building, comp: Comp): IslandFaces {
+  const solved = solveIsland(comp);
+  if (!solved.ok) return solved;
+  return {...solved, defaults: solved.faces.map(f => makeFace(f.poly, b.planes[f.wall.plane]))};
+}
+
+/** Every island's pieces, island by island, each piece `buildPieces` drops noted in `notes`. */
+function piecesOf(b: Building, opt: BOptions, notes: string[]): Piece[] {
+  const pieces: Piece[] = [];
+  for (const comp of b.comps) pieces.push(...buildPieces(b, comp, opt, notes));
+  return pieces;
+}
+
+/**
+ * Algorithm B's surface, as roof-gable's research runs measure it. An island the skeleton refuses is noted and passed
+ * over, its default hip missing; the surface is blocked where an island is refused and no piece stands. The building
+ * shell's policy is `solveRoofParts`', below.
+ */
 export function runB(b: Building, opt: BOptions): Surface {
   const info = emptyInfo();
   const defaults: PlaneFace[] = [];
   let defaultRefused = false;
   for (const comp of b.comps) {
-    const solved = solveIsland(comp);
-    if (!solved.ok) {
+    const island = solveIslandFaces(b, comp);
+    if (!island.ok) {
       defaultRefused = true;
-      info.notes.push(`default hip refused by the skeleton: ${solved.kind}: ${solved.message.slice(0, 200)}`);
+      info.notes.push(`default hip refused by the skeleton: ${island.kind}: ${island.message.slice(0, 200)}`);
       continue;
     }
-    info.diagnostics.push(...solved.diagnostics);
-    info.causality += solved.causality;
-    info.tilingError = Math.max(info.tilingError, solved.tilingError);
-    for (const f of solved.faces) defaults.push(makeFace(f.poly, b.planes[f.wall.plane]));
+    info.diagnostics.push(...island.diagnostics);
+    info.causality += island.causality;
+    info.tilingError = Math.max(info.tilingError, island.tilingError);
+    defaults.push(...island.defaults);
   }
-  const pieces: Piece[] = [];
-  for (const comp of b.comps) pieces.push(...buildPieces(b, comp, opt, info.notes));
+  const pieces = piecesOf(b, opt, info.notes);
   for (const p of pieces) info.notes.push(`piece ${p.label}: planes ${p.planes.map(id => b.planes[id].label).join(' & ')}`);
   if (defaultRefused && !pieces.length) {
     info.blocked = {stage: 'default hip', kind: 'refused', message: info.notes.join(' | ')};
@@ -166,28 +187,26 @@ export interface RoofParts {
  * The parts `runB` composes, for the building shell: the default hip faces (as plane faces and as the skeleton's
  * raw faces, which keep their wall), the pieces, and `buildPieces`' notes. An island the skeleton refuses throws, naming
  * the island, where it stands, its hole count and the cause (holed roof decision 17), since a storey with a missing roof
- * is not a shell. Added by the building-shell copy (spec decision 9); `runB` above
- * is unchanged. The caller turns a NoPlane note into a hard error naming its fixture and storey (journal decision 64).
+ * is not a shell (`IslandRefusal`). Added by the building-shell copy (spec decision 9); it shares `runB`'s island solve
+ * (`solveIslandFaces`) and pieces (`piecesOf`), each keeping its own policy for a refused island. The caller turns a
+ * NoPlane note into a hard error naming its fixture and storey (journal decision 64).
  */
 export function solveRoofParts(b: Building, opt: BOptions): RoofParts {
   const defaults: PlaneFace[] = [];
   const faces: RawFace[] = [];
   for (const [ci, comp] of b.comps.entries()) {
-    const solved = solveIsland(comp);
-    if (!solved.ok) {
+    const island = solveIslandFaces(b, comp);
+    if (!island.ok) {
       const {x, y} = comp.outer[0];
       throw new IslandRefusal(
-        `solveRoofParts: island ${ci} at (${x}, ${y}) with ${comp.holes.length} holes cannot be roofed: ${solved.cause} [${solved.kind}: ${solved.message}]`,
-        {island: ci, at: {x, y}, holes: comp.holes.length, kind: solved.kind, reason: solved.cause, detail: solved.message},
+        `solveRoofParts: island ${ci} at (${x}, ${y}) with ${comp.holes.length} holes cannot be roofed: ${island.cause} [${island.kind}: ${island.message}]`,
+        {island: ci, at: {x, y}, holes: comp.holes.length, kind: island.kind, reason: island.cause, detail: island.message},
       );
     }
-    for (const f of solved.faces) {
-      faces.push(f);
-      defaults.push(makeFace(f.poly, b.planes[f.wall.plane]));
-    }
+    faces.push(...island.faces);
+    defaults.push(...island.defaults);
   }
   const notes: string[] = [];
-  const pieces: Piece[] = [];
-  for (const comp of b.comps) pieces.push(...buildPieces(b, comp, opt, notes));
+  const pieces = piecesOf(b, opt, notes);
   return {defaults, faces, pieces, notes};
 }
