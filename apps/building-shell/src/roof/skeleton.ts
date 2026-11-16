@@ -3,8 +3,9 @@
 // refused island comes back as a refusal with its cause in the user's terms, never as a roof.
 import {
   solveSkeleton, computeStrips, computeMaxOffset, maxWeightRatio, setSkeletonLogLevel, SKELETON_NOISE_FLOOR,
+  INFORMATIONAL_DIAGNOSTIC_KINDS, SkeletonInputRefusal,
 } from '@proc-geo/core';
-import type {SkeletonSolveResult, Strip} from '@proc-geo/core';
+import type {SkeletonDiagnosticKind, SkeletonInputRefusalKind, SkeletonSolveResult, Strip} from '@proc-geo/core';
 import {Comp, Pt, Wall, cross, dist, dot, polyArea, sub} from './model.ts';
 
 setSkeletonLogLevel('silent');
@@ -25,25 +26,32 @@ export type RefusalKind = 'door-ratio' | 'door-turn' | 'door-other' | 'door-loop
 export interface SolveRefused { ok: false; kind: RefusalKind; message: string; cause: string }
 export type SolveResult = SolveOk | SolveRefused;
 
-/** Holed roof decision 16: each refusal's cause in the user's terms, by the skeleton's diagnostic kind or the refusal's. */
-export const HOLED_CAUSES: Readonly<Record<string, string>> = {
+/** The cause the four checks of the holed guard share: the solver distrusts its own answer. */
+const SOLVER_CHECK_FAILED = "the roof solver's own check found its answer wrong";
+
+/**
+ * Holed roof decisions 13 and 16: an `'incomplete'` refusal's cause in the user's terms, by the skeleton's diagnostic
+ * kind. A kind not named here is shown verbatim (decision 13), so no future kind is dropped.
+ */
+const DIAGNOSTIC_CAUSES:Readonly<Partial<Record<SkeletonDiagnosticKind, string>>> = {
   'simultaneous-across-rings': 'walls of the outline and the courtyards close on one point at one moment from more sides than the roof solver can pair',
   'multi-ring-step-refused': 'walls close on a sliver the roof solver cannot read as a finished ridge or place',
   'step-failure': 'a step of the roof solver failed, as it can where walls lie in line',
   'unresolved-edges': 'the roof solver left a hip or valley unfinished',
-  'holed-topology-violation': "the roof solver's own check found its answer wrong",
-  'holed-equal-time-violation': "the roof solver's own check found its answer wrong",
-  'holed-time-order-violation': "the roof solver's own check found its answer wrong",
-  'holed-planarity-violation': "the roof solver's own check found its answer wrong",
+  'holed-topology-violation': SOLVER_CHECK_FAILED,
+  'holed-equal-time-violation': SOLVER_CHECK_FAILED,
+  'holed-time-order-violation': SOLVER_CHECK_FAILED,
+  'holed-planarity-violation': SOLVER_CHECK_FAILED,
   'causality-violation': 'the roof solver found a hip or valley running backwards, as it can with mixed pitches',
-  'door-loops': "two of the island's loops touch or cross, which the roof solver does not take yet",
 };
 
 /**
- * The causes of the refusals `HOLED_CAUSES` does not name: the solver's input doors, its throws and this file's own
- * checks of its strips (an interpretation of decision 16, which names the skeleton's kinds only).
+ * The cause of every other refusal, by this file's refusal kind: the solver's input doors (decision 15's loops door
+ * among them), its throws and this file's own checks of its strips (an interpretation of decision 16, which names the
+ * skeleton's kinds only).
  */
-const OTHER_CAUSES: Readonly<Record<Exclude<RefusalKind, 'incomplete' | 'door-loops'>, string>> = {
+const REFUSAL_CAUSES:Readonly<Record<Exclude<RefusalKind, 'incomplete'>, string>> = {
+  'door-loops': "two of the island's loops touch or cross, which the roof solver does not take yet",
   'door-ratio': "its walls' pitches differ by more than the roof solver takes",
   // The solver refuses a weight change at a vertex whose turn is below `minWeightTurnSine`: two walls in line, or so
   // nearly in line that no corner shows between them (BSA.D326 rewords what named a corner).
@@ -54,31 +62,59 @@ const OTHER_CAUSES: Readonly<Record<Exclude<RefusalKind, 'incomplete' | 'door-lo
   'strip-missing': 'a wall has no roof face, or more than one',
 };
 
-/** The diagnostics that never refuse an island (decision 55: the un-culled self-loop among them). */
-const INFORMATIONAL = new Set(['winding-normalised', 'vertices-canonicalised', 'self-intersecting', 'coaxial-completion', 'holed-unculled-self-loop']);
+/**
+ * Holed roof decision 16's table, as its spec names it: the causes by the skeleton's diagnostic kind, and the loops
+ * door's. Read by the viewer and the tests with a diagnostic kind.
+ */
+export const HOLED_CAUSES: Readonly<Record<string, string>> = {...DIAGNOSTIC_CAUSES, 'door-loops': REFUSAL_CAUSES['door-loops']};
+
+/**
+ * THE ONE KIND THE ROOF READS DIFFERENTLY FROM CORE. Core counts a causality violation informational; on an island
+ * with a hole the roof refuses it (decision 14), so it is not among the roof's informational kinds.
+ */
+const REFUSED_BY_THE_ROOF: SkeletonDiagnosticKind = 'causality-violation';
+
+/**
+ * The diagnostics that never refuse an island: core's informational kinds less {@link REFUSED_BY_THE_ROOF} (decision
+ * 55: the un-culled self-loop among them).
+ */
+const INFORMATIONAL: ReadonlySet<SkeletonDiagnosticKind> =
+  new Set(INFORMATIONAL_DIAGNOSTIC_KINDS.filter(kind => kind !== REFUSED_BY_THE_ROOF));
 
 /** How much of one diagnostic's detail a cause carries. */
 const CAUSE_DETAIL_CHARS = 240;
 
-function classify(msg: string): Exclude<RefusalKind, 'incomplete'> {
-  // Decision 15: contact between loops is tested first.
-  if (msg.includes('Loop conflict (')) return 'door-loops';
-  if (msg.includes('minWeightTurnSine') || msg.includes('visible corner')) return 'door-turn';
-  if (msg.includes('ratio') || msg.includes('maxWeightRatio')) return 'door-ratio';
-  if (msg.includes('eight')) return 'door-other';
-  return 'threw';
+/**
+ * Each input refusal of the solver as this file's refusal kind (decision 15: the loops door is its own). A count, a
+ * non-finite vertex or a winding the roof never gives is a failure of the roof's own input to the solver.
+ */
+const REFUSAL_KIND_OF_INPUT: Readonly<Record<SkeletonInputRefusalKind, Exclude<RefusalKind, 'incomplete'>>> = {
+  'loop-conflict': 'door-loops',
+  'weight-change-without-corner': 'door-turn',
+  'weight-ratio': 'door-ratio',
+  'weight-count': 'door-other',
+  'weight-not-finite-positive': 'door-other',
+  'too-few-vertices': 'threw',
+  'non-finite-vertex': 'threw',
+  'mis-wound-loop': 'threw',
+  'loop-table': 'threw',
+  'holes-on-legacy-entry': 'threw',
+};
+
+function classify(error: unknown): Exclude<RefusalKind, 'incomplete'> {
+  return error instanceof SkeletonInputRefusal ? REFUSAL_KIND_OF_INPUT[error.kind] : 'threw';
 }
 
 const refused = (kind: Exclude<RefusalKind, 'incomplete'>, message: string): SolveRefused =>
-  ({ok: false, kind, message, cause: kind === 'door-loops' ? HOLED_CAUSES['door-loops'] : OTHER_CAUSES[kind]});
+  ({ok: false, kind, message, cause: REFUSAL_CAUSES[kind]});
 
 /**
- * Decision 13: an `'incomplete'` refusal's cause lists every blocking diagnostic, each by `HOLED_CAUSES` (its kind
+ * Decision 13: an `'incomplete'` refusal's cause lists every blocking diagnostic, each by `DIAGNOSTIC_CAUSES` (its kind
  * verbatim where the table does not name it, so no future kind is dropped) and then by its own kind and detail.
  */
-function incompleteCause(blocking: readonly {kind: string; detail: string}[]): string {
+function incompleteCause(blocking: readonly {kind: SkeletonDiagnosticKind; detail: string}[]): string {
   if (!blocking.length) return 'the roof solver gave no complete answer, and named no cause';
-  return blocking.map(d => `${HOLED_CAUSES[d.kind] ?? d.kind} (${d.kind}: ${d.detail.slice(0, CAUSE_DETAIL_CHARS)})`).join('; ');
+  return blocking.map(d => `${DIAGNOSTIC_CAUSES[d.kind] ?? d.kind} (${d.kind}: ${d.detail.slice(0, CAUSE_DETAIL_CHARS)})`).join('; ');
 }
 
 /** Holed roof decision 12: the footprint's area, the outer loop's less its holes'. */
@@ -96,8 +132,7 @@ export function solveFaces(comp: Comp, weights: number[][]): SolveResult {
       ? solveSkeleton(comp.outer, {weights: weights[0], holes: comp.holes.map((h, k) => ({vertices: h, weights: weights[k + 1]}))})
       : solveSkeleton(comp.outer, {weights: weights[0]});
   } catch (e) {
-    const message = (e as Error).message;
-    return refused(classify(message), message);
+    return refused(classify(e), (e as Error).message);
   }
   return facesOfSolve(comp, result);
 }
@@ -113,7 +148,7 @@ export function facesOfSolve(comp: Comp, result: SkeletonSolveResult): SolveResu
   const causalityDetail = result.diagnostics.filter(d => d.kind === 'causality-violation').map(d => d.detail);
   // Decision 14: on an island with a hole a causality violation refuses; a single-loop island counts it and goes on.
   if (!result.complete || (holed && causalityDetail.length)) {
-    const blocking = result.diagnostics.filter(d => !INFORMATIONAL.has(d.kind) && (holed || d.kind !== 'causality-violation'));
+    const blocking = result.diagnostics.filter(d => !INFORMATIONAL.has(d.kind) && (holed || d.kind !== REFUSED_BY_THE_ROOF));
     return {ok: false, kind: 'incomplete', message: diagnostics.join(' | ').slice(0, 400), cause: incompleteCause(blocking)};
   }
   let strips: Strip[];
