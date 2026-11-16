@@ -172,6 +172,10 @@ with two pieces on the instigator's ring. Node 4's F1 to F7: unmoved.
 22. **A meeting on a third front is refused.** This is a split whose instigator is an arrival of a merge while neither
     end of its struck segment is. The specimen is E′, where a corner of each hole meets the outline's bottom front at
     (10.5, 1.5).
+    **AMENDED 2026-11-16** (BSA.D367; [flat-ring and third-front spec](./skeleton-flat-ring-and-third-front-decisions.md),
+    decisions 30 to 42): narrowed to a layer not resolved whole (`asWholeEvents` null), where the meeting stays refused
+    (that spec's decision 31; `pairwiseLayerRefusal`). A meeting on a third front in a layer resolved whole is no longer
+    refused here: it is resolved by that spec's decisions 30 to 42, and refused only under its decision 44.
 23. **Two strikes at one point are not a separate case.** Two arrivals at one point at one time are clustered as one
     merge, and their splits fall under decision 18 or decision 22. No further guard is built.
 24. **`multi-ring-step-refused` keeps exactly node 4's three causes,** except for the rings of two of decision 12:

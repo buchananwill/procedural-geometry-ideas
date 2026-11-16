@@ -347,10 +347,11 @@ BSA.D336).
 
 **Made 2026-11-16** (BSA.D365, the entropy pass's P8b), each as an amendment line under the decision it touches: node
 5's decisions 15, 24, 26, 29, 38, 39, 40 and 44 and its Deferred item; both issue notes resolved; the holed roof spec's
-decisions 41 to 43 and 58; the dashboard holed spec's decision 51. **Not made:** node 5's decision 22, which this
-spec's decision 31 and `pairwiseLayerRefusal` still cite as live for a layer not resolved whole, so it is not replaced
-whole; it is left for the lead. The courtyard tests' comments already read the layouts as cured, and CLAUDE.md
-called none of them refused.
+decisions 41 to 43 and 58; the dashboard holed spec's decision 51. The courtyard tests' comments already read the
+layouts as cured, and CLAUDE.md called none of them refused. **Node 5's decision 22 is narrowed, not replaced**
+(BSA.D367, made 2026-11-16), because this spec's decision 31 and `pairwiseLayerRefusal` still cite it as live: it
+governs a layer not resolved whole, and a layer resolved whole goes to decisions 30 to 42 here. The amendment line sits
+under it, its text kept.
 
 ## 6. The lead's rulings, and what the build must settle
 
