@@ -137,7 +137,7 @@ Pure TypeScript library for computational geometry algorithms. No React or brows
 The algorithm computes a [straight skeleton](https://en.wikipedia.org/wiki/Straight_skeleton) -- the locus of points
 traced by polygon vertices as edges shrink inward at equal speed.
 
-**Algorithm versions:** The current algorithm is **V5** (`runAlgorithmV5` in `algorithm-termination-cases.ts`). Previous versions are now consigned to the git history. New work should target V5.
+**Algorithm versions:** The current algorithm is **V5** (`runAlgorithmV5` in `solve-entry.ts`). Previous versions are now consigned to the git history. New work should target V5.
 
 **Core infrastructure (shared by all versions):**
 
@@ -160,8 +160,14 @@ traced by polygon vertices as edges shrink inward at equal speed.
 
 | File                             | Role                                                                                                                                     |
 |----------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
-| `algorithm-termination-cases.ts` | **V5 entry point** (`runAlgorithmV5`), `StepAlgorithm`, base cases for 2-edge pairs and 3-edge triangles                                 |
+| `solve-entry.ts`                 | **V5 entry point** (`runAlgorithmV5`) and the other solve entries (`solveSkeleton`, `solveSkeletonStepped`)                              |
+| `step-driver.ts`                 | `stepAlgorithm` and the step loop (`driveSteps`)                                                                                         |
+| `boundary-stage.ts`              | `prepareBoundary` -- input checks, normalisation, the weight door, canonicalisation and winding before the solve                         |
+| `algorithm-termination-cases.ts` | Base cases for 2-edge pairs and 3-edge triangles                                                                                         |
+| `terminal-ladder.ts`             | The terminal ladder: degenerate and parallel closures, coaxial completion                                                                |
 | `algorithm-complex-cases.ts`     | `handleInteriorNGon` -- generic handler for >3 interior edges: generates collisions, handles events, partitions into child sub-polygons |
+| `event-order.ts`                 | Event ordering for `handleInteriorNGon` (arrival order, moments, tie-breaks)                                                             |
+| `whole-events.ts`                | A layer resolved whole: its merges, third fronts and refusals                                                                            |
 
 **V5 algorithm flow:**
 
