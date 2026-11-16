@@ -7,7 +7,7 @@ import {stepAlgorithm} from '@proc-geo/core';
 import {tryToAcceptExteriorEdge} from '@proc-geo/core';
 import {collideEdges, collideInteriorEdges, checkSharedParents, makeOffsetDistance, sourceOffsetDistance} from '@proc-geo/core';
 import {createCollisions, handleInteriorNGon} from '@proc-geo/core';
-import {handleCollisionEvent} from '@proc-geo/core';
+import {handleCollisionEvent, LayerLinks} from '@proc-geo/core';
 import {addVectors, scaleVector, crossProduct, areEqual} from '@proc-geo/core';
 import {intersectRays} from '@proc-geo/core';
 import type {AlgorithmStepInput, ResolvableEvent} from '@proc-geo/core';
@@ -71,10 +71,11 @@ describe('Step 3 Detailed Trace', () => {
             console.log(`  [${ev.collidingEdges.join(',')}] type=${ev.eventType} offset=${ev.offsetDistance.toFixed(4)} pos=${fmt(ev.position)}`);
         }
 
-        // Now simulate handleCollisionEvent for each
+        // Now simulate handleCollisionEvent for each, as one layer that is never settled
         console.log('\nHandling each event:');
+        const layer = new LayerLinks(context);
         for (const ev of firingEvents) {
-            const params = handleCollisionEvent(ev, context);
+            const params = handleCollisionEvent(ev, context, layer);
             console.log(`  Event [${ev.collidingEdges.join(',')}] → ${params.length} bisection params`);
             for (const p of params) {
                 console.log(`    cw=${p.clockwiseExteriorEdgeIndex} ws=${p.widdershinsExteriorEdgeIndex} source=node${p.source} approxDir=${p.approximateDirection ? fmt(p.approximateDirection) : 'none'}`);

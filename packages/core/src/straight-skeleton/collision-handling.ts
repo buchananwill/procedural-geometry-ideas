@@ -1,16 +1,16 @@
 import {BisectionParams, ResolvableEvent, StraightSkeletonSolverContext} from "./types";
-import {linkPairCollapse, linkSplit, linkVertexToVertex, pairCollapseSides} from "./wavefront";
+import {LayerLinks, linkPairCollapse, linkSplit, linkVertexToVertex, pairCollapseSides} from "./wavefront";
 
 
 /**
  * Resolve one event and return the bisections it bears.
  *
  * EACH BRANCH WRITES THE WAVEFRONT'S LINKS IN THE SAME ACT (skeleton wavefront-order spec, decision 9),
- * from the participants it holds: its bisections are not born yet, so they are linked as pending births
- * that the layer replaces by their ids when it creates them (`wavefront.ts`). The one link read here is the
- * pair collapse's: which collider stands on which side.
+ * from the participants it holds: its bisections are not born yet, so they are linked as pending births in
+ * `layer`, the link state of the layer the event belongs to, which replaces them by their ids when it creates
+ * them. The one link read here is the pair collapse's: which collider stands on which side.
  */
-function handleCollisionEvent(event: ResolvableEvent, context: StraightSkeletonSolverContext): BisectionParams[] {
+function handleCollisionEvent(event: ResolvableEvent, context: StraightSkeletonSolverContext, layer: LayerLinks): BisectionParams[] {
 
     const [instigator, target] = event.collidingEdges;
 
@@ -49,7 +49,7 @@ function handleCollisionEvent(event: ResolvableEvent, context: StraightSkeletonS
             source: newNode.id,
             widdershinsExteriorEdgeIndex: widdershinsCollider.widdershinsExteriorEdgeIndex,
         };
-        linkPairCollapse(context, [instigator, target], widdershinsCollider.id, clockwiseCollider.id, collapse);
+        linkPairCollapse(layer, [instigator, target], widdershinsCollider.id, clockwiseCollider.id, collapse);
         return [collapse]
 
 
@@ -80,7 +80,7 @@ function handleCollisionEvent(event: ResolvableEvent, context: StraightSkeletonS
                 source: newNode.id,
             }
         ];
-        linkVertexToVertex(context, instigator, target, bisections[0], bisections[1]);
+        linkVertexToVertex(layer, instigator, target, bisections[0], bisections[1]);
         return bisections
     }
 
@@ -100,7 +100,7 @@ function handleCollisionEvent(event: ResolvableEvent, context: StraightSkeletonS
             source: newNode.id,
         }
     ];
-    linkSplit(context, instigator, event.struckSegment, event.position, bisections[0], bisections[1]);
+    linkSplit(layer, instigator, event.struckSegment, event.position, bisections[0], bisections[1]);
     return bisections
 }
 

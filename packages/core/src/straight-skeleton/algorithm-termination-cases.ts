@@ -39,7 +39,7 @@ import {makeStraightSkeletonSolverContext} from "./solver-context";
 import {initInteriorEdges, tryToAcceptExteriorEdge} from "./algorithm-helpers";
 import {addInEdges} from "./graph-helpers";
 import {handleInteriorNGon} from "./algorithm-complex-cases";
-import {activeWavefrontProbe, beginStep, endStep, refuseStep, retireBisectors, ringsOfWavefront} from "./wavefront";
+import {beginStep, endStep, refuseStep, retireBisectors, ringsOfWavefront} from "./wavefront";
 import {describeLoopConflict, findLoopConflict, isDegenerateHole} from "./skeleton-loops";
 import {
     cramerQuotientRoundingBound,
@@ -1245,7 +1245,7 @@ function runSimplePolygon(
 
     // THE STEP BOUNDARIES (skeleton wavefront-order spec, decision 6), where the standing gate's probe checks
     // the links (decision 23), and the end of the solve, where it counts it. `null` in a normal solve.
-    const probe = activeWavefrontProbe();
+    const probe = context.probe;
 
     let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}]
     probe?.stepBoundary?.(context, inputs);
@@ -2333,7 +2333,7 @@ function runSimplePolygonStepped(
     const snapshots: StraightSkeletonGraph[] = [structuredClone(context.graph)];
     let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}];
     // The same step boundaries as `runSimplePolygon` (skeleton wavefront-order spec, decision 6).
-    const probe = activeWavefrontProbe();
+    const probe = context.probe;
     probe?.stepBoundary?.(context, inputs);
 
     try {

@@ -35,11 +35,10 @@ import {
 } from "./coincident-events";
 import {closeFlatRings} from "./flat-rings";
 import {
-    activeWavefrontProbe,
-    beginLayerLinks,
     birthsClosedAtOneNode,
     componentsOfRings,
     droppableBirths,
+    LayerLinks,
     linkBirth,
     partitionArc,
     refuseStep,
@@ -81,7 +80,7 @@ function chargeSitingResidual(nodeId: number, bisections: BisectionParams[], con
  *
  * EXPORTED FOR ITS OWN TEST, not for other callers — see `wavefront-order.test.ts`.
  */
-export function selectPartitionEvents(context: StraightSkeletonSolverContext, partitionEvents: BisectionParams[]): BisectionParams[] {
+export function selectPartitionEvents(layer: LayerLinks, partitionEvents: BisectionParams[]): BisectionParams[] {
     /* Clover Leaf Example:
 
     Partition Pair 1:  [[0,4], [4,0]]
@@ -101,7 +100,7 @@ export function selectPartitionEvents(context: StraightSkeletonSolverContext, pa
     // so the births are numbered as they were. This order decides no child step — the rings do — but it is the order
     // the partition bisectors are BORN in, and it chooses which of two same-start, same-source re-reports survives.
     // Ordering by ring size instead (BSA.F96) left out the closed edges inside the arc and renumbered 16 digests.
-    const arcs = new Map(partitionEvents.map(params => [params, partitionArc(context, params)] as const));
+    const arcs = new Map(partitionEvents.map(params => [params, partitionArc(layer, params)] as const));
     const arcOf = (params: BisectionParams) => arcs.get(params)!;
     // NO ACCEPTED-PARENT FILTER (skeleton edge-acceptance spec, decision 7). Acceptance changes only at step
     // boundaries, and at the last one every parent of every birth of this layer was named by a then-live bisector,
@@ -149,7 +148,7 @@ export function selectPartitionEvents(context: StraightSkeletonSolverContext, pa
     if (duplicates.size === 0) {
         return sorted;
     }
-    const droppable = droppableBirths(context, [...duplicates]);
+    const droppable = droppableBirths(layer, [...duplicates]);
     return sorted.filter(partitionEvent => !duplicates.has(partitionEvent) || !droppable.has(partitionEvent));
 }
 
@@ -359,9 +358,10 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         throw new Error("Greater than 3 edges required for generic step handling.")
     }
 
-    // THE LAYER'S LINK STATE (skeleton wavefront-order spec): the events below link the bisectors they bear
-    // as pending births, which are replaced by their ids as they are created at the foot of this function.
-    beginLayerLinks(context);
+    // THE LAYER'S LINK STATE (skeleton wavefront-order spec), owned by this call and dying with it: the events below
+    // link the bisectors they bear as pending births in it, which are replaced by their ids as they are created at the
+    // foot of this function, and the layer is settled there.
+    const layer = new LayerLinks(context);
 
     // THE STEP'S RINGS ARE THE LINKS' RINGS, ALWAYS (skeleton join-and-divide spec, decision 1), read at the layer's
     // start. A step of one ring is every step of a single-loop solve and is handled exactly as before; a step of
@@ -437,7 +437,7 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
             // No acceptance here: exterior edges are accepted at the step boundary only (skeleton edge-acceptance
             // spec, decision 6).
             applyDegenerateClosure(context, input.interiorEdges, rung.position);
-            settleLayerLinks(context);
+            settleLayerLinks(layer);
             return [];
         }
         // THE COMPLETION, IN THE N-GON'S OWN TERMS: the named pair's head-on event is priced as
@@ -574,7 +574,7 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
             return byPlace(e1, e2) || compareEdgeIdLists(e1.collidingEdges, e2.collidingEdges);
         };
         inArrivalOrder(eventsToResolve, byPriorityThenPlace, nearerAlongSharedBisector(eventsToResolve, context))
-            .map(event => handleCollisionEvent(event, context))
+            .map(event => handleCollisionEvent(event, context, layer))
             .forEach(recordBisections)
     } else {
         // NO CONCURRENCY GATE HERE, AND THE MEASUREMENT IS WHY. The tolerance audit's placed-node
@@ -619,12 +619,12 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
             const onWall = thirdFronts?.find(third => third.mergeIndex === index)?.resolution;
             const bisections = typeof onWall === 'object'
                 ? bisectionsForMergeOnWall(onWall.gaps, onWall.facing, onWall.segment.exteriorEdge, onWall.segment,
-                    merge.position, node.id, context)
+                    merge.position, node.id, layer)
                 : runs === undefined
-                    ? bisectionsForMerge(resolution.ringOfMerge[index]!, {position: merge.position, edgeIds: arrivals}, node.id, context)
-                    : bisectionsForCrossRingMerge(runs, node.id, context);
+                    ? bisectionsForMerge(resolution.ringOfMerge[index]!, {position: merge.position, edgeIds: arrivals}, node.id, context, layer)
+                    : bisectionsForCrossRingMerge(runs, node.id, context, layer);
             if (typeof onWall === 'object') {
-                activeWavefrontProbe()?.thirdFrontResolved?.(context, merge.edgeIds, onWall.segment.exteriorEdge);
+                context.probe?.thirdFrontResolved?.(context, merge.edgeIds, onWall.segment.exteriorEdge);
             }
             // The arrivals leave the wavefront, once each gap has been linked from them.
             retireBisectors(context, arrivals);
@@ -660,7 +660,7 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         // rounding, which its position budget already answers for, and the medoid member is not moved.
         splitEvents.forEach((event, index) => {
             const sited = splitPositions[index];
-            const bisections = handleCollisionEvent({...event, position: sited}, context);
+            const bisections = handleCollisionEvent({...event, position: sited}, context, layer);
             if (bisections.length > 0 && (sited.x !== event.position.x || sited.y !== event.position.y)) {
                 chargeSitingResidual(bisections[0].source, bisections, context);
             }
@@ -676,18 +676,18 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     // A RING MADE ONLY OF THIS LAYER'S BIRTHS, ALL AT ONE NODE, CLOSES THERE AND NONE OF IT IS BORN (decision 32):
     // it has no extent. It is the residue of a vertex event resolved pairwise, two births with each other's parents
     // at the node where their shared face has just closed. Read from the links and the source node alone.
-    const closedAtOneNode = birthsClosedAtOneNode(context);
+    const closedAtOneNode = birthsClosedAtOneNode(layer);
     const unborn = (params: BisectionParams) => !closedAtOneNode.has(params);
 
     // Collapse/partition into child
-    const finalPartitionEvents = selectPartitionEvents(context, partitionEvents.filter(unborn));
+    const finalPartitionEvents = selectPartitionEvents(layer, partitionEvents.filter(unborn));
 
     const allOutgoingInteriorEdges = [...input.interiorEdges.filter(e => !context.isAccepted(e))]
 
     // Each bisector is linked where its event left its pending birth, the moment it has an id.
     const bear = (params: BisectionParams): number => {
         const id = bisectWithParams(context, params);
-        linkBirth(context, params, id);
+        linkBirth(layer, params, id);
         return id;
     };
 
@@ -702,7 +702,7 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
 
     // Every pending birth that was never born — a re-report the dedupe dropped, or a ring closed at one node — is
     // spliced out of its ring (skeleton wavefront-order spec).
-    settleLayerLinks(context);
+    settleLayerLinks(layer);
 
     if (multiRing) {
         // A STEP OF SEVERAL RINGS LEAVES ITS COMPONENTS (join-and-divide spec, decisions 10 to 17), whatever its

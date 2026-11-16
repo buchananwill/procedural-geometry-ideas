@@ -1,5 +1,6 @@
 import type { Vector2 } from '../shared/types';
 import type { SkeletonNormalisation } from './normalisation';
+import type { StepScope, WavefrontProbe } from './wavefront';
 export type { Vector2 } from '../shared/types';
 
 export interface PolygonNode {
@@ -291,6 +292,16 @@ export interface StraightSkeletonSolverContext extends GraphHelpers {
      * this onto its own `diagnostics`, so neither is silent.
      */
     diagnostics: SkeletonDiagnostic[];
+    /**
+     * The step being handled, or `null` outside one (skeleton join-and-divide spec, decisions 4 and 22): opened and
+     * closed by `handleAlgorithmStepInput` (`beginStep`, `endStep`), read by `validateSplitReachesEdge` and `refuseStep`.
+     */
+    step: StepScope | null;
+    /**
+     * The standing gate's probe (skeleton wavefront-order spec, decision 23), or `null` in a normal solve. Taken when
+     * the context is made from the test suite's installation (`setWavefrontProbe`), and read at the step boundaries.
+     */
+    probe: WavefrontProbe | null;
 }
 
 export type IntersectionType =

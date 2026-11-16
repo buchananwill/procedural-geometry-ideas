@@ -12,7 +12,7 @@ import {inwardDistanceFromWall, wallsAreAntiparallel} from "./wall-time";
 import {ringPerimeter, segmentSegmentIntersection, signedArea} from "./planar-geometry";
 import {isEndpointTouch} from "./polygon-decomposition";
 import {bisectWithParams} from "./algorithm-helpers";
-import {activeWavefrontProbe, refuseStep, retireBisectors, ringPolygonAt, ringsOfWavefront} from "./wavefront";
+import {refuseStep, retireBisectors, ringPolygonAt, ringsOfWavefront} from "./wavefront";
 
 /**
  * FLAT-RING TERMINATION (skeleton flat-ring and third-front spec, decisions 7 to 29). A ring a layer of a step of
@@ -404,7 +404,7 @@ export function closeFlatRings(
         });
     for (const plan of plans) {
         closeFlatRing(context, plan, newborn);
-        activeWavefrontProbe()?.flatRingClosed?.(context, plan.ring);
+        context.probe?.flatRingClosed?.(context, plan.ring);
     }
     return new Set(plans.flatMap(plan => plan.ring));
 }

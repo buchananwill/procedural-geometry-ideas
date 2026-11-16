@@ -31,10 +31,10 @@ import {
 import {generateSplitEvent} from '@proc-geo/core/straight-skeleton/generate-split-event';
 import {signedArea} from '@proc-geo/core/random-polygon/geometry-helpers';
 import {
-    beginLayerLinks,
     beginStep,
     componentsOfRings,
     endStep,
+    LayerLinks,
     linkInitialRing,
     linkMergeGap,
     linkPairCollapse,
@@ -312,31 +312,30 @@ describe('the partition order (decisions 25 to 27)', () => {
         const context = makeStraightSkeletonSolverContext(decagon);
         initInteriorEdges(context);
         const b = (node: number) => 10 + node;
-        beginLayerLinks(context);
+        const layer = new LayerLinks(context);
         // T closes the gap a merge of b8, b9, b0, b1, b2 and b3 leaves: it stands between b7 and b4.
         const T: BisectionParams = {clockwiseExteriorEdgeIndex: 3, widdershinsExteriorEdgeIndex: 7, source: 0};
-        linkMergeGap(context, b(3), b(8), T);
+        linkMergeGap(layer, b(3), b(8), T);
         retireBisectors(context, [8, 9, 0, 1, 2, 3].map(b));
         const X: BisectionParams = {clockwiseExteriorEdgeIndex: 6, widdershinsExteriorEdgeIndex: 4, source: 0};
-        linkPairCollapse(context, [b(5), b(6)], b(5), b(6), X);
+        linkPairCollapse(layer, [b(5), b(6)], b(5), b(6), X);
         // T's ring is T, b4, X, b7: gaps 1, 2 and 1.
-        expect(partitionArc(context, T)).toBe(4);
-        expect(partitionArc(context, T)).toBe((7 - 3 + 10) % 10);
+        expect(partitionArc(layer, T)).toBe(4);
+        expect(partitionArc(layer, T)).toBe((7 - 3 + 10) % 10);
         // X's is X, b7, T, b4: gaps 1, 6 and 1, which is (4 − 6) mod 10.
-        expect(partitionArc(context, X)).toBe(8);
+        expect(partitionArc(layer, X)).toBe(8);
     });
 
     it('counts a gap between edges of two loops as 1', () => {
         // F1's join, linked by hand: h4 (hole corner E) strikes the right wall's segment (b2, b3).
-        const context = f1Context();
-        beginLayerLinks(context);
+        const layer = new LayerLinks(f1Context());
         const before: BisectionParams = {clockwiseExteriorEdgeIndex: 4, widdershinsExteriorEdgeIndex: 2, source: 0};
         const after: BisectionParams = {clockwiseExteriorEdgeIndex: 2, widdershinsExteriorEdgeIndex: 7, source: 0};
-        linkSplit(context, 12, {exteriorEdge: 2, from: 10, to: 11}, {x: 10, y: 5.5}, before, after);
+        linkSplit(layer, 12, {exteriorEdge: 2, from: 10, to: 11}, {x: 10, y: 5.5}, before, after);
         // The joined ring: b0 b1 b2 before h5 h6 h7 after b3. From `before`: 4→5→6→7, then 7→2 across loops,
         // then 2→3→0→1→2: every gap 1, eight members, so 8.
-        expect(partitionArc(context, before)).toBe(8);
-        expect(partitionArc(context, after)).toBe(8);
+        expect(partitionArc(layer, before)).toBe(8);
+        expect(partitionArc(layer, after)).toBe(8);
     });
 });
 

@@ -18,7 +18,7 @@ import {ARITHMETIC_SAME_POINT_BOX} from "./constants";
 import {byArrival} from "./collision-helpers";
 import {byEdgeIds} from "./event-order";
 import {wallsAreAntiparallel} from "./wall-time";
-import {linkMergeGap, linkMergeGapOnWall} from "./wavefront";
+import {LayerLinks, linkMergeGap, linkMergeGapOnWall} from "./wavefront";
 
 /**
  * Are these two arrivals the same vertex event, as far as anything that will ever look at the
@@ -469,8 +469,9 @@ export function bisectionsForCrossRingMerge(
     runs: CrossRingRuns,
     sourceNodeId: number,
     context: StraightSkeletonSolverContext,
+    layer: LayerLinks,
 ): BisectionParams[] {
-    return mergeGaps(runs, context).map(gap => bearGap(gap, sourceNodeId, context));
+    return mergeGaps(runs, context).map(gap => bearGap(gap, sourceNodeId, layer));
 }
 
 /**
@@ -507,13 +508,13 @@ export function mergeGaps(runs: readonly (readonly number[])[], context: Straigh
  * sourced at the event's node, stands between the last arrival's clockwise neighbour and the first departure's widdershins
  * neighbour — the two ends of the arc the gap leaves. The merge retires its arrivals.
  */
-function bearGap(gap: MergeGap, sourceNodeId: number, context: StraightSkeletonSolverContext): BisectionParams {
+function bearGap(gap: MergeGap, sourceNodeId: number, layer: LayerLinks): BisectionParams {
     const params: BisectionParams = {
         clockwiseExteriorEdgeIndex: gap.clockwiseWall,
         widdershinsExteriorEdgeIndex: gap.widdershinsWall,
         source: sourceNodeId,
     };
-    linkMergeGap(context, gap.lastArrival, gap.firstDeparture, params);
+    linkMergeGap(layer, gap.lastArrival, gap.firstDeparture, params);
     return params;
 }
 
@@ -584,9 +585,9 @@ export function bisectionsForMergeOnWall(
     segment: WavefrontSegment,
     position: Vector2,
     sourceNodeId: number,
-    context: StraightSkeletonSolverContext,
+    layer: LayerLinks,
 ): BisectionParams[] {
-    const clear = gaps.filter((_gap, index) => index !== facing).map(gap => bearGap(gap, sourceNodeId, context));
+    const clear = gaps.filter((_gap, index) => index !== facing).map(gap => bearGap(gap, sourceNodeId, layer));
     const {lastArrival, firstDeparture, clockwiseWall, widdershinsWall} = gaps[facing];
     const towardsClockwise: BisectionParams = {
         clockwiseExteriorEdgeIndex: clockwiseWall, widdershinsExteriorEdgeIndex: wall, source: sourceNodeId,
@@ -594,7 +595,7 @@ export function bisectionsForMergeOnWall(
     const towardsWiddershins: BisectionParams = {
         clockwiseExteriorEdgeIndex: wall, widdershinsExteriorEdgeIndex: widdershinsWall, source: sourceNodeId,
     };
-    linkMergeGapOnWall(context, lastArrival, firstDeparture, segment, position, towardsClockwise, towardsWiddershins);
+    linkMergeGapOnWall(layer, lastArrival, firstDeparture, segment, position, towardsClockwise, towardsWiddershins);
     return [...clear, towardsClockwise, towardsWiddershins];
 }
 
@@ -624,6 +625,7 @@ export function bisectionsForMerge(
     merge: Pick<CoincidentMerge, 'position' | 'edgeIds'>,
     sourceNodeId: number,
     context: StraightSkeletonSolverContext,
+    layer: LayerLinks,
 ): BisectionParams[] {
     const runs = contiguousRuns(ring, new Set(merge.edgeIds));
 
@@ -631,5 +633,5 @@ export function bisectionsForMerge(
         return [];
     }
 
-    return mergeGaps(runs, context).map(gap => bearGap(gap, sourceNodeId, context));
+    return mergeGaps(runs, context).map(gap => bearGap(gap, sourceNodeId, layer));
 }

@@ -20,9 +20,9 @@ import {
     tryToAcceptExteriorEdge,
 } from '@proc-geo/core';
 import {
-    beginLayerLinks,
     birthsClosedAtOneNode,
     exteriorFaceIsClosed,
+    LayerLinks,
     linkBirth,
     linkPairCollapse,
     NOT_LIVE,
@@ -123,7 +123,7 @@ describe('births that close at one node (decision 32)', () => {
      * accepted, one pending birth linked in their place. The j-th birth is sourced at the interior node named
      * `sources[j]`; equal names are one node.
      */
-    const collapsePairs = (vertices: Vector2[], sources: string[]): {context: StraightSkeletonSolverContext; births: BisectionParams[]} => {
+    const collapsePairs = (vertices: Vector2[], sources: string[]): {context: StraightSkeletonSolverContext; layer: LayerLinks; births: BisectionParams[]} => {
         const context = initContext(vertices);
         const n = context.graph.numExteriorNodes;
         const nodeOf = new Map<string, number>();
@@ -132,7 +132,7 @@ describe('births that close at one node (decision 32)', () => {
                 nodeOf.set(name, context.findOrAddNode({x: 0.1 * (nodeOf.size + 1), y: 0.05}, 0).id);
             }
         }
-        beginLayerLinks(context);
+        const layer = new LayerLinks(context);
         const births = sources.map((name, pair): BisectionParams => {
             const widdershinsCollider = n + 2 * pair;
             const clockwiseCollider = n + 2 * pair + 1;
@@ -142,22 +142,23 @@ describe('births that close at one node (decision 32)', () => {
                 source: nodeOf.get(name)!,
             };
             context.acceptAll([widdershinsCollider, clockwiseCollider]);
-            linkPairCollapse(context, [widdershinsCollider, clockwiseCollider], widdershinsCollider, clockwiseCollider, params);
+            linkPairCollapse(layer, [widdershinsCollider, clockwiseCollider], widdershinsCollider, clockwiseCollider, params);
             return params;
         });
-        return {context, births};
+        return {context, layer, births};
     };
 
     /**
      * Settle the layer as `handleInteriorNGon` does: bear every birth the rule does not close, link each, settle.
      * Returns the live bisectors left, so the links can be held to W1 to W4 over them.
      */
-    const settleAsTheLayerDoes = (context: StraightSkeletonSolverContext, births: BisectionParams[]): number[] => {
-        const closed = birthsClosedAtOneNode(context);
+    const settleAsTheLayerDoes = (layer: LayerLinks, births: BisectionParams[]): number[] => {
+        const {context} = layer;
+        const closed = birthsClosedAtOneNode(layer);
         for (const params of births.filter(params => !closed.has(params))) {
-            linkBirth(context, params, bisectWithParams(context, params));
+            linkBirth(layer, params, bisectWithParams(context, params));
         }
-        settleLayerLinks(context);
+        settleLayerLinks(layer);
         return context.graph.interiorEdges.map(edge => edge.id).filter(id => !context.isAccepted(id));
     };
 
@@ -170,26 +171,26 @@ describe('births that close at one node (decision 32)', () => {
     };
 
     it('closes a ring of two births at one node', () => {
-        const {context, births} = collapsePairs(SQUARE, ['a', 'a']);
-        expect(birthsClosedAtOneNode(context)).toEqual(new Set(births));
-        const live = settleAsTheLayerDoes(context, births);
+        const {context, layer, births} = collapsePairs(SQUARE, ['a', 'a']);
+        expect(birthsClosedAtOneNode(layer)).toEqual(new Set(births));
+        const live = settleAsTheLayerDoes(layer, births);
         expect(live).toEqual([]);
         expectSoundLinks(context, live);
     });
 
     it('closes a ring of three births at one node', () => {
-        const {context, births} = collapsePairs(regular(6), ['a', 'a', 'a']);
-        expect(birthsClosedAtOneNode(context)).toEqual(new Set(births));
-        const live = settleAsTheLayerDoes(context, births);
+        const {context, layer, births} = collapsePairs(regular(6), ['a', 'a', 'a']);
+        expect(birthsClosedAtOneNode(layer)).toEqual(new Set(births));
+        const live = settleAsTheLayerDoes(layer, births);
         expect(live).toEqual([]);
         expectSoundLinks(context, live);
     });
 
     it('bears births at one node that are not a whole ring: the ring still holds live bisectors', () => {
         // Two of the hexagon's three pairs collapse, at one node: the ring is the two births and two live bisectors.
-        const {context, births} = collapsePairs(regular(6), ['a', 'a']);
-        expect(birthsClosedAtOneNode(context)).toEqual(new Set());
-        const live = settleAsTheLayerDoes(context, births);
+        const {context, layer, births} = collapsePairs(regular(6), ['a', 'a']);
+        expect(birthsClosedAtOneNode(layer)).toEqual(new Set());
+        const live = settleAsTheLayerDoes(layer, births);
         expect(live).toHaveLength(4);
         expect(ringsOfWavefront(context, live)).toHaveLength(1);
         expectSoundLinks(context, live);
@@ -197,20 +198,20 @@ describe('births that close at one node (decision 32)', () => {
 
     it('bears a whole ring of births sourced at two different nodes', () => {
         const square = collapsePairs(SQUARE, ['a', 'b']);
-        expect(birthsClosedAtOneNode(square.context)).toEqual(new Set());
-        const squareLive = settleAsTheLayerDoes(square.context, square.births);
+        expect(birthsClosedAtOneNode(square.layer)).toEqual(new Set());
+        const squareLive = settleAsTheLayerDoes(square.layer, square.births);
         expect(squareLive).toHaveLength(2);
         expectSoundLinks(square.context, squareLive);
 
         const hexagon = collapsePairs(regular(6), ['a', 'a', 'b']);
-        expect(birthsClosedAtOneNode(hexagon.context)).toEqual(new Set());
-        const hexagonLive = settleAsTheLayerDoes(hexagon.context, hexagon.births);
+        expect(birthsClosedAtOneNode(hexagon.layer)).toEqual(new Set());
+        const hexagonLive = settleAsTheLayerDoes(hexagon.layer, hexagon.births);
         expect(hexagonLive).toHaveLength(3);
         expectSoundLinks(hexagon.context, hexagonLive);
     });
 
-    it('finds nothing outside a layer', () => {
-        expect(birthsClosedAtOneNode(initContext(SQUARE))).toEqual(new Set());
+    it('finds nothing in a layer that has linked no birth', () => {
+        expect(birthsClosedAtOneNode(new LayerLinks(initContext(SQUARE)))).toEqual(new Set());
     });
 
     it('leaves FULL_CORPUS with exactly one pair of zero-length bisectors at one node with each other\'s parents', () => {

@@ -95,83 +95,70 @@ interface Division {
     after: number;
 }
 
-interface LayerLinks {
-    nextToken: number;
-    pending: Map<number, PendingLinks>;
-    tokenOf: Map<BisectionParams, number>;
+/**
+ * ONE LAYER'S LINK STATE, OWNED BY THE LAYER. `handleInteriorNGon` creates one at the start of each layer and passes
+ * it to everything that reads or writes a pending birth: `handleCollisionEvent`, the merges' `bisectionsFor*`, the
+ * partition selection, the births and the settling. It dies with the layer; nothing else holds it. Its readers and
+ * writers see the context's stored links for a bisector and the layer's pending links for a token.
+ */
+export class LayerLinks {
+    nextToken = NOT_LIVE - 1;
+    readonly pending = new Map<number, PendingLinks>();
+    readonly tokenOf = new Map<BisectionParams, number>();
     /** Retired bisector → the pending bisector that took over its clockwise side. */
-    clockwiseSuccessor: Map<number, number>;
+    readonly clockwiseSuccessor = new Map<number, number>();
     /** Retired bisector → the pending bisector that took over its widdershins side. */
-    widdershinsSuccessor: Map<number, number>;
+    readonly widdershinsSuccessor = new Map<number, number>();
     /** Keyed by `before`, the pending bisector closing the piece behind the cut. */
-    divisions: Map<number, Division>;
-}
+    readonly divisions = new Map<number, Division>();
 
-const layers = new WeakMap<StraightSkeletonSolverContext, LayerLinks>();
-
-function freshLayer(): LayerLinks {
-    return {
-        nextToken: NOT_LIVE - 1,
-        pending: new Map(),
-        tokenOf: new Map(),
-        clockwiseSuccessor: new Map(),
-        widdershinsSuccessor: new Map(),
-        divisions: new Map(),
-    };
-}
-
-function layerOf(context: StraightSkeletonSolverContext): LayerLinks {
-    let layer = layers.get(context);
-    if (layer === undefined) {
-        layer = freshLayer();
-        layers.set(context, layer);
+    constructor(readonly context: StraightSkeletonSolverContext) {
     }
-    return layer;
-}
 
-/** Start a layer's link state afresh, discarding whatever a layer that threw left behind. */
-export function beginLayerLinks(context: StraightSkeletonSolverContext): void {
-    layers.set(context, freshLayer());
+    clockwiseOf(id: number): number {
+        if (isToken(id)) {
+            return this.pending.get(id)?.clockwise ?? NOT_LIVE;
+        }
+        return storedClockwiseOf(this.context, id);
+    }
+
+    widdershinsOf(id: number): number {
+        if (isToken(id)) {
+            return this.pending.get(id)?.widdershins ?? NOT_LIVE;
+        }
+        return id >= 0 ? this.context.wavefront.widdershinsNeighbour[id] ?? NOT_LIVE : NOT_LIVE;
+    }
+
+    setClockwise(id: number, value: number): void {
+        if (isToken(id)) {
+            const pending = this.pending.get(id);
+            if (pending !== undefined) {
+                pending.clockwise = value;
+            }
+        } else if (id >= 0) {
+            this.context.wavefront.clockwiseNeighbour[id] = value;
+        }
+    }
+
+    setWiddershins(id: number, value: number): void {
+        if (isToken(id)) {
+            const pending = this.pending.get(id);
+            if (pending !== undefined) {
+                pending.widdershins = value;
+            }
+        } else if (id >= 0) {
+            this.context.wavefront.widdershinsNeighbour[id] = value;
+        }
+    }
 }
 
 function isToken(id: number): boolean {
     return id < NOT_LIVE;
 }
 
-function clockwiseOf(context: StraightSkeletonSolverContext, id: number): number {
-    if (isToken(id)) {
-        return layers.get(context)?.pending.get(id)?.clockwise ?? NOT_LIVE;
-    }
+/** A bisector's clockwise neighbour as the context stores it: {@link NOT_LIVE} for anything that is not a bisector id. */
+function storedClockwiseOf(context: StraightSkeletonSolverContext, id: number): number {
     return id >= 0 ? context.wavefront.clockwiseNeighbour[id] ?? NOT_LIVE : NOT_LIVE;
-}
-
-function widdershinsOf(context: StraightSkeletonSolverContext, id: number): number {
-    if (isToken(id)) {
-        return layers.get(context)?.pending.get(id)?.widdershins ?? NOT_LIVE;
-    }
-    return id >= 0 ? context.wavefront.widdershinsNeighbour[id] ?? NOT_LIVE : NOT_LIVE;
-}
-
-function setClockwise(context: StraightSkeletonSolverContext, id: number, value: number): void {
-    if (isToken(id)) {
-        const pending = layers.get(context)?.pending.get(id);
-        if (pending !== undefined) {
-            pending.clockwise = value;
-        }
-    } else if (id >= 0) {
-        context.wavefront.clockwiseNeighbour[id] = value;
-    }
-}
-
-function setWiddershins(context: StraightSkeletonSolverContext, id: number, value: number): void {
-    if (isToken(id)) {
-        const pending = layers.get(context)?.pending.get(id);
-        if (pending !== undefined) {
-            pending.widdershins = value;
-        }
-    } else if (id >= 0) {
-        context.wavefront.widdershinsNeighbour[id] = value;
-    }
 }
 
 /** A bisector leaves the wavefront: both of its links become {@link NOT_LIVE}. */
@@ -189,25 +176,24 @@ export function retireBisectors(context: StraightSkeletonSolverContext, ids: rea
 
 /** Link `params`' bisector, not yet born, between `widdershins` and `clockwise`. Returns its token. */
 function linkPendingBirth(
-    context: StraightSkeletonSolverContext,
+    layer: LayerLinks,
     params: BisectionParams,
     widdershins: number,
     clockwise: number,
 ): number {
-    const layer = layerOf(context);
     const token = layer.nextToken--;
     layer.pending.set(token, {clockwise, widdershins, params});
     layer.tokenOf.set(params, token);
-    setClockwise(context, widdershins, token);
-    setWiddershins(context, clockwise, token);
+    layer.setClockwise(widdershins, token);
+    layer.setWiddershins(clockwise, token);
     return token;
 }
 
 /** `params` has been born as bisector `id`: its token is replaced by the id wherever it stands. */
-export function linkBirth(context: StraightSkeletonSolverContext, params: BisectionParams, id: number): void {
-    const layer = layers.get(context);
-    const token = layer?.tokenOf.get(params);
-    if (layer === undefined || token === undefined) {
+export function linkBirth(layer: LayerLinks, params: BisectionParams, id: number): void {
+    const {context} = layer;
+    const token = layer.tokenOf.get(params);
+    if (token === undefined) {
         return;
     }
     const links = layer.pending.get(token);
@@ -220,22 +206,22 @@ export function linkBirth(context: StraightSkeletonSolverContext, params: Bisect
     const widdershins = links.widdershins === token ? id : links.widdershins;
     context.wavefront.clockwiseNeighbour[id] = clockwise;
     context.wavefront.widdershinsNeighbour[id] = widdershins;
-    setClockwise(context, widdershins, id);
-    setWiddershins(context, clockwise, id);
+    layer.setClockwise(widdershins, id);
+    layer.setWiddershins(clockwise, id);
 }
 
 /** The parents of a live bisector or a pending birth, or `undefined` for anything else. */
-function parentsOf(context: StraightSkeletonSolverContext, id: number): {clockwise: number; widdershins: number} | undefined {
+function parentsOf(layer: LayerLinks, id: number): {clockwise: number; widdershins: number} | undefined {
     if (isToken(id)) {
-        const params = layers.get(context)?.pending.get(id)?.params;
+        const params = layer.pending.get(id)?.params;
         return params === undefined
             ? undefined
             : {clockwise: params.clockwiseExteriorEdgeIndex, widdershins: params.widdershinsExteriorEdgeIndex};
     }
-    if (!isLiveBisector(context, id)) {
+    if (!isLiveBisector(layer.context, id)) {
         return undefined;
     }
-    const edge = context.getInteriorWithId(id);
+    const edge = layer.context.getInteriorWithId(id);
     return {clockwise: edge.clockwiseExteriorEdgeIndex, widdershins: edge.widdershinsExteriorEdgeIndex};
 }
 
@@ -256,15 +242,14 @@ function parentsOf(context: StraightSkeletonSolverContext, id: number): {clockwi
  * do not meet.
  */
 export function droppableBirths(
-    context: StraightSkeletonSolverContext,
+    layer: LayerLinks,
     candidates: readonly BisectionParams[],
 ): Set<BisectionParams> {
-    const layer = layers.get(context);
     const droppable = new Set<BisectionParams>();
     const candidateOf = new Map<number, BisectionParams>();
     for (const params of candidates) {
-        const token = layer?.tokenOf.get(params);
-        if (token === undefined || !layer!.pending.has(token)) {
+        const token = layer.tokenOf.get(params);
+        if (token === undefined || !layer.pending.has(token)) {
             // Not linked anywhere: going unborn changes no link.
             droppable.add(params);
         } else {
@@ -280,7 +265,7 @@ export function droppableBirths(
         // The run's first token: walk widdershins while the neighbour is a candidate too.
         let first = token;
         for (let hops = 0; hops <= candidateOf.size; hops++) {
-            const previous = widdershinsOf(context, first);
+            const previous = layer.widdershinsOf(first);
             if (!candidateOf.has(previous) || previous === token) {
                 break;
             }
@@ -289,7 +274,7 @@ export function droppableBirths(
         const run: number[] = [first];
         let last = first;
         for (let hops = 0; hops <= candidateOf.size; hops++) {
-            const next = clockwiseOf(context, last);
+            const next = layer.clockwiseOf(last);
             if (!candidateOf.has(next) || next === first) {
                 break;
             }
@@ -298,8 +283,8 @@ export function droppableBirths(
         }
         run.forEach(id => placed.add(id));
 
-        const widdershins = parentsOf(context, widdershinsOf(context, first));
-        const clockwise = parentsOf(context, clockwiseOf(context, last));
+        const widdershins = parentsOf(layer, layer.widdershinsOf(first));
+        const clockwise = parentsOf(layer, layer.clockwiseOf(last));
         const mayGo = widdershins === undefined
             || clockwise === undefined
             || widdershins.clockwise === clockwise.widdershins;
@@ -322,12 +307,8 @@ export function droppableBirths(
  * it names are never born, so they are not pending and the acceptance predicate is unchanged. Splicing them out at
  * {@link settleLayerLinks} touches no live bisector, because the ring holds none.
  */
-export function birthsClosedAtOneNode(context: StraightSkeletonSolverContext): Set<BisectionParams> {
+export function birthsClosedAtOneNode(layer: LayerLinks): Set<BisectionParams> {
     const closed = new Set<BisectionParams>();
-    const layer = layers.get(context);
-    if (layer === undefined) {
-        return closed;
-    }
     const placed = new Set<number>();
     for (const token of layer.pending.keys()) {
         if (placed.has(token)) {
@@ -359,13 +340,9 @@ export function birthsClosedAtOneNode(context: StraightSkeletonSolverContext): S
 
 /**
  * The layer is over: every pending bisector that was never born is spliced out, joining its two
- * neighbours, and the layer's records are discarded.
+ * neighbours, and the layer's records are discarded, leaving it as it was created.
  */
-export function settleLayerLinks(context: StraightSkeletonSolverContext): void {
-    const layer = layers.get(context);
-    if (layer === undefined) {
-        return;
-    }
+export function settleLayerLinks(layer: LayerLinks): void {
     for (const [token, links] of [...layer.pending.entries()].sort((a, b) => b[0] - a[0])) {
         if (!layer.pending.has(token)) {
             continue;
@@ -373,10 +350,14 @@ export function settleLayerLinks(context: StraightSkeletonSolverContext): void {
         layer.pending.delete(token);
         const clockwise = links.clockwise === token ? NOT_LIVE : links.clockwise;
         const widdershins = links.widdershins === token ? NOT_LIVE : links.widdershins;
-        setClockwise(context, widdershins, clockwise);
-        setWiddershins(context, clockwise, widdershins);
+        layer.setClockwise(widdershins, clockwise);
+        layer.setWiddershins(clockwise, widdershins);
     }
-    layers.delete(context);
+    layer.nextToken = NOT_LIVE - 1;
+    layer.tokenOf.clear();
+    layer.clockwiseSuccessor.clear();
+    layer.widdershinsSuccessor.clear();
+    layer.divisions.clear();
 }
 
 // ── The events' link writes (spec decision 9) ────────────────────────────────────────────────────
@@ -415,7 +396,7 @@ export function linkInitialRing(context: StraightSkeletonSolverContext, clockwis
  * once an exterior edge bounds two segments of one ring, two bisectors that share it need not be adjacent.
  */
 export function areNeighbours(context: StraightSkeletonSolverContext, a: number, b: number): boolean {
-    return clockwiseOf(context, a) === b || clockwiseOf(context, b) === a;
+    return storedClockwiseOf(context, a) === b || storedClockwiseOf(context, b) === a;
 }
 
 /**
@@ -427,10 +408,10 @@ export function pairCollapseSides(
     a: number,
     b: number,
 ): [number, number] | undefined {
-    if (clockwiseOf(context, a) === b) {
+    if (storedClockwiseOf(context, a) === b) {
         return [a, b];
     }
-    if (clockwiseOf(context, b) === a) {
+    if (storedClockwiseOf(context, b) === a) {
         return [b, a];
     }
     return undefined;
@@ -446,21 +427,20 @@ export function pairCollapseSides(
  * every ring.
  */
 export function linkPairCollapse(
-    context: StraightSkeletonSolverContext,
+    layer: LayerLinks,
     participants: readonly number[],
     widdershinsCollider: number,
     clockwiseCollider: number,
     params: BisectionParams,
 ): void {
-    if (clockwiseOf(context, widdershinsCollider) !== clockwiseCollider) {
+    if (layer.clockwiseOf(widdershinsCollider) !== clockwiseCollider) {
         throw new Error(`Pair collapse of e${widdershinsCollider} and e${clockwiseCollider}, which are not neighbours `
-            + `on the wavefront (e${widdershinsCollider}'s clockwise neighbour is e${clockwiseOf(context, widdershinsCollider)}).`);
+            + `on the wavefront (e${widdershinsCollider}'s clockwise neighbour is e${layer.clockwiseOf(widdershinsCollider)}).`);
     }
-    const widdershins = widdershinsOf(context, widdershinsCollider);
-    const clockwise = clockwiseOf(context, clockwiseCollider);
-    retireBisectors(context, participants);
-    const token = linkPendingBirth(context, params, widdershins, clockwise);
-    const layer = layerOf(context);
+    const widdershins = layer.widdershinsOf(widdershinsCollider);
+    const clockwise = layer.clockwiseOf(clockwiseCollider);
+    retireBisectors(layer.context, participants);
+    const token = linkPendingBirth(layer, params, widdershins, clockwise);
     layer.clockwiseSuccessor.set(clockwiseCollider, token);
     layer.widdershinsSuccessor.set(widdershinsCollider, token);
 }
@@ -472,20 +452,19 @@ export function linkPairCollapse(
  * sides standing for the struck segment's two ends.
  */
 export function linkVertexToVertex(
-    context: StraightSkeletonSolverContext,
+    layer: LayerLinks,
     instigator: number,
     target: number,
     first: BisectionParams,
     second: BisectionParams,
 ): void {
-    const instigatorClockwise = clockwiseOf(context, instigator);
-    const instigatorWiddershins = widdershinsOf(context, instigator);
-    const targetClockwise = clockwiseOf(context, target);
-    const targetWiddershins = widdershinsOf(context, target);
-    retireBisectors(context, [instigator, target]);
-    const firstToken = linkPendingBirth(context, first, targetWiddershins, instigatorClockwise);
-    const secondToken = linkPendingBirth(context, second, instigatorWiddershins, targetClockwise);
-    const layer = layerOf(context);
+    const instigatorClockwise = layer.clockwiseOf(instigator);
+    const instigatorWiddershins = layer.widdershinsOf(instigator);
+    const targetClockwise = layer.clockwiseOf(target);
+    const targetWiddershins = layer.widdershinsOf(target);
+    retireBisectors(layer.context, [instigator, target]);
+    const firstToken = linkPendingBirth(layer, first, targetWiddershins, instigatorClockwise);
+    const secondToken = linkPendingBirth(layer, second, instigatorWiddershins, targetClockwise);
     layer.clockwiseSuccessor.set(instigator, firstToken);
     layer.widdershinsSuccessor.set(target, firstToken);
     layer.clockwiseSuccessor.set(target, secondToken);
@@ -525,13 +504,13 @@ function alongEdge(context: StraightSkeletonSolverContext, edge: number, from: V
  * Every bisector, live or pending, on the ring through `start`: its orbit of clockwise links, in this
  * layer's current state. An orbit that breaks is returned as far as it went.
  */
-function ringThrough(context: StraightSkeletonSolverContext, start: number): Set<number> {
+function ringThrough(layer: LayerLinks, start: number): Set<number> {
     const ring = new Set<number>([start]);
-    const limit = context.wavefront.clockwiseNeighbour.length + (layers.get(context)?.pending.size ?? 0);
-    let current = clockwiseOf(context, start);
+    const limit = layer.context.wavefront.clockwiseNeighbour.length + layer.pending.size;
+    let current = layer.clockwiseOf(start);
     while (current !== start && current !== NOT_LIVE && !ring.has(current) && ring.size <= limit) {
         ring.add(current);
-        current = clockwiseOf(context, current);
+        current = layer.clockwiseOf(current);
     }
     return ring;
 }
@@ -550,19 +529,19 @@ interface Piece {
  * the bisectors on the striker's ring; it is read only when the segment has been cut.
  */
 function struckPiece(
-    context: StraightSkeletonSolverContext,
+    layer: LayerLinks,
     segment: WavefrontSegment,
     position: Vector2,
     ring: () => ReadonlySet<number>,
 ): Piece {
-    const layer = layerOf(context);
+    const {context} = layer;
     const segmentFrom = successorOn(context, layer.clockwiseSuccessor, segment.from);
     const to = successorOn(context, layer.widdershinsSuccessor, segment.to);
 
     // Walk the cuts earlier splits of this layer made in the segment, in order along the edge, into pieces.
     const pieces: Piece[] = [];
     let pieceFrom = segmentFrom;
-    let end = clockwiseOf(context, pieceFrom);
+    let end = layer.clockwiseOf(pieceFrom);
     for (let hops = 0; end !== to && hops < 64; hops++) {
         const division = layer.divisions.get(end);
         if (division === undefined || division.edge !== segment.exteriorEdge) {
@@ -570,7 +549,7 @@ function struckPiece(
         }
         pieces.push({from: pieceFrom, end, cut: division});
         pieceFrom = division.after;
-        end = clockwiseOf(context, pieceFrom);
+        end = layer.clockwiseOf(pieceFrom);
     }
     pieces.push({from: pieceFrom, end: to});
 
@@ -617,23 +596,22 @@ function struckPiece(
  * decision 17; C2′, where the ring's first piece is the wrong one).
  */
 export function linkSplit(
-    context: StraightSkeletonSolverContext,
+    layer: LayerLinks,
     instigator: number,
     segment: WavefrontSegment,
     position: Vector2,
     towardsClockwise: BisectionParams,
     towardsWiddershins: BisectionParams,
 ): void {
-    const layer = layerOf(context);
-    const struck = struckPiece(context, segment, position, () => ringThrough(context, instigator));
+    const struck = struckPiece(layer, segment, position, () => ringThrough(layer, instigator));
     const from = struck.from;
     const pieceEnd = struck.end;
 
-    const instigatorClockwise = clockwiseOf(context, instigator);
-    const instigatorWiddershins = widdershinsOf(context, instigator);
-    retireBisector(context, instigator);
-    const before = linkPendingBirth(context, towardsClockwise, from, instigatorClockwise);
-    const after = linkPendingBirth(context, towardsWiddershins, instigatorWiddershins, pieceEnd);
+    const instigatorClockwise = layer.clockwiseOf(instigator);
+    const instigatorWiddershins = layer.widdershinsOf(instigator);
+    retireBisector(layer.context, instigator);
+    const before = linkPendingBirth(layer, towardsClockwise, from, instigatorClockwise);
+    const after = linkPendingBirth(layer, towardsWiddershins, instigatorWiddershins, pieceEnd);
     layer.clockwiseSuccessor.set(instigator, before);
     layer.widdershinsSuccessor.set(instigator, after);
     layer.divisions.set(before, {edge: segment.exteriorEdge, position, after});
@@ -646,14 +624,13 @@ export function linkSplit(
  * merge itself once every gap is linked.
  */
 export function linkMergeGap(
-    context: StraightSkeletonSolverContext,
+    layer: LayerLinks,
     lastArrival: number,
     firstDeparture: number,
     params: BisectionParams,
 ): void {
-    const token = linkPendingBirth(context, params,
-        widdershinsOf(context, firstDeparture), clockwiseOf(context, lastArrival));
-    const layer = layerOf(context);
+    const token = linkPendingBirth(layer, params,
+        layer.widdershinsOf(firstDeparture), layer.clockwiseOf(lastArrival));
     layer.clockwiseSuccessor.set(lastArrival, token);
     layer.widdershinsSuccessor.set(firstDeparture, token);
 }
@@ -670,7 +647,7 @@ export function linkMergeGap(
  * by {@link linkSplit}'s piece rule, the striker's ring being the union of the rings through the two arrivals.
  */
 export function linkMergeGapOnWall(
-    context: StraightSkeletonSolverContext,
+    layer: LayerLinks,
     lastArrival: number,
     firstDeparture: number,
     segment: WavefrontSegment,
@@ -678,13 +655,12 @@ export function linkMergeGapOnWall(
     towardsClockwise: BisectionParams,
     towardsWiddershins: BisectionParams,
 ): void {
-    const layer = layerOf(context);
-    const struck = struckPiece(context, segment, position,
-        () => new Set([...ringThrough(context, lastArrival), ...ringThrough(context, firstDeparture)]));
-    const gapClockwise = clockwiseOf(context, lastArrival);
-    const gapWiddershins = widdershinsOf(context, firstDeparture);
-    const before = linkPendingBirth(context, towardsClockwise, struck.from, gapClockwise);
-    const after = linkPendingBirth(context, towardsWiddershins, gapWiddershins, struck.end);
+    const struck = struckPiece(layer, segment, position,
+        () => new Set([...ringThrough(layer, lastArrival), ...ringThrough(layer, firstDeparture)]));
+    const gapClockwise = layer.clockwiseOf(lastArrival);
+    const gapWiddershins = layer.widdershinsOf(firstDeparture);
+    const before = linkPendingBirth(layer, towardsClockwise, struck.from, gapClockwise);
+    const after = linkPendingBirth(layer, towardsWiddershins, gapWiddershins, struck.end);
     layer.clockwiseSuccessor.set(lastArrival, before);
     layer.widdershinsSuccessor.set(firstDeparture, after);
     layer.divisions.set(before, {edge: segment.exteriorEdge, position, after});
@@ -692,29 +668,36 @@ export function linkMergeGapOnWall(
 
 // ── The current step (skeleton join-and-divide spec, decisions 4 and 22) ─────────────────────────
 
-/*
- * WHICH STEP IS RUNNING. `handleAlgorithmStepInput` records the bisectors of the step it is about to handle, and
- * clears the record when the step returns or throws. The struck-segment search reads it: a split may strike only a
- * segment whose `from` stands in the current step (decision 4), because a ring of another step is another part of
- * the region. Outside a step — a direct call from a unit test — nothing is recorded and every segment is searched,
- * as before. Kept beside the layer's link state, keyed by context, and not on the context: it is the solver's
- * bookkeeping of one call, not part of the wavefront.
+/**
+ * WHICH STEP IS RUNNING. `handleAlgorithmStepInput` opens a scope for the step it is about to handle, holds it on the
+ * context as `context.step` while the step runs, and clears it when the step returns or throws. The struck-segment
+ * search reads it: a split may strike only a segment whose `from` stands in the current step (decision 4), because a
+ * ring of another step is another part of the region. Outside a step — a direct call from a unit test, or the
+ * dashboard pricing events between steps — `context.step` is `null` and every segment is searched.
+ *
+ * ON THE CONTEXT FOR THE REASON THE FLOOR IS: its one reader below the step's own handlers,
+ * `validateSplitReachesEdge`, is a context method reached from the event pricing four calls down.
  */
-const steps = new WeakMap<StraightSkeletonSolverContext, ReadonlySet<number>>();
-
-/** Record the step about to be handled: its bisectors, which the struck-segment search is restricted to. */
-export function beginStep(context: StraightSkeletonSolverContext, interiorEdgeIds: readonly number[]): void {
-    steps.set(context, new Set(interiorEdgeIds));
+export interface StepScope {
+    /** The step's bisectors, which the struck-segment search is restricted to. */
+    readonly members: ReadonlySet<number>;
 }
 
-/** The step has returned or thrown: nothing is recorded, and every segment is searched again. */
+/** Open the scope of the step about to be handled, held on the context until {@link endStep}. */
+export function beginStep(context: StraightSkeletonSolverContext, interiorEdgeIds: readonly number[]): StepScope {
+    const step: StepScope = {members: new Set(interiorEdgeIds)};
+    context.step = step;
+    return step;
+}
+
+/** The step has returned or thrown: no scope is held, and every segment is searched again. */
 export function endStep(context: StraightSkeletonSolverContext): void {
-    steps.delete(context);
+    context.step = null;
 }
 
 /** The bisectors of the step being handled, or `null` outside a step. */
 export function currentStepMembers(context: StraightSkeletonSolverContext): ReadonlySet<number> | null {
-    return steps.get(context) ?? null;
+    return context.step?.members ?? null;
 }
 
 /**
@@ -770,24 +753,24 @@ function exteriorGap(graph: StraightSkeletonGraph, from: number, to: number): nu
  * pending births as their tokens. A bisector this layer has not linked, or a ring the links cannot close, gives
  * whatever it walks — 0 for the first.
  */
-export function partitionArc(context: StraightSkeletonSolverContext, params: BisectionParams): number {
-    const layer = layers.get(context);
-    const token = layer?.tokenOf.get(params);
-    if (layer === undefined || token === undefined || !layer.pending.has(token)) {
+export function partitionArc(layer: LayerLinks, params: BisectionParams): number {
+    const {context} = layer;
+    const token = layer.tokenOf.get(params);
+    if (token === undefined || !layer.pending.has(token)) {
         return 0;
     }
     const limit = context.wavefront.clockwiseNeighbour.length + layer.pending.size;
     let arc = 0;
     let parent = params.clockwiseExteriorEdgeIndex;
-    let current = clockwiseOf(context, token);
+    let current = layer.clockwiseOf(token);
     for (let hops = 0; current !== token && hops <= limit; hops++) {
-        const next = parentsOf(context, current);
+        const next = parentsOf(layer, current);
         if (next === undefined) {
             break;
         }
         arc += exteriorGap(context.graph, parent, next.clockwise);
         parent = next.clockwise;
-        current = clockwiseOf(context, current);
+        current = layer.clockwiseOf(current);
     }
     return arc;
 }
@@ -1094,10 +1077,13 @@ export function checkWavefront(context: StraightSkeletonSolverContext, inputs: r
 // ── The standing gate's hook (spec decision 23) ──────────────────────────────────────────────────
 
 /**
- * The hook `checkWavefront`'s standing gate runs through. OFF IN A NORMAL SOLVE: its call sites read
- * {@link activeWavefrontProbe} and do nothing more when it is `null` — in `runSimplePolygon`, the boundary
- * after `initInteriorEdges`, the boundary after each `stepAlgorithm`, and `solveFinished` at the end; in
- * `runSimplePolygonStepped`, the same boundaries and no `solveFinished`. Installed only by the test suite.
+ * The hook `checkWavefront`'s standing gate runs through, held on the context as `context.probe`. OFF IN A NORMAL
+ * SOLVE: its call sites read `context.probe` and do nothing more when it is `null` — in `runSimplePolygon`, the
+ * boundary after `initInteriorEdges`, the boundary after each `stepAlgorithm`, and `solveFinished` at the end; in
+ * `runSimplePolygonStepped`, the same boundaries and no `solveFinished`; and the two holed rules' firings.
+ *
+ * A context takes its probe when it is made, from {@link setWavefrontProbe}'s installation, so a test installs one
+ * around the public solve it watches and every context that solve makes carries it. Installed only by the test suite.
  */
 export interface WavefrontProbe {
     /** After `initInteriorEdges`, and after each `stepAlgorithm` returns, with the inputs still to run. */
@@ -1112,12 +1098,12 @@ export interface WavefrontProbe {
 
 let installedProbe: WavefrontProbe | null = null;
 
-/** Install (or, with `null`, remove) the gate's probe. Test-side only. */
+/** Install (or, with `null`, remove) the probe every context made from now on carries. Test-side only. */
 export function setWavefrontProbe(probe: WavefrontProbe | null): void {
     installedProbe = probe;
 }
 
-/** The installed probe, or `null` in a normal solve. */
+/** The installed probe, which a context made now takes as `context.probe`; `null` in a normal solve. */
 export function activeWavefrontProbe(): WavefrontProbe | null {
     return installedProbe;
 }

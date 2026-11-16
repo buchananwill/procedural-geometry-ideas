@@ -22,7 +22,7 @@
 import type {BisectionParams, Vector2} from '@proc-geo/core';
 import {initInteriorEdges, makeStraightSkeletonSolverContext, setSkeletonLogLevel} from '@proc-geo/core';
 import {crossRingRuns} from '@proc-geo/core/straight-skeleton/coincident-events';
-import {beginLayerLinks, linkBirth, linkSplit} from '@proc-geo/core/straight-skeleton/wavefront';
+import {LayerLinks, linkBirth, linkSplit} from '@proc-geo/core/straight-skeleton/wavefront';
 import {
     HOLED_F1 as F1,
     HOLED_F1_HOLE as F1_HOLE,
@@ -458,12 +458,12 @@ describe('the piece rule takes the piece by position when no piece on the ring c
             B2: params(1, 2), A2: params(2, 0),
             B3: params(6, 2), A3: params(2, 5),
         };
-        beginLayerLinks(context);
-        linkSplit(context, 12, segment, {x: 10, y: 7}, births.B1, births.A1);
-        linkSplit(context, 9, segment, {x: 10, y: 3}, births.B2, births.A2);
-        linkSplit(context, 14, segment, {x: 10, y: 1}, births.B3, births.A3);
+        const layer = new LayerLinks(context);
+        linkSplit(layer, 12, segment, {x: 10, y: 7}, births.B1, births.A1);
+        linkSplit(layer, 9, segment, {x: 10, y: 3}, births.B2, births.A2);
+        linkSplit(layer, 14, segment, {x: 10, y: 1}, births.B3, births.A3);
         // Every pending birth born, so the links read as ids: B1 100, A1 101, B2 102, A2 103, B3 104, A3 105.
-        Object.values(births).forEach((birth, k) => linkBirth(context, birth, 100 + k));
+        Object.values(births).forEach((birth, k) => linkBirth(layer, birth, 100 + k));
         const {clockwiseNeighbour, widdershinsNeighbour} = context.wavefront;
         // B3 opens behind the strike on the struck piece's `from`, which is A2: P2's start, not b10, P0's.
         expect(widdershinsNeighbour[104]).toBe(103);

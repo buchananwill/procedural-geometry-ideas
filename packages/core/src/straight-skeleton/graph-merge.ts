@@ -272,6 +272,9 @@ export function makeMergedSolverContext(
         // Nothing runs against a merged context, so nothing adds to this; it is here so the shape is
         // one shape.
         diagnostics: [],
+        // No step runs against a merged context, and no probe watches it.
+        step: null,
+        probe: null,
         getEdgeWithId: (id: number) => graph.edges[id],
         getEdges: (ids: number[]) => ids.map(id => graph.edges[id]),
         getEdgeWithInterior: notSupported('getEdgeWithInterior'),

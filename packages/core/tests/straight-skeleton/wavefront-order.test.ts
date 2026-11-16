@@ -13,6 +13,7 @@ import {
     checkWavefront,
     collideEdges,
     handleCollisionEvent,
+    LayerLinks,
     ringsOfWavefront,
     setSkeletonLogLevel,
 } from '@proc-geo/core';
@@ -20,7 +21,6 @@ import {selectPartitionEvents} from '@proc-geo/core/straight-skeleton/algorithm-
 import {priceHeadOnPair} from '@proc-geo/core/straight-skeleton/collision-helpers';
 import {
     activeWavefrontProbe,
-    beginLayerLinks,
     linkBirth,
     linkInitialRing,
     linkPairCollapse,
@@ -129,13 +129,13 @@ describe('the wavefront links', () => {
      */
     describe('the pairwise events write their links (decision 9)', () => {
         const resolveLayer = (context: StraightSkeletonSolverContext, event: CollisionEvent): number[] => {
-            beginLayerLinks(context);
-            const born = handleCollisionEvent(event, context).map(params => {
+            const layer = new LayerLinks(context);
+            const born = handleCollisionEvent(event, context, layer).map(params => {
                 const id = bisectWithParams(context, params);
-                linkBirth(context, params, id);
+                linkBirth(layer, params, id);
                 return id;
             });
-            settleLayerLinks(context);
+            settleLayerLinks(layer);
             return born;
         };
         const eventOf = (context: StraightSkeletonSolverContext, first: number, second: number, type: string) => {
@@ -159,10 +159,10 @@ describe('the wavefront links', () => {
             // the collapse's two outer neighbours linked to each other, and no pending token left anywhere.
             const context = initContext([{x: 0, y: 1}, {x: 4, y: 1}, {x: 4, y: 0}, {x: 0, y: 0}]);
             const [b0, b1, b2, b3] = interiorIds(context);
-            beginLayerLinks(context);
-            expect(handleCollisionEvent(eventOf(context, b1, b2, 'interiorPair'), context)).toHaveLength(1);
+            const layer = new LayerLinks(context);
+            expect(handleCollisionEvent(eventOf(context, b1, b2, 'interiorPair'), context, layer)).toHaveLength(1);
             expect(context.wavefront.clockwiseNeighbour[b0]).toBeLessThan(-1);
-            settleLayerLinks(context);
+            settleLayerLinks(layer);
             expect(context.wavefront.clockwiseNeighbour[b0]).toBe(b3);
             expect(context.wavefront.widdershinsNeighbour[b3]).toBe(b0);
             expect(ringsOfWavefront(context, [b0])).toEqual([[b0, b3]]);
@@ -254,23 +254,24 @@ describe('the wavefront links', () => {
             expect(context.getInteriorWithId(to).widdershinsExteriorEdgeIndex).toBe(0);
             const segment: WavefrontSegment = {exteriorEdge: 0, from, to};
             const instigators = {Ix, Iy};
-            beginLayerLinks(context);
+            const layer = new LayerLinks(context);
             const borne = new Map<'Ix' | 'Iy', BisectionParams[]>();
             for (const name of order) {
-                borne.set(name, handleCollisionEvent(splitOf(instigators[name], segment), context));
+                borne.set(name, handleCollisionEvent(splitOf(instigators[name], segment), context, layer));
             }
             const handled = order.flatMap(name => borne.get(name)!);
             expect(handled).toHaveLength(4);
-            return {context, ids: {from, to, P, Q, R}, borne, handled};
+            return {context, layer, ids: {from, to, P, Q, R}, borne, handled};
         };
 
-        const bearAndSettle = (context: StraightSkeletonSolverContext, params: BisectionParams[]) => {
+        const bearAndSettle = (layer: LayerLinks, params: BisectionParams[]) => {
+            const {context} = layer;
             const ids = new Map(params.map(p => {
                 const id = bisectWithParams(context, p);
-                linkBirth(context, p, id);
+                linkBirth(layer, p, id);
                 return [p, id] as const;
             }));
-            settleLayerLinks(context);
+            settleLayerLinks(layer);
             return ids;
         };
 
@@ -286,7 +287,7 @@ describe('the wavefront links', () => {
 
         it.each(ORDERS)('the later split takes the piece on its own ring (%s, then %s)', (...order) => {
             const layer = coincidentLayer(order);
-            expectThreeRings(layer, bearAndSettle(layer.context, layer.handled));
+            expectThreeRings(layer, bearAndSettle(layer.layer, layer.handled));
         });
 
         it.each(ORDERS)('the same-start, same-source dedupe keeps a bisector W2 needs (%s, then %s)', (...order) => {
@@ -294,8 +295,8 @@ describe('the wavefront links', () => {
             // sited on), which is the dedupe's key for a re-report of one split. They are two splits, and
             // splicing either out leaves its two neighbours with parents that do not meet.
             const layer = coincidentLayer(order);
-            const kept = selectPartitionEvents(layer.context, layer.handled);
-            expectThreeRings(layer, bearAndSettle(layer.context, kept));
+            const kept = selectPartitionEvents(layer.layer, layer.handled);
+            expectThreeRings(layer, bearAndSettle(layer.layer, kept));
         });
     });
 
@@ -345,13 +346,13 @@ describe('the wavefront links', () => {
 
         it('the pair collapse refuses two bisectors that are not neighbours', () => {
             const {context, b0, b1} = oneRingWithThreeSegmentsOfEdge0();
-            beginLayerLinks(context);
+            const layer = new LayerLinks(context);
             const params: BisectionParams = {
                 clockwiseExteriorEdgeIndex: context.getInteriorWithId(b1).clockwiseExteriorEdgeIndex,
                 widdershinsExteriorEdgeIndex: context.getInteriorWithId(b0).widdershinsExteriorEdgeIndex,
                 source: 0,
             };
-            expect(() => linkPairCollapse(context, [b0, b1], b0, b1, params)).toThrow(/not neighbours/);
+            expect(() => linkPairCollapse(layer, [b0, b1], b0, b1, params)).toThrow(/not neighbours/);
         });
 
         it('the pair collapse takes its sides from the links, whichever collider instigates', () => {
@@ -362,14 +363,14 @@ describe('the wavefront links', () => {
                 const [b0, b1, b2, b3] = interiorIds(context);
                 const event = collideEdges(b1, b2, context).find(candidate => candidate.eventType === 'interiorPair');
                 expect(event).toBeDefined();
-                beginLayerLinks(context);
+                const layer = new LayerLinks(context);
                 const [collapse] = handleCollisionEvent(
-                    swap ? {...event!, collidingEdges: [b2, b1]} : event!, context);
+                    swap ? {...event!, collidingEdges: [b2, b1]} : event!, context, layer);
                 expect(collapse.widdershinsExteriorEdgeIndex).toBe(context.getInteriorWithId(b1).widdershinsExteriorEdgeIndex);
                 expect(collapse.clockwiseExteriorEdgeIndex).toBe(context.getInteriorWithId(b2).clockwiseExteriorEdgeIndex);
                 const born = bisectWithParams(context, collapse);
-                linkBirth(context, collapse, born);
-                settleLayerLinks(context);
+                linkBirth(layer, collapse, born);
+                settleLayerLinks(layer);
                 expect(ringsOfWavefront(context, [b0])).toEqual([[b0, born, b3]]);
             }
         });

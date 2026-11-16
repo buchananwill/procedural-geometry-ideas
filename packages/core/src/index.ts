@@ -182,6 +182,8 @@ export {
 
 // ── Collision handling ───────────────────────────────────────────────────────
 export { default as handleCollisionEvent } from './straight-skeleton/collision-handling';
+// The link state of the layer an event belongs to, which `handleCollisionEvent` writes its pending births into.
+export { LayerLinks } from './straight-skeleton/wavefront';
 
 // ── Split events ─────────────────────────────────────────────────────────────
 export {

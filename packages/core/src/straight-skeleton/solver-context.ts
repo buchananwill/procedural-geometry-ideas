@@ -11,7 +11,7 @@ import {
     Vector2,
     WavefrontSegment
 } from "./types";
-import {currentStepMembers, makeWavefront, wavefrontSegmentsOf} from "./wavefront";
+import {activeWavefrontProbe, currentStepMembers, makeWavefront, wavefrontSegmentsOf} from "./wavefront";
 import {addInEdges, initBoundingPolygon} from "./graph-helpers";
 import {
     addVectors,
@@ -278,6 +278,8 @@ export function makeStraightSkeletonSolverContext(
         simultaneityWindow: window,
         positionUncertainties,
         diagnostics: [],
+        step: null,
+        probe: activeWavefrontProbe(),
         getEdgeWithId,
         getEdges(idList: number[]): PolygonEdge[] {
             return idList.map(getEdgeWithId)
