@@ -4,12 +4,11 @@ import {
     crossProduct,
     directionsAreSame,
     dotProduct,
-    negateVector,
-    rotateCw90,
     sineIsBelow,
     sizeOfVector,
     subtractVectors,
 } from "./core-functions";
+import {inwardDistanceFromWall, wallsAreAntiparallel} from "./wall-time";
 import {ringPerimeter, segmentSegmentIntersection, signedArea} from "./planar-geometry";
 import {isEndpointTouch} from "./polygon-decomposition";
 import {bisectWithParams} from "./algorithm-helpers";
@@ -83,14 +82,12 @@ function wallBasis(context: StraightSkeletonSolverContext, wall: number): Vector
 /** Are this bisector's two parents antiparallel: is it a LEVEL member, a ridge between two facing fronts (decision 19)? */
 function isLevel(context: StraightSkeletonSolverContext, id: number): boolean {
     const edge = context.getInteriorWithId(id);
-    return directionsAreSame(wallBasis(context, edge.clockwiseExteriorEdgeIndex),
-        negateVector(wallBasis(context, edge.widdershinsExteriorEdgeIndex)), context.angularResolution);
+    return wallsAreAntiparallel(context, edge.clockwiseExteriorEdgeIndex, edge.widdershinsExteriorEdgeIndex);
 }
 
 /** How far `point` lies off wall `wall`'s front at `time`: `n_W · (p − A_W) − w_W · t` (decision 13). */
 function offFront(context: StraightSkeletonSolverContext, wall: number, point: Vector2, time: number): number {
-    return dotProduct(rotateCw90(wallBasis(context, wall)), subtractVectors(point, context.sourcePosition(wall)))
-        - context.weightOf(wall) * time;
+    return inwardDistanceFromWall(context, wall, point) - context.weightOf(wall) * time;
 }
 
 /** Each member joins the first node whose seed lies within δ of it, in ring order, or seeds a new node (decision 11). */
@@ -186,8 +183,7 @@ function stretchesOf(context: StraightSkeletonSolverContext, pieces: Piece[]): F
     if (sameWay !== undefined) {
         return fail('stretch-same-way', `the stretch between nodes ${sameWay[0]} is covered twice the same way`);
     }
-    const parallel = pairs.find(([, [first, second]]) => !directionsAreSame(
-        wallBasis(context, first.wall), negateVector(wallBasis(context, second.wall)), context.angularResolution));
+    const parallel = pairs.find(([, [first, second]]) => !wallsAreAntiparallel(context, first.wall, second.wall));
     if (parallel !== undefined) {
         return fail('stretch-walls-not-antiparallel', `the stretch between nodes ${parallel[0]} lies on walls `
             + `${parallel[1][0].wall} and ${parallel[1][1].wall}, which are not antiparallel`);

@@ -1,7 +1,7 @@
 import {
     AlgorithmStepInput,
     Arrival, BisectionParams, CollisionEvent, ResolvableEvent, SplitEvent,
-    StraightSkeletonSolverContext, Vector2, WavefrontSegment
+    StraightSkeletonSolverContext, WavefrontSegment
 } from "./types";
 import {byArrival, compareArrivals, findOrComputeCollision, priceHeadOnPair, timeOf} from "./collision-helpers";
 import {HELD_SIMULTANEITY_WINDOW, mergeDisplacementUncertainty} from "./constants";
@@ -14,7 +14,7 @@ import {
     inPlaceOrder,
     nearerAlongSharedBisector,
 } from "./event-order";
-import {rotateCw90} from "./core-functions";
+import {inwardDistanceFromWall} from "./wall-time";
 import {applyDegenerateClosure, climbTerminalLadder} from "./algorithm-termination-cases";
 import handleCollisionEvent from "./collision-handling";
 import {bisectWithParams} from "./algorithm-helpers";
@@ -48,13 +48,6 @@ import {
     settleLayerLinks
 } from "./wavefront";
 
-/** The inward perpendicular distance of `point` from wall `wallId`'s supporting line, through its stored source. */
-function distanceFromWallLine(point: Vector2, wallId: number, context: StraightSkeletonSolverContext): number {
-    const normal = rotateCw90(context.getEdgeWithId(wallId).basisVector);
-    const source = context.sourcePosition(wallId);
-    return normal.x * (point.x - source.x) + normal.y * (point.y - source.y);
-}
-
 /**
  * A NODE CARRIES WHERE IT WAS PUT (journal-5 decisions 170 and 171(c)): raise `nodeId`'s position budget to
  * the largest equi-time residual, at the node, of the bisectors it emits — {@link mergeDisplacementUncertainty}
@@ -76,9 +69,9 @@ function chargeSitingResidual(nodeId: number, bisections: BisectionParams[], con
     context.positionUncertainties[nodeId] = Math.max(
         context.positionUncertainties[nodeId] ?? 0,
         ...bisections.map(params => mergeDisplacementUncertainty(
-            distanceFromWallLine(position, params.clockwiseExteriorEdgeIndex, context),
+            inwardDistanceFromWall(context, params.clockwiseExteriorEdgeIndex, position),
             context.weightOf(params.clockwiseExteriorEdgeIndex),
-            distanceFromWallLine(position, params.widdershinsExteriorEdgeIndex, context),
+            inwardDistanceFromWall(context, params.widdershinsExteriorEdgeIndex, position),
             context.weightOf(params.widdershinsExteriorEdgeIndex))));
 }
 

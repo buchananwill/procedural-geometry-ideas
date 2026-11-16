@@ -9,7 +9,6 @@ import {
     crossProduct,
     directionsAreSame,
     dotProduct,
-    negateVector,
     rotateCw90,
     scaleVector,
     sizeOfVector,
@@ -18,6 +17,7 @@ import {
 import {ARITHMETIC_SAME_POINT_BOX} from "./constants";
 import {byArrival} from "./collision-helpers";
 import {byEdgeIds} from "./event-order";
+import {wallsAreAntiparallel} from "./wall-time";
 import {linkMergeGap, linkMergeGapOnWall} from "./wavefront";
 
 /**
@@ -528,7 +528,7 @@ function gapDirection(gap: MergeGap, context: StraightSkeletonSolverContext): Ve
     const widdershins = context.getEdgeWithId(gap.widdershinsWall).basisVector;
     const clockwiseWeight = context.weightOf(gap.clockwiseWall);
     const widdershinsWeight = context.weightOf(gap.widdershinsWall);
-    if (directionsAreSame(clockwise, negateVector(widdershins), context.angularResolution)) {
+    if (wallsAreAntiparallel(context, gap.clockwiseWall, gap.widdershinsWall)) {
         return clockwise;
     }
     if (directionsAreSame(clockwise, widdershins, context.angularResolution)) {
