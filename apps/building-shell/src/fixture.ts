@@ -434,9 +434,9 @@ export interface HoledRefusal { fixture: ShellFixture; kind: HoledRefusalKind; i
  * (BSA.D266, BSA.D311); a cure turns it red, and the entry is promoted to a fixture. None is asserted as roofed.
  *
  * It holds two grid draws of the two-courtyard fuzz (`holed-grid-fuzz.test.ts`, seed 1) that neither the flat-ring nor
- * the third-front rule reaches (skeleton flat-ring and third-front spec, decisions 52 and 53): in each, one hole's two
- * corners and the other hole's one corner meet at one node at one moment, a vertex event across rings of three runs,
- * whose pairing the links cannot read (simultaneous-rings decision 21).
+ * the third-front rule reaches (skeleton flat-ring and third-front spec, decisions 52 and 53): in each, the two root
+ * corners of the outline's wing and the near hole's one corner meet at one node at one moment, a vertex event across
+ * rings of three runs, whose pairing the links cannot read (simultaneous-rings decision 21).
  * - `GridDraw523` (`uniform-1-523`): a 1350 by 700 block with a wing on its E side, round the holes `[900, 300, 1150,
  *   450]` and `[150, 200, 550, 600]`.
  * - `GridDraw1977` (`uniform-1-1977`): a 1750 by 1000 block with a wing on its E side, round the holes `[1050, 500,

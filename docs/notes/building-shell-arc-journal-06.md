@@ -226,6 +226,9 @@ session 3's own.
   makes no node, because no specimen of one exists since E′ was cured; decision 19 reads a level member's direction from
   its node and parents and never its basis, which `addBisectionEdge` can reverse on a near-antiparallel ridge; whether
   two gaps can truly face one wall is unproved.
+- **Building-shell's viewer imports from `tests/` in six places** (BSA.F122): `GOLDEN_FIXTURES` in `viewer/main.ts`, the
+  pin table, residue pins and robustness fixtures in `viewer/pinned-cases.ts`, a type in `viewer/defect-sources.ts`. The
+  C++ port does not take the viewer, so it is not fixed in this arc's close-out.
 
 ## Decisions
 
@@ -644,6 +647,42 @@ session 3's own.
     two remaining refusals, both decision-21 three-run meetings, at the three-front note that is now resolved; core's
     README teaches the two entries the pass deprecated; the old `cpp-port-handoff.md` never listed the holed modules and
     needs a full file map in the new handoff.
+- **367. The tree after the entropy pass is accepted as verified (BSA.F122), and the three things the pass left are
+  ordered as one small unit before the merge.**
+  - **Node 5's decision 22 is narrowed, not replaced:** it governs a layer not resolved whole, and a layer resolved
+    whole goes to the flat-ring spec's decisions 30 to 42. Written as a dated amendment under it, its text kept.
+  - **The two remaining refusals get an issue note of their own.** `GridDraw523` and `GridDraw1977` are vertex events
+    across rings of three runs, refused by name under node 5's decision 21: valid inputs the solver declines.
+    `HOLED_REFUSAL_ISSUES` points at the three-front note, now resolved, so a new open issue note records the three-run
+    meeting and the table points at it. Each is a guard with a test green on the guard, which is one of the two forms
+    BSA.D336 allows; the note is there so the port sees them as a known gap. Put to the user as the lead's intended
+    ruling on 2026-11-16 and not objected to.
+  - **Core's README teaches `solveSkeleton` and `solveSkeletonStepped`,** the two legacy entries named once as
+    deprecated.
+  - **Not ordered:** the viewer's six imports from `tests/` (BSA.F122), an open item.
+- **368. The three leftovers of BSA.D367 are in at `805ca01`, `719568c` and `762198f`, and the branch is ready for the
+  merge, which waits on the user.**
+  - **Node 5's spec is `skeleton-simultaneous-rings-decisions.md`.** Its decision 22 carries an amendment narrowing it
+    to a layer not resolved whole; a meeting on a third front in a layer resolved whole is resolved by the flat-ring
+    spec's decisions 30 to 42 and refused only under its decision 44.
+  - **`ISSUE-skeleton-three-run-vertex-event-refused.md` is open** and `HOLED_REFUSAL_ISSUES` points at it. Measured by
+    the implementer's run: on `uniform-1-523` the two root corners of the outline's wing and the near hole's corner
+    reach (1250, 550) at t = 100; the two wing corners are separate runs on the joined ring, so the event gathers three
+    runs and is refused under decision 21 as `simultaneous-across-rings`. `uniform-1-1977` is the same shape, at (1650,
+    800). The true skeleton is not derived and no cure is designed.
+  - **Core's README teaches `solveSkeleton` and `solveSkeletonStepped`,** holes included, its samples type-checked
+    against core's source and run; the legacy pair is named once as deprecated.
+  - **The implementer's figures:** notes check 0 errors and the same 2 length warnings; golden 814 of 814 with nothing
+    under `golden/` modified; `holed-roof.test.ts` 16 of 16; `viewer-catalogue.test.ts` 42 of 42; three core suites 229
+    of 229; building-shell's typecheck clean.
+  - **Corrected by the lead, uncommitted, both text only:** the doc comment on `HOLED_REFUSALS` in
+    `apps/building-shell/src/fixture.ts`, which said one hole's two corners where the run shows the wing's two root
+    corners; and core's README, which counted 59 fixtures where the rosters hold 60 single loops (BSA.F92) and 21 with
+    holes.
+  - **Left:** `HOLED_REFUSAL_ISSUES['multi-ring-step-refused']` points at the zero-area-ring note, now resolved for
+    multi-ring steps; no entry uses that kind.
+  - **Since the independent verification of BSA.F122,** the code has changed by one string in `fixture.ts` and one
+    comment; the golden test was re-run on the first.
 
 ## Findings
 
@@ -894,3 +933,31 @@ session 3's own.
     on a sound wavefront.
   - **Not examined:** the error-budget arithmetic of the collision and split files; no spec was consulted for the
     decision numbers cited in comments.
+- **F122. The tree after the entropy pass verifies independently: every suite at the writers' figures, all ten sweep
+  files byte-identical to the baseline taken on `1503dac`, and every mutation gate of the flat-ring spec's decision 55
+  red on the restructured code.** (an independent Sonnet verifier on 07c9f41 (the code of ae63ed7), 2026-11-16; its own
+  runs, mutations in its own copy)
+  - **Suites:** core 6,714 passed, 8 failed, 10 skipped; building-shell 9,886 passed, 1 failed; dashboard 609. Typecheck
+    clean on core, test-fixtures and building-shell; the dashboard's 4 errors are all in `DolProductionComposer.tsx`. No
+    difference from the implementers' figures.
+  - **The nine red tests are the nine of BSA.F116,** each named by an issue note whose status is open: five in
+    `weighted-time-order.test.ts`, three in `straight-bisector.test.ts`, `uniform-1-129` in `holed-grid-fuzz.test.ts`.
+    No failing test is without a note.
+  - **Sweep:** the verifier re-hashed the baseline's own files against its README first, then regenerated; all ten match
+    on the full SHA-256.
+  - **Gates, each site found by what the code does:** one successor only in `cutSegment`, either one dropped, 3 grid
+    tests red; choosing the clear gap, 10 red; refusing positive area, 4 red, and negative, 2 red; `n_wall·v < w_wall`
+    for the sign test, with and without the grazing refusal, 5 red; each of the 12 clauses of `flat-rings.ts`, its own
+    unit test red; dropping the weight from the front's offset, 3 red; refusing a third front in place of resolving it,
+    8 red in core and 36 in building-shell's `holed-fixtures.test.ts`; running the flat rule on one-ring steps, 5 pinned
+    digests red. No gate stayed green.
+  - **Not separated:** with `stretch-cover-count` dropped, its test's red may be a `TypeError` thrown downstream and not
+    a wrong verdict. The slow sound-roof tests of the grid fuzz were not run under the first gate's mutant.
+  - **Structure, by a compiler-API pass over the 47 files of the solver, 211 imports:** no cycle between
+    `algorithm-complex-cases.ts` and any of the five termination-side modules; one runtime cycle in the folder,
+    `collision-helpers.ts` with `generate-split-event.ts`, which predates the pass; eight more closed only by type-only
+    edges. No file of the solver imports from `random-polygon`, `stroke-spline` or `terrain`.
+  - **One claim does not hold: building-shell's `src` still imports from `tests/` in six places,** all under
+    `src/viewer/`: `GOLDEN_FIXTURES` in `main.ts`, the pin table, the residue pins and the robustness fixtures in
+    `pinned-cases.ts`, a type in `defect-sources.ts`. R10 moved only `HOLED_REFUSALS`. Nothing outside the viewer does.
+  - The tree's tracked files were unchanged by the run.
