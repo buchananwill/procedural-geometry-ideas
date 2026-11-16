@@ -14,7 +14,7 @@ import {
     inPlaceOrder,
     nearerAlongSharedBisector,
 } from "./event-order";
-import {applyDegenerateClosure, climbTerminalLadder} from "./algorithm-termination-cases";
+import {applyDegenerateClosure, climbTerminalLadder} from "./terminal-ladder";
 import handleCollisionEvent from "./collision-handling";
 import {bisectWithParams} from "./algorithm-helpers";
 import {chargeSitingResidual, coincidentEventPositions} from "./coincident-events";

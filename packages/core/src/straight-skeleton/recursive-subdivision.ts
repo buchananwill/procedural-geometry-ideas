@@ -1,8 +1,7 @@
-import type {SkeletonSolveResult, Vector2} from './types';
-import {solveSkeleton} from './algorithm-termination-cases';
+import type {PerceptualFloorOptions, SkeletonSolveResult, Vector2} from './types';
+import {solveSkeleton} from './solve-entry';
 import {
     canonicalisePolygon,
-    PerceptualFloorOptions,
     REMOVED_VERTEX_INDEX,
     resolvePerceptualFloor,
 } from './canonicalisation';

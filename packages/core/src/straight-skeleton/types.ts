@@ -599,3 +599,179 @@ export interface SkeletonSolveResult {
      */
     loopMaps: SkeletonLoopMap[] | null;
 }
+
+/**
+ * The client's perceptual floor, taken once and applied to every floor-derived bar in the solve.
+ *
+ * ONE FLOOR, SET ONCE, IN UNIT SPACE. Journal decision 106: the solver must not create geometry the
+ * client will throw away in its renderer, so the value that decides "can this be seen?" belongs to
+ * the client, not to this module. {@link SKELETON_NOISE_FLOOR} is the library DEFAULT — conservative,
+ * for a headless consumer with no rendering limits to measure — and a client with a known zoom cap
+ * derives its own and passes it here. Omitting the option is byte-identical to the behaviour before
+ * the option existed.
+ *
+ * EVERY PERCEPTUAL QUESTION IN THE SOLVE READS THIS ONE FLOOR (C8 spec T2, T25; journal decisions 144
+ * and 157). An earlier version of this comment said "exactly two production bars are floor-derived";
+ * that stopped being true with the angular package and is false now. Under the tolerance-derivation
+ * package's category rule, a comparison that decides a QUESTION the arithmetic cannot decide — about
+ * input geometry, or about candidate events before any node exists — takes δ, and the solve derives
+ * every such bar from this value once, at context construction:
+ *
+ *   - {@link canonicalisePolygon}'s deviation bar — "this boundary vertex cannot be seen, so the
+ *     solver never sees it either" — the ROOT floor restated in region units by the recursion driver,
+ *     strictly below (the same inequality as every other "same point before any node" bar, T7);
+ *   - the coincidence clustering's `isOneEvent` bar (`coincident-events.ts`), anchored (decision 155);
+ *   - the coaxiality lane, `coaxialityFloor(δ) = δ` (spec A9/A10);
+ *   - the angular resolution, `angularResolution(δ)` (spec A1–A8);
+ *   - the simultaneity window's cap, `simultaneityWindow(δ) = δ` (C8 spec T12–T14; its seven sites are
+ *     held at a measured STOP);
+ *   - the degeneracy bar, `degenerateAreaBar(δ, perimeter)` — the root floor restated in caller units in
+ *     the recursion, the solve's floor in unit space in the decomposition (T23, O3 form (b));
+ *   - the solver's own causality check (journal decisions 148, 149);
+ *   - the weight door's two bounds, `maxWeightRatio(δ)` and `minWeightTurnSine(δ, Δw)` (T21, T22).
+ *
+ * What is NOT floor-derived is so by the same rule, not by exemption: a comparison whose acceptance
+ * DISCARDS OR SUBSTITUTES an answer already produced takes the unit roundoff (`findOrAddNode`'s
+ * same-point bar, whose derivation is held by its O1 STOP; the moment bar `ARRIVAL_MOMENT_ULPS`), and
+ * a division guard takes its own rounding bound. The strip and parcel constants
+ * are classified and not re-derived (T27, O5); and the test-side bars are instruments, held tighter
+ * than any floor on purpose (audit §7.1 decision 5).
+ *
+ * WHAT THE OPTION CHANGES IS WHERE A VALUE COMES FROM, NEVER WHAT IT MEANS. Each bar above keeps its
+ * own space and its own predicate exactly as it had them; only the number substituted
+ * for {@link SKELETON_NOISE_FLOOR} is the client's. In particular the recursion driver's root-floor
+ * pass-down is untouched: the canonicalisation bar is still the ROOT's floor restated in the region's
+ * units while the coincidence bar is still the raw floor in whatever unit space the region has. That
+ * asymmetry is audit §7.2 decision 9, still OPEN, and this option does not settle it.
+ */
+export interface PerceptualFloorOptions {
+    /**
+     * The smallest separation the client can render as two things rather than one, IN UNIT SPACE —
+     * a fraction of the polygon's own extent, because the solve is normalised to unit extent before
+     * anything looks at it. Defaults to {@link SKELETON_NOISE_FLOOR}.
+     *
+     * Derive it, do not pick it: viewport pixels ÷ (zoom cap × the reference world extent) is the
+     * chain, and `apps/demo` carries a worked example at its two solver pages.
+     */
+    perceptualFloor?: number;
+}
+
+/**
+ * Per-edge wavefront speeds (arc journal decision 112(a), W-spec W1–W4).
+ *
+ * ONE ENTRY PER INPUT VERTEX. `weights[i]` is the speed of the edge from vertex `i` to vertex
+ * `(i + 1) % n`. Omitted, or an empty array, means all ones — which is bit-identical to the
+ * unweighted solver by construction, because every weighted site multiplies or divides by exactly
+ * `1.0` and there is no branch on unit weights anywhere (W-spec W36).
+ *
+ * WHAT A WEIGHT MEANS. The wavefront of edge `i` stands at perpendicular distance `w_i · t` from its
+ * supporting line at time `t`, so a fast edge sweeps further in the same time and its face in the
+ * skeleton grows at its expense of its neighbours'. In the roof reading, `w` is the tangent of the
+ * pitch: a shallow roof plane over a fast edge, a steep one over a slow edge.
+ *
+ * THREE THINGS ARE REFUSED, LOUDLY, AT THE DOOR:
+ *
+ *  1. a weight that is not finite and strictly positive (W-spec W2) — zero and infinite weights have
+ *     no well-posed vertex velocity, and a gable is a post-process on an all-positive solve;
+ *  2. `max / min` above `maxWeightRatio(δ)` (W-spec W3, W48; C8 spec T22);
+ *  3. a weight change at a vertex whose turn sine is below `minWeightTurnSine(δ, Δw)` (W-spec W49, C8 spec T21,
+ *     arc decision 124(b)) — **weights may change only at a visible corner**.
+ *
+ * The array is normalised so the slowest edge has weight exactly `1` before anything reads it
+ * (W-spec W4); `SkeletonSolveResult.weights` reports the normalised, remapped array the solve ran on.
+ */
+export interface WeightOptions {
+    weights?: readonly number[];
+}
+
+/**
+ * A hole in the outline (skeleton loops-input spec, decisions 1 and 2): a closed ring and, optionally, its own
+ * per-edge weights with the meaning of {@link WeightOptions.weights}; omitted or empty is all ones. The weights
+ * travel on the hole, so no parallel array can disagree with the hole list.
+ *
+ * WOUND EITHER WAY: the boundary stage winds every hole counter-clockwise, opposite to the outline, so that the
+ * building lies on the same side of every exterior edge (BSA.D282, decision 21).
+ */
+export interface SkeletonHole {
+    vertices: readonly Vector2[];
+    weights?: readonly number[];
+}
+
+/**
+ * The holes of an outline (decision 1). Omitted or empty means a single-loop solve, which is the solve as it
+ * always ran.
+ *
+ * A HOLED SOLVE STEPS LIKE ANY OTHER (skeleton join-and-divide spec): in the generic case it solves, and so it does
+ * where events of two rings coincide as a meeting of one run on each of two rings (skeleton simultaneous-rings spec,
+ * which covers the concentric courtyard), on a third front when its one gap facing the struck wall can be read, and
+ * where a layer leaves a flat ring (skeleton flat-ring and third-front spec). A layer whose coincidence those specs do
+ * not settle — a meeting of more than two runs, or a third front that cannot be resolved whole — is refused by name as
+ * `simultaneous-across-rings`, and `complete` is then false.
+ * Only {@link solveSkeleton} and its stepped twin {@link solveSkeletonStepped} take holes; the legacy entries refuse
+ * them (skeleton loops-input spec, decision 4; dashboard holed-fixtures spec, decision 18).
+ */
+export interface HoleOptions {
+    holes?: readonly SkeletonHole[];
+}
+
+export interface SolveSkeletonOptions extends PerceptualFloorOptions, WeightOptions, HoleOptions {
+    /**
+     * Reverse counter-clockwise input before solving. The solver only handles clockwise
+     * winding; leaving this off on counter-clockwise input produces an unresolved skeleton.
+     * Defaults to `true`.
+     *
+     * WITH HOLES, every loop is wound by this option: the outline clockwise and each hole counter-clockwise
+     * (skeleton loops-input spec, decision 21). Off, it says the caller's winding is already right, and a holed
+     * input with a mis-wound loop is REFUSED by a throw, because a holed solve has no meaning on the wrong side of
+     * a wall (decision 22, BSA.D282). A single loop is not refused, as before.
+     */
+    normaliseWinding?: boolean;
+    /**
+     * Override the deviation below which an input vertex is treated as invisible and removed.
+     * Defaults to {@link PerceptualFloorOptions.perceptualFloor}, and thence to
+     * {@link SKELETON_NOISE_FLOOR}.
+     *
+     * NOT A SECOND PERCEPTUAL FLOOR — it is the region pass-down, and it exists because it lives in a
+     * DIFFERENT SPACE. `perceptualFloor` is the client's one scale-free value; this is that value
+     * carried into one sub-region's unit space by the recursion driver, so that a sliver
+     * canonicalises against the root's idea of invisible rather than its own. A direct caller who
+     * wants a coarser floor sets `perceptualFloor` and leaves this alone.
+     *
+     * IN UNIT SPACE, NOT THE CALLER'S. Canonicalisation runs after the polygon has been carried to
+     * unit extent, so this value does NOT go through `normaliseLength` — it is compared directly
+     * against unit-space deviations, which is what makes it relative by construction. See
+     * `canonicalisation.ts`.
+     *
+     * THE FLOOR BELONGS TO THE ROOT REGION, which is why it is accepted here rather than derived from
+     * the polygon. For a direct call the two coincide. The recursion driver will pass a sub-region's
+     * root floor down through this option, because normalising a thin sliver to its own extent would
+     * scale it up enormously and leave it holding every degenerate vertex it has.
+     *
+     * Zero is an exact identity — nothing is removed — which is the supported way to turn the stage
+     * off and measure what it is buying.
+     */
+    noiseFloor?: number;
+}
+
+/**
+ * {@link solveSkeletonStepped}'s answer (dashboard holed-fixtures spec, decision 17): the step-by-step snapshots of the
+ * one solve, and that solve's result.
+ */
+export interface SteppedSkeletonSolveResult {
+    /**
+     * Snapshot 0 after initialisation, then one per step boundary, each in caller space and each carrying the loop
+     * table (decision 20). The last deep-equals `result.graph`. On the self-intersecting path, the merged graph alone.
+     */
+    snapshots: StraightSkeletonGraph[];
+    /** What `solveSkeleton(vertices, options)` returns. */
+    result: SkeletonSolveResult;
+    /** The snapshot after the first step that recorded a failure, or `null` when no step did. */
+    firstFailedSnapshot: number | null;
+}
+
+export interface SteppedAlgorithmResult {
+    /** Graph snapshots: index 0 = after init, 1..N = after each while-loop iteration */
+    snapshots: StraightSkeletonGraph[];
+    /** Non-null if the algorithm threw an error */
+    error: string | null;
+}

@@ -1,0 +1,478 @@
+import {PerceptualFloorOptions, SkeletonLoopMap, Vector2, WeightOptions} from "./types";
+import {crossProduct, makeBasis} from "./core-functions";
+import {maxWeightRatio, minWeightTurnSine} from "./constants";
+import {SkeletonNormalisation, makeSkeletonNormalisation, normalisePolygon} from "./normalisation";
+import {
+    CanonicalPolygon,
+    REMOVED_VERTEX_INDEX,
+    canonicalisePolygon,
+    resolvePerceptualFloor,
+} from "./canonicalisation";
+
+/*
+ * THE BOUNDARY STAGE: what happens to a caller's loops before the solver sees them — the vertex checks, the weight
+ * door, canonicalisation in unit space, and each loop's map onto the solved graph.
+ */
+
+/**
+ * The boundary stage the two LEGACY entry points share: carry the polygon to unit extent, then
+ * canonicalise it there against the standing noise floor.
+ *
+ * Stated once because it is one decision, not two: both entry points must hand the solver the same
+ * polygon for the stepped snapshots to describe the solve `runAlgorithmV5` performs. Neither has a
+ * diagnostics channel, so the removal is SILENT in both — which is what makes them legacy, and why
+ * `solveSkeleton` keeps its own copy of the sequence: it reports what was removed, and it honours a
+ * region-space `noiseFloor` override, and neither of those belongs here.
+ *
+ * THE PERCEPTUAL FLOOR IS THE ONE OPTION THESE TWO DO HONOUR (journal decision 106), because the
+ * dashboard explorer drives them and the whole point of the option is that a client's renderer, not
+ * this module, decides what can be seen. It is a single scale-free value, not a region pass-down.
+ */
+export function canonicaliseInUnitSpace(
+    nodes: Vector2[],
+    normalisation: SkeletonNormalisation,
+    perceptualFloor: number,
+    pinnedIndices: readonly number[] = [],
+): CanonicalPolygon {
+    return canonicalisePolygon(normalisePolygon(nodes, normalisation), perceptualFloor, pinnedIndices);
+}
+
+/**
+ * What the boundary stage does to a caller's ring: the surviving vertices and, on `indexRemap`,
+ * where each input vertex ended up.
+ *
+ * THIS EXISTS FOR CALLERS THAT LABEL THE SOLVED GRAPH AGAINST THEIR OWN INPUT. A removed vertex
+ * renumbers every exterior node and every exterior edge after it, so an overlay drawing input
+ * indices beside solver indices is showing two index spaces in one picture and reads as a
+ * corrupted solve: the bisector of exterior node 5 appears at the caller's vertex 6, carrying the
+ * parents [5,4] that belong to it. That is what a dashboard inspection reported on 2026-08-28, and
+ * the graph was right every time. `indexRemap[i]` is the exterior node the caller's vertex `i`
+ * became, or {@link REMOVED_VERTEX_INDEX} where it was removed as invisible.
+ *
+ * ONE SPELLING WITH THE SOLVE ITSELF — {@link canonicaliseInUnitSpace} is this function's
+ * `vertices`, so a caller's remap cannot describe a different boundary from the one the solver
+ * saw. It DOES NOT describe the self-intersecting path: `decomposePolygon` rebuilds the rings and
+ * `mergeSkeletonGraphs` renumbers again, so a caller must check the survivor count against the
+ * graph's `numExteriorNodes` before trusting the mapping.
+ */
+export function canonicaliseForSolve(
+    vertices: Vector2[],
+    options?: PerceptualFloorOptions & WeightOptions,
+): CanonicalPolygon {
+    // W-spec W44: a weighted caller's remap must describe the same boundary the weighted solve saw,
+    // and under weights that boundary keeps every weight-change vertex. Unweighted callers pass
+    // nothing and pin nothing, exactly as before.
+    const normalisation = makeSkeletonNormalisation(vertices);
+    const unitVertices = normalisePolygon(vertices, normalisation);
+    const pinned = options?.weights === undefined || options.weights.length === 0
+        ? []
+        : weightChangeVertexIndices(weightsAtTheDoor(unitVertices, options.weights, resolvePerceptualFloor(options)));
+    return canonicaliseInUnitSpace(
+        vertices, normalisation, resolvePerceptualFloor(options), pinned);
+}
+
+/**
+ * The complaint about the first non-finite input vertex, or `undefined` when every coordinate is
+ * finite.
+ *
+ * REJECTED AT THE DOOR, NOT DOWNSTREAM. A NaN coordinate is invisible to the bounding-box scan that
+ * opens `makeSkeletonNormalisation` — every comparison against NaN is false, so the extent is
+ * computed as though the vertex were not there — and it then travels through normalisation,
+ * canonicalisation and the decomposition before `findOrAddNode` finally refuses it, by which point
+ * nothing names the vertex the caller actually passed. An infinity is worse: it survives the scan,
+ * takes the extent to infinity, and normalises every other vertex to zero.
+ *
+ * The index is the caller's own, taken before canonicalisation can renumber anything.
+ */
+export function nonFiniteVertexComplaint(vertices: readonly Vector2[]): string | undefined {
+    for (let index = 0; index < vertices.length; index++) {
+        const {x, y} = vertices[index];
+        if (!Number.isFinite(x) || !Number.isFinite(y)) {
+            return `Vertex ${index} is not finite: (${x}, ${y}). Every input vertex coordinate must be a finite number.`;
+        }
+    }
+    return undefined;
+}
+
+export function assertVerticesAreFinite(vertices: Vector2[]): void {
+    const complaint = nonFiniteVertexComplaint(vertices);
+    if (complaint !== undefined) {
+        throw new Error(complaint);
+    }
+}
+
+/*
+ * ============================================================================
+ *  THE WEIGHT DOOR — W-spec W1–W4, W44, W45, W48, W49
+ * ============================================================================
+ *
+ * A weight is a per-exterior-edge, strictly positive SPEED: `weights[i]` is the speed of the edge
+ * from input vertex `i` to input vertex `(i + 1) % n` (arc journal decision 112(a)). Everything the
+ * solver used to call an offset is that edge's arrival TIME, `distance / weight`.
+ *
+ * EVERY REFUSAL HERE IS A THROW, NOT A DIAGNOSTIC, and every one of them names the offender. The
+ * reason is the one `assertVerticesAreFinite` already states: `diagnostics` reports a solve that ran
+ * and came back degraded, while these are inputs the solver cannot solve at all. All three run
+ * BEFORE canonicalisation, so the index in the message is the caller's own, before any renumbering
+ * (arc decision 124(b)).
+ */
+
+/** The caller's weights, or all ones. Rejects a mismatched length by name (W-spec W1). */
+function resolveWeightArray(vertexCount: number, weights?: readonly number[]): number[] {
+    if (weights === undefined || weights.length === 0) {
+        return new Array<number>(vertexCount).fill(1);
+    }
+    if (weights.length !== vertexCount) {
+        throw new Error(
+            `Weight array has ${weights.length} entries but the polygon has ${vertexCount} vertices; `
+            + `there must be exactly one weight per vertex — the speed of the edge leaving it.`);
+    }
+    return [...weights];
+}
+
+/** W-spec W2: every weight is a finite, strictly positive double. Zero and infinite are out of contract. */
+function assertWeightsAreFinitePositive(weights: readonly number[]): void {
+    for (let index = 0; index < weights.length; index++) {
+        const weight = weights[index];
+        if (!Number.isFinite(weight) || weight <= 0) {
+            throw new Error(
+                `Weight ${index} is ${weight}. Every edge weight must be a finite, strictly positive `
+                + `number: a zero or infinite weight has no well-posed vertex velocity, and gables are `
+                + `a post-process on an all-positive solve rather than a solver input.`);
+        }
+    }
+}
+
+/**
+ * W-spec W3 and W48, arc decision 119: the weight ratio is checked at the door and refused by a
+ * throw, naming the two extreme edges and the bound.
+ *
+ * THE BOUND IS `maxWeightRatio(δ) = δ / (64·√2·u)` (C8 spec T22, journal decision 156), about 9.95e7
+ * at the library floor — the ratio beyond which the narrowest per-pair simultaneity window would fall
+ * inside the arithmetic moment bar. It replaced `MAX_WEIGHT_RATIO = 100`, whose only derivation was
+ * `1e-6 / 1e-8` and whose hazard the per-pair window dissolves.
+ *
+ * GLOBAL ACROSS LOOPS (skeleton loops-input spec, decision 19): `weights` is every edge of every loop, and
+ * `edgeName` names an index of it in the refusal, with its loop when the input has holes. With one loop it is
+ * `edge i`, today's text.
+ */
+function assertWeightRatioIsInContract(
+    weights: readonly number[],
+    perceptualFloor: number,
+    edgeName: (index: number) => string = index => `edge ${index}`,
+): void {
+    let slowestIndex = 0;
+    let fastestIndex = 0;
+    for (let index = 1; index < weights.length; index++) {
+        if (weights[index] < weights[slowestIndex]) {
+            slowestIndex = index;
+        }
+        if (weights[index] > weights[fastestIndex]) {
+            fastestIndex = index;
+        }
+    }
+
+    const ratio = weights[fastestIndex] / weights[slowestIndex];
+    const bound = maxWeightRatio(perceptualFloor);
+    if (ratio > bound) {
+        throw new Error(
+            `Weight ratio ${ratio} exceeds maxWeightRatio(${perceptualFloor}) (${bound}): ${edgeName(fastestIndex)} `
+            + `has weight ${weights[fastestIndex]} and ${edgeName(slowestIndex)} has weight `
+            + `${weights[slowestIndex]}. Beyond that ratio the narrowest simultaneity window — the floor `
+            + `read on the fastest edge — falls inside the arithmetic's own moment bar, so the solver `
+            + `could no longer tell two arrivals apart that the window says are two.`);
+    }
+}
+
+/**
+ * W-spec W49, arc journal decision 124(b): **WEIGHTS MAY CHANGE ONLY AT A VISIBLE CORNER.**
+ *
+ * A vertex whose two incident edges carry different weights and whose turn sine `|c × b|` is below
+ * `minWeightTurnSine(δ, Δw)` is refused, PER VERTEX, with `Δw` that vertex's weight difference on the
+ * normalised weights (minimum 1, W-spec W4) — the kernel's own error budget against the floor (C8 spec
+ * T21, argued at `minWeightTurnSine` in constants.ts). It replaced the frozen `MIN_WEIGHT_TURN_SINE`
+ * (1.4142e-4, the scratch epsilon's `√(ε(2 − ε))`). The kernel there is either inconsistent (an exactly
+ * collinear weight change has NO vertex velocity: the two offset lines are parallel at different
+ * distances for every `t > 0` and the wavefront has a step of height `|w₁ − w₂| · t`) or so badly
+ * conditioned that the solver's own time window becomes a spatial slack of a fraction of the whole
+ * polygon — `|v| = |w₁ − w₂| / sin(turn)`, measured at `1.5e7` for a turn of `1e-6`.
+ *
+ * THIS IS A FENCE, NOT A CONVENTION. Arc decision 124's model invariant is that the base of the roof
+ * lies in a single plane; a configuration the weighted skeleton cannot make well-posed without an
+ * extra convention (the struck riser of W-spec W53) is OUTSIDE the contract, not inside it with the
+ * convention bolted on. A dormer is a feature stitched into the roof the skeleton produces.
+ *
+ * UNIT WEIGHTS NEVER REACH THE ANGULAR TEST: it is guarded by `w₁ !== w₂` first, so with every
+ * weight equal this function looks at no geometry at all and the digest cannot move.
+ *
+ * ONE LOOP AT A TIME, WITH ITS OWN WRAPAROUND (skeleton loops-input spec, decision 18): a hole's last edge meets
+ * its own first edge. `slowest` is the smallest weight of the WHOLE INPUT, every loop of it, because the solve
+ * divides by that one (decision 19); omitted, it is this loop's own, which for a single loop is the same number.
+ */
+export function assertWeightsChangeOnlyAtVisibleCorners(
+    vertices: readonly Vector2[],
+    weights: readonly number[],
+    perceptualFloor: number,
+    slowest: number = Math.min(...weights),
+): void {
+    const count = vertices.length;
+    // Δw is read on the NORMALISED weights (minimum 1, W-spec W4): the derivation's time bound assumes
+    // the slowest edge runs at weight 1, and a common scaling of the weights moves nothing geometric.
+    for (let index = 0; index < count; index++) {
+        const incomingWeight = weights[(index - 1 + count) % count];
+        const outgoingWeight = weights[index];
+        if (incomingWeight === outgoingWeight) {
+            continue;
+        }
+
+        const outgoing = makeBasis(vertices[index], vertices[(index + 1) % count]);
+        const incoming = makeBasis(vertices[(index - 1 + count) % count], vertices[index]);
+        const turnSine = Math.abs(crossProduct(outgoing, incoming));
+        const turnBar = minWeightTurnSine(perceptualFloor, Math.abs(incomingWeight - outgoingWeight) / slowest);
+        if (turnSine < turnBar) {
+            throw new Error(
+                `Vertex ${index} carries a weight change (${incomingWeight} to ${outgoingWeight}) at a `
+                + `turn whose sine is ${turnSine}, below minWeightTurnSine (${turnBar}). `
+                + `Weights may change only at a visible corner: a collinear or near-collinear weight `
+                + `change has no well-posed vertex velocity, and anything needing one — a dormer, for `
+                + `instance — is a separate feature stitched into the roof the skeleton produces.`);
+        }
+    }
+}
+
+/**
+ * W-spec W4: weights are normalised so that the MINIMUM is exactly `1`, once, before anything else
+ * reads them.
+ *
+ * The skeleton is invariant under a common scaling of all weights (every time scales by the
+ * reciprocal), so one convention fixes the time unit. Minimum `1` is the one that keeps every time
+ * at most the distance it came from — `t = d / w ≤ d` — so every ABSOLUTE tolerance on a time is at
+ * least as wide in distance terms as it is at unit weight. (W-spec W48 derived the retired ratio bound
+ * from that band; the per-pair window, stated on the faster participant, supersedes it — C8 spec T13,
+ * T22.)
+ *
+ * ALL-ONES DIVIDES BY `1.0`, WHICH IS EXACT, so the unit-weight path is untouched bit for bit.
+ *
+ * `minimum` is the smallest weight of the whole input, every loop of it (skeleton loops-input spec, decision 19);
+ * omitted, it is this array's own.
+ */
+function normaliseWeights(weights: readonly number[], minimum: number = Math.min(...weights)): number[] {
+    return weights.map(weight => weight / minimum);
+}
+
+/**
+ * Every check at the door, in the order the spec fixes them, returning the normalised weights.
+ *
+ * `unitVertices` is the caller's ring carried to unit extent — the turn guard is stated in unit
+ * space (W-spec N19) — while the indices reported are the caller's own, which they still are because
+ * nothing has been renumbered yet.
+ *
+ * The door of ONE LOOP: the one-loop case of {@link weightsAtTheDoorForLoops}, so the legacy entries and
+ * `canonicaliseForSolve` pass the door `solveSkeleton` does.
+ */
+export function weightsAtTheDoor(
+    unitVertices: readonly Vector2[],
+    weights: readonly number[] | undefined,
+    perceptualFloor: number,
+): number[] {
+    return weightsAtTheDoorForLoops([unitVertices], [{vertices: unitVertices, weights, prefix: ''}], perceptualFloor)[0];
+}
+
+/**
+ * THE WEIGHT DOOR OVER EVERY LOOP (skeleton loops-input spec, decisions 18 and 19), returning each loop's weights
+ * divided by the smallest weight of ALL the loops.
+ *
+ * PER LOOP: the length, finiteness and positivity, and the visible-corner test with the loop's own wraparound,
+ * so a hole's last edge meets its own first edge and not the next loop's; a hole's refusal is prefixed with its
+ * name. GLOBAL: the ratio, because the bound protects the narrowest simultaneity window and edges of different
+ * loops meet in events, and the division, because the solve has one time unit (W-spec W4); the visible-corner
+ * test reads `Δw` against that one smallest weight. With one loop every global quantity is that loop's, and this
+ * is the door as it always ran, check for check.
+ */
+export function weightsAtTheDoorForLoops(
+    unitLoops: readonly (readonly Vector2[])[],
+    callerLoops: readonly CallerLoop[],
+    perceptualFloor: number,
+): number[][] {
+    const resolved = unitLoops.map((unitLoop, k) =>
+        refuseInLoop(callerLoops[k].prefix, () => resolveWeightArray(unitLoop.length, callerLoops[k].weights)));
+    resolved.forEach((weights, k) =>
+        refuseInLoop(callerLoops[k].prefix, () => assertWeightsAreFinitePositive(weights)));
+
+    const every = resolved.flat();
+    const loopOf = resolved.flatMap((weights, k) => weights.map(() => k));
+    const localOf = resolved.flatMap(weights => weights.map((_unused, local) => local));
+    const edgeName = resolved.length === 1
+        ? (index: number) => `edge ${index}`
+        : (index: number) => `edge ${localOf[index]} of ${loopName(loopOf[index])}`;
+    assertWeightRatioIsInContract(every, perceptualFloor, edgeName);
+
+    const slowest = Math.min(...every);
+    unitLoops.forEach((unitLoop, k) => refuseInLoop(callerLoops[k].prefix,
+        () => assertWeightsChangeOnlyAtVisibleCorners(unitLoop, resolved[k], perceptualFloor, slowest)));
+    return resolved.map(weights => normaliseWeights(weights, slowest));
+}
+
+/**
+ * The vertices canonicalisation may not remove: those whose two incident edges differ in weight
+ * (W-spec W44, arc journal decisions 120 and 124(c)).
+ *
+ * SUCH A VERTEX IS STRUCTURAL, WHATEVER ITS DEVIATION FROM THE CHORD. Decision 55's rule — "a vertex
+ * collinear with the chord between its neighbours contributes nothing" — becomes "collinear AND
+ * equal-weighted contributes nothing" under weights: the vertex is invisible in the SILHOUETTE and
+ * visible in the SKELETON, because the weight change either side of it is what the client authored.
+ * It is pinned, never merged in either direction.
+ *
+ * WELL-CONDITIONED BY THE DOOR IT HAS ALREADY PASSED. Every vertex this pins has a visible turn —
+ * {@link assertWeightsChangeOnlyAtVisibleCorners} ran first — so its kernel speed is at most
+ * `|w₁ − w₂| / minWeightTurnSine(δ, Δw)`. A sub-floor CHORD DEVIATION does not condition the kernel; the
+ * turn does, and the turn is bounded from below.
+ *
+ * UNIT WEIGHTS PIN NOTHING: with every weight equal this returns an empty list, canonicalisation
+ * behaves exactly as it did before pins existed, and the digest cannot move.
+ */
+export function weightChangeVertexIndices(weights: readonly number[]): number[] {
+    const pinned: number[] = [];
+    for (let index = 0; index < weights.length; index++) {
+        if (weights[(index - 1 + weights.length) % weights.length] !== weights[index]) {
+            pinned.push(index);
+        }
+    }
+    return pinned;
+}
+
+/**
+ * Weights carried through canonicalisation's renumbering (W-spec W45).
+ *
+ * Edge `i` survives as edge `indexRemap[i]` when vertex `i` survives; a merged edge — one whose
+ * intervening vertices were removed — takes the weight of its first constituent, which is the weight
+ * of ALL of them, because {@link weightChangeVertexIndices} pinned every vertex where two weights
+ * met. There is no merge rule to choose here: under W-spec W44 the choice cannot arise.
+ */
+export function remapWeightsThroughCanonicalisation(
+    weights: readonly number[],
+    indexRemap: readonly number[],
+    survivorCount: number,
+): number[] {
+    const remapped = new Array<number>(survivorCount).fill(1);
+    for (let index = 0; index < indexRemap.length; index++) {
+        const survivor = indexRemap[index];
+        if (survivor !== REMOVED_VERTEX_INDEX) {
+            remapped[survivor] = weights[index];
+        }
+    }
+    return remapped;
+}
+
+/**
+ * Weights carried through the winding reversal (W-spec W45).
+ *
+ * Reversing an `n`-ring sends vertex `j` to `v_{n−1−j}`, so reversed edge `j` runs from `v_{n−1−j}`
+ * to `v_{n−2−j}` — which is original edge `n−2−j`, traversed backwards. A weight is a speed and is
+ * indifferent to which way its edge is traversed, so the value is carried unchanged to that index.
+ */
+export function reverseWeights(weights: readonly number[]): number[] {
+    const count = weights.length;
+    return weights.map((_unused, index) => weights[(count - 2 - index + count) % count]);
+}
+
+/*
+ * ============================================================================
+ *  THE LOOPS OF ONE INPUT — skeleton loops-input spec
+ * ============================================================================
+ *
+ * ONE BOUNDARY PIPELINE, AND A SINGLE LOOP IS ITS ONE-LOOP CASE (decision 39). Loop 0 is the outline and loop
+ * `k` the caller's hole `k - 1`. Each stage is fixed as per loop or global: the vertex checks, the weight door's
+ * length, finiteness, positivity and visible-corner test, canonicalisation and winding run per loop; the
+ * normalisation, the weight ratio and the division by the smallest weight are global.
+ */
+
+/** One loop as the caller gave it: its vertices, its weights, and the prefix its refusals carry. */
+export interface CallerLoop {
+    vertices: readonly Vector2[];
+    weights: readonly number[] | undefined;
+    /** `''` for the outline, whose messages stay word for word; `Hole k: ` for the caller's hole `k`. */
+    prefix: string;
+}
+
+/** One loop after the boundary stage: the ring the solver is given, its weights, and how it got there. */
+export interface SolvedLoop {
+    vertices: Vector2[];
+    weights: number[];
+    /** Canonicalisation's map, caller vertex to canonical vertex, before any reversal. */
+    indexRemap: number[];
+    reversed: boolean;
+}
+
+/** A loop's name in a message: loop 0 is the outline and loop `k` the caller's hole `k - 1`. */
+function loopName(loop: number): string {
+    return loop === 0 ? 'the outline' : `hole ${loop - 1}`;
+}
+
+/**
+ * Run a check of one loop, prefixing its refusal with the loop's name (decision 16). The outline's refusal is
+ * passed through untouched, so its message is today's word for word.
+ */
+function refuseInLoop<T>(prefix: string, check: () => T): T {
+    if (prefix === '') {
+        return check();
+    }
+    try {
+        return check();
+    } catch (error) {
+        throw new Error(`${prefix}${error instanceof Error ? error.message : String(error)}`);
+    }
+}
+
+/** Decision 16: a loop's vertex count and finiteness, before normalisation, by a throw. */
+export function assertLoopIsSolvable(loop: CallerLoop): void {
+    if (loop.vertices.length < 3) {
+        throw new Error(`${loop.prefix}Must have at least three nodes to perform algorithm`);
+    }
+    const complaint = nonFiniteVertexComplaint(loop.vertices);
+    if (complaint !== undefined) {
+        throw new Error(`${loop.prefix}${complaint}`);
+    }
+}
+
+/**
+ * Decision 24: loop `k`'s caller map onto the solved graph, from canonicalisation's `indexRemap` and then the
+ * reversal. A surviving vertex maps to its exterior node. A caller edge maps to the solved edge that carries it:
+ * the edge leaving its start vertex or, where that vertex was removed, the merged edge leaving the nearest
+ * surviving vertex before it. Reversal sends local vertex `c` of an `m`-loop to `m - 1 - c` and local edge `c` to
+ * `m - 2 - c` (mod `m`), the map {@link reverseWeights} uses.
+ */
+export function buildLoopMap(loop: SolvedLoop, start: number): SkeletonLoopMap {
+    const m = loop.vertices.length;
+    const solvedVertex = (canonical: number) => loop.reversed ? m - 1 - canonical : canonical;
+    const solvedEdge = (canonical: number) => loop.reversed ? (m - 2 - canonical + m) % m : canonical;
+    const vertexToNode = loop.indexRemap.map(canonical =>
+        canonical === REMOVED_VERTEX_INDEX ? REMOVED_VERTEX_INDEX : start + solvedVertex(canonical));
+
+    // The canonical vertex each caller edge leaves from: its own where it survived, else the nearest surviving
+    // vertex before it, cyclically. Canonicalisation never leaves fewer than three, so one exists.
+    let carrier = loop.indexRemap.reduce(
+        (found, canonical) => canonical === REMOVED_VERTEX_INDEX ? found : canonical, REMOVED_VERTEX_INDEX);
+    const edgeToEdge = loop.indexRemap.map(canonical => {
+        if (canonical !== REMOVED_VERTEX_INDEX) {
+            carrier = canonical;
+        }
+        return start + solvedEdge(carrier);
+    });
+    return {vertexToNode, edgeToEdge, reversed: loop.reversed};
+}
+
+/**
+ * Decision 4: THE LEGACY ENTRIES TAKE NO HOLES. Their options type does not carry the field, but an options
+ * object that carries a non-empty `holes` anyway is refused, naming `solveSkeleton`: neither entry has a
+ * diagnostics channel, so a holed run would come back silently incomplete, and ignoring the field would silently
+ * solve the outline alone. Returns the refusal, or `undefined` when there are no holes.
+ */
+export function legacyHolesComplaint(entry: string, options: unknown): string | undefined {
+    const holes = (options as {holes?: unknown} | undefined)?.holes;
+    if (!Array.isArray(holes) || holes.length === 0) {
+        return undefined;
+    }
+    return `${entry} takes no holes, and was given ${holes.length}: only solveSkeleton solves an outline with `
+        + `holes, because only it can report the state of a holed solve on its diagnostics.`;
+}

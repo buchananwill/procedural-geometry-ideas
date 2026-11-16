@@ -67,7 +67,8 @@ export {
 } from './straight-skeleton/normalisation';
 
 // ── Input canonicalisation (the render-scale noise floor) ────────────────────
-export type { CanonicalPolygon, PerceptualFloorOptions } from './straight-skeleton/canonicalisation';
+export type { CanonicalPolygon } from './straight-skeleton/canonicalisation';
+export type { PerceptualFloorOptions } from './straight-skeleton/types';
 export { REMOVED_VERTEX_INDEX, SKELETON_NOISE_FLOOR, canonicalisePolygon, resolvePerceptualFloor } from './straight-skeleton/canonicalisation';
 
 // ── Regions and boundary provenance ──────────────────────────────────────────
@@ -195,18 +196,18 @@ export {
 
 // ── V5 algorithm ─────────────────────────────────────────────────────────────
 export {
-  assertWeightsChangeOnlyAtVisibleCorners,
   handleInteriorEdgePair,
   handleInteriorEdgeTriangle,
-  handleAlgorithmStepInput,
-  stepAlgorithm,
+  TRIANGLE_INTERSECT_PAIRINGS,
+} from './straight-skeleton/algorithm-termination-cases';
+export { handleAlgorithmStepInput, stepAlgorithm } from './straight-skeleton/step-driver';
+export { assertWeightsChangeOnlyAtVisibleCorners, canonicaliseForSolve } from './straight-skeleton/boundary-stage';
+export {
   runAlgorithmV5,
   runAlgorithmV5Stepped,
   solveSkeleton,
   solveSkeletonStepped,
-  canonicaliseForSolve,
-  TRIANGLE_INTERSECT_PAIRINGS,
-} from './straight-skeleton/algorithm-termination-cases';
+} from './straight-skeleton/solve-entry';
 export type {
   HoleOptions,
   SkeletonHole,
@@ -214,7 +215,7 @@ export type {
   SteppedSkeletonSolveResult,
   SolveSkeletonOptions,
   WeightOptions,
-} from './straight-skeleton/algorithm-termination-cases';
+} from './straight-skeleton/types';
 
 export { createCollisions, handleInteriorNGon } from './straight-skeleton/algorithm-complex-cases';
 

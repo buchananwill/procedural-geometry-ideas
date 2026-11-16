@@ -1,4 +1,4 @@
-import {Vector2} from "./types";
+import {PerceptualFloorOptions, Vector2} from "./types";
 import {findFirstCrossing, isEndpointTouch} from "./polygon-decomposition";
 import {
     distanceToSegment,
@@ -9,7 +9,7 @@ import {
 } from "./planar-geometry";
 import {degenerateAreaBar} from "./constants";
 import {makeSkeletonNormalisation, normalisePolygon} from "./normalisation";
-import {PerceptualFloorOptions, resolvePerceptualFloor} from "./canonicalisation";
+import {resolvePerceptualFloor} from "./canonicalisation";
 
 /**
  * THE RELATIONS BETWEEN THE LOOPS OF ONE INPUT (skeleton loops-input spec, decisions 26 to 32, 37, 38 and 49

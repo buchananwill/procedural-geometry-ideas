@@ -1,9 +1,6 @@
 import type {StraightSkeletonSolverContext, Vector2} from '../../src/straight-skeleton/types';
-import {
-    handleInteriorEdgePair,
-    handleInteriorEdgeTriangle,
-    runAlgorithmV5,
-} from '../../src/straight-skeleton/algorithm-termination-cases';
+import {handleInteriorEdgePair, handleInteriorEdgeTriangle} from '../../src/straight-skeleton/algorithm-termination-cases';
+import {runAlgorithmV5} from '../../src/straight-skeleton/solve-entry';
 import {handleInteriorNGon} from '../../src/straight-skeleton/algorithm-complex-cases';
 import {collideInteriorEdges} from '../../src/straight-skeleton/collision-helpers';
 import {makeStraightSkeletonSolverContext} from '../../src/straight-skeleton/solver-context';

@@ -48,7 +48,7 @@ import {FULL_CORPUS, OFF_EDGE_JITTER_PLUS_SEED_7919} from '@proc-geo/test-fixtur
 import * as intersectionEdges from '@proc-geo/core/straight-skeleton/intersection-edges';
 import * as complexCases from '@proc-geo/core/straight-skeleton/algorithm-complex-cases';
 import {offsetRateIsArithmeticZero} from '@proc-geo/core/straight-skeleton/core-functions';
-import {climbTerminalLadder} from '@proc-geo/core/straight-skeleton/algorithm-termination-cases';
+import {climbTerminalLadder} from '@proc-geo/core/straight-skeleton/terminal-ladder';
 import {
     ARITHMETIC_SAME_POINT_BOX,
     arrivalUncertainty,

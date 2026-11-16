@@ -1,7 +1,7 @@
 import type {CollisionEvent, CollisionType} from '../../src/straight-skeleton/types';
 import {inArrivalOrder, inPlaceOrder} from '../../src/straight-skeleton/event-order';
 import {CollisionTypePriority} from '../../src/straight-skeleton/types';
-import {solveSkeleton} from '../../src/straight-skeleton/algorithm-termination-cases';
+import {solveSkeleton} from '../../src/straight-skeleton/solve-entry';
 import {OFF_EDGE_JITTER_L_SEED_55433} from '@proc-geo/test-fixtures';
 
 /*
