@@ -13,12 +13,13 @@ import {
 } from "./types";
 import {runSimplePolygon, runSimplePolygonStepped, SimplePolygonRun, SolveStepObserver} from "./step-driver";
 import {
+    PreparedBoundary,
     legacyHolesComplaint,
     loopSolvabilityComplaint,
     prepareBoundary,
     prepareLegacyBoundary,
 } from "./boundary-stage";
-import {decomposePolygon} from "./polygon-decomposition";
+import {DecompositionResult, decomposePolygon} from "./polygon-decomposition";
 import {checkWavefrontCausality} from "./causality-check";
 import {HOLED_UNCULLED_SELF_LOOP, holedSkeletonViolations} from "./holed-guard";
 import {mergeSkeletonGraphs, makeMergedSolverContext} from "./graph-merge";
@@ -154,7 +155,6 @@ function solveSkeletonObserved(
     options: SolveSkeletonOptions | undefined,
     observer: SolveStepObserver | undefined,
 ): SkeletonSolveResult {
-    const holes = options?.holes ?? [];
     // ONE FLOOR, TWO READINGS OF IT. `perceptualFloor` is the client's value and governs the
     // coincidence bar inside the solve; `noiseFloor` is the canonicalisation bar, which defaults to
     // the same value and is overridden ONLY by the recursion driver, which has already restated the
@@ -165,81 +165,149 @@ function solveSkeletonObserved(
     const boundary = prepareBoundary({
         vertices,
         weights: options?.weights,
-        holes,
+        holes: options?.holes ?? [],
         perceptualFloor,
         noiseFloor: options?.noiseFloor ?? perceptualFloor,
         normaliseWinding: options?.normaliseWinding ?? true,
     }, diagnostics);
-    const {normalisation, loops, loopMaps} = boundary;
-    const workingVertices = boundary.vertices;
-    const workingWeights = boundary.weights;
-    const decomposition = holes.length === 0
-        ? decomposePolygon(workingVertices, perceptualFloor, undefined, workingWeights)
+    const solve = solveUnitPolygon(boundary, perceptualFloor, observer);
+    const findings = verifySolvedGraph(solve, boundary.normalisation, perceptualFloor);
+    return summarise(boundary, solve, findings, diagnostics);
+}
+
+/** The solve in unit space, before any check reads it: its graph and context, and every simple run that made it. */
+interface UnitSolve {
+    /** In unit space until {@link verifySolvedGraph} carries it back to the caller's coordinates. */
+    graph: StraightSkeletonGraph;
+    /** `null` exactly on the self-intersecting path: a merged graph is assembled from several solves. */
+    context: StraightSkeletonSolverContext | null;
+    /** The decomposition of a self-intersecting input, or `null` on the simple path. */
+    decomposition: DecompositionResult | null;
+    /** Every simple run, in order: the simple path's one, or one per sub-polygon. */
+    runs: SimplePolygonRun[];
+}
+
+/**
+ * THE SOLVE, IN UNIT SPACE. A single loop is decomposed first: where it crosses itself, each sub-polygon is solved
+ * unobserved and the sub-graphs are merged IN UNIT SPACE (the merge deduplicates crossing-point nodes with the same
+ * absolute tolerance the solver uses). Otherwise the prepared loops are solved in one run, watched by `observer`.
+ * `decomposePolygon` never sees a holed input, because it discards a counter-clockwise ring as an exterior island
+ * (BSA.F93).
+ */
+function solveUnitPolygon(
+    boundary: PreparedBoundary,
+    perceptualFloor: number,
+    observer: SolveStepObserver | undefined,
+): UnitSolve {
+    const decomposition = boundary.loops.length === 1
+        ? decomposePolygon(boundary.vertices, perceptualFloor, undefined, boundary.weights)
         : null;
 
-    let graph: StraightSkeletonGraph;
-    let context: StraightSkeletonSolverContext | null;
-
     if (decomposition !== null && decomposition.wasSelfIntersecting) {
-        diagnostics.push({
-            kind: 'self-intersecting',
-            detail: `Input self-intersects; decomposed into ${decomposition.subPolygons.length} sub-polygon(s) at ${decomposition.crossingPoints.length} crossing point(s) and merged. Solver context is unavailable for merged results.`,
-        });
-
-        const subResults = decomposition.subPolygons.map((subPolygon, index) => {
-            // W-spec W45: each piece of a split edge carries its original edge's weight.
-            const run = runSimplePolygon(
-                subPolygon, perceptualFloor, decomposition.subPolygonWeights[index]);
-            pushStepFailures(diagnostics, run.errors);
-            pushSolveDiagnostics(diagnostics, run);
-            // THE CAUSALITY CHECK RUNS PER SUB-POLYGON ON THIS PATH, BEFORE THE MERGE, AND IN UNIT
-            // SPACE (journal-5 decision 148). The merged graph interleaves every sub-graph's exterior
-            // and interior edges in one id space, so its exterior nodes are not one ring and a parent
-            // index does not name `nodes[parent] -> nodes[parent + 1]`: the oracles' definitions do
-            // not apply to it. Each sub-graph is an ordinary simple solve, and the ids reported are
-            // that sub-graph's, named by its index.
-            pushCausalityViolations(
-                diagnostics, checkWavefrontCausality(run.context.graph, perceptualFloor, 1), `Sub-polygon ${index}: `);
-            return {graph: run.context.graph};
-        });
-
-        graph = mergeSkeletonGraphs(subResults, decomposition.crossingPoints).graph;
-        context = null;
-    } else {
-        const run = runSimplePolygon(workingVertices, perceptualFloor, workingWeights, loops, observer);
-        pushStepFailures(diagnostics, run.errors);
-        pushSolveDiagnostics(diagnostics, run);
-        graph = run.context.graph;
-        context = run.context;
+        // W-spec W45: each piece of a split edge carries its original edge's weight.
+        const runs = decomposition.subPolygons.map((subPolygon, index) =>
+            runSimplePolygon(subPolygon, perceptualFloor, decomposition.subPolygonWeights[index]));
+        const graph = mergeSkeletonGraphs(
+            runs.map(run => ({graph: run.context.graph})), decomposition.crossingPoints).graph;
+        return {graph, context: null, decomposition, runs};
     }
 
-    // THE GUARD ON A HOLED SOLVE (BSA.D314, BSA.D318; `holed-guard.ts`) READS THE SOLVER'S OWN ANSWER, IN UNIT SPACE,
-    // before it is carried back: carried back, far from the origin, every node is rounded to the caller's coordinates by more
-    // than the floor, and the guard would read that rounding as a wrong answer. It only reads the graph; whether its
-    // findings count is decided below, once the solve is known to be otherwise complete. A single-loop graph never
-    // reaches it.
-    const holedFindings = graph.loops.length > 1
+    const run = runSimplePolygon(boundary.vertices, perceptualFloor, boundary.weights, boundary.loops, observer);
+    return {graph: run.context.graph, context: run.context, decomposition: null, runs: [run]};
+}
+
+/** What the post-solve checks found, each read in the space {@link verifySolvedGraph} states for it. */
+interface PostSolveFindings {
+    /** Per sub-polygon of the self-intersecting path, in UNIT space; empty on the simple path. */
+    subPolygonCausality: CausalityViolationDiagnostic[][];
+    /** The holed guard's findings, in UNIT space; empty for a single loop. Whether they count is decided later. */
+    holed: SkeletonDiagnostic[];
+    /** The simple path's causality violations, in CALLER space read at `toUnitScale`; empty when merged. */
+    causality: CausalityViolationDiagnostic[];
+}
+
+/**
+ * THE POST-SOLVE CHECKS, EACH IN THE SPACE IT RUNS IN, and between them the one crossing of the seam back to the
+ * caller's coordinates. Every check only reads the graph. The three spaces differ and are kept as they are (BSA.D356):
+ * unifying them would move verdicts at large translations, which the holed guard's header measured.
+ *
+ *  1. UNIT SPACE, PER SUB-POLYGON: the causality check of the self-intersecting path (journal-5 decision 148), on each
+ *     sub-graph, which the merge copies and does not change. The merged graph interleaves every sub-graph's exterior
+ *     and interior edges in one id space, so its exterior nodes are not one ring and a parent index does not name
+ *     `nodes[parent] -> nodes[parent + 1]`: the oracles' definitions do not apply to it. Each sub-graph is an
+ *     ordinary simple solve, and the ids reported are that sub-graph's.
+ *  2. UNIT SPACE, THE SOLVED GRAPH: the guard on a holed solve (BSA.D314, BSA.D318; `holed-guard.ts`) reads the
+ *     solver's own answer before it is carried back: carried back, far from the origin, every node is rounded to the
+ *     caller's coordinates by more than the floor, and the guard would read that rounding as a wrong answer. A
+ *     single-loop graph never reaches it.
+ *  3. THE SEAM: the graph, and the context with it, carried back to caller space BEFORE ANYTHING ELSE READS THE
+ *     GRAPH, so that the unresolved-edge scan, the completeness flag and everything the caller subsequently does all
+ *     see one graph in one space.
+ *  4. CALLER SPACE, LENGTHS CARRIED INTO UNIT SPACE BY `toUnitScale`: the causality check of the simple path, always
+ *     on (journal-5 decision 148), on the returned graph at the solve's perceptual floor.
+ */
+function verifySolvedGraph(
+    solve: UnitSolve,
+    normalisation: SkeletonNormalisation,
+    perceptualFloor: number,
+): PostSolveFindings {
+    const {graph, context} = solve;
+
+    const subPolygonCausality = context === null
+        ? solve.runs.map(run => checkWavefrontCausality(run.context.graph, perceptualFloor, 1))
+        : [];
+
+    const holed = graph.loops.length > 1
         ? holedSkeletonViolations(graph, graph.loops.length - 1, perceptualFloor, 1,
             position => denormalisePosition(normalisation, position))
         : [];
 
-    // BEFORE ANYTHING ELSE READS THE GRAPH, so that the unresolved-edge scan, the completeness flag and
-    // everything the caller subsequently does all see one graph in one space.
     if (context !== null) {
         denormaliseContext(context, normalisation);
     } else {
         denormaliseGraph(graph, normalisation);
     }
 
-    // THE CAUSALITY CHECK, ALWAYS ON (journal-5 decision 148). Run on the returned, caller-space
-    // graph with its lengths carried into unit space, at the solve's perceptual floor. It only reads
-    // the graph. It does NOT enter `blocking` below: `complete` keeps its meaning, and the diagnostic
-    // is what makes a causally wrong answer signalled. The merged path ran it per sub-polygon above.
-    // Pushed BEFORE the unresolved-edge report so that, as on the merged path, a failing solve's
-    // diagnostics still end with `unresolved-edges`.
-    if (context !== null) {
-        pushCausalityViolations(
-            diagnostics, checkWavefrontCausality(graph, perceptualFloor, normalisation.toUnitScale), '');
+    const causality = context !== null
+        ? checkWavefrontCausality(graph, perceptualFloor, normalisation.toUnitScale)
+        : [];
+
+    return {subPolygonCausality, holed, causality};
+}
+
+/**
+ * THE RESULT. After the boundary's own reports, `diagnostics` carries, in this order: on the self-intersecting path
+ * the decomposition, then per sub-polygon its step failures, its solve's own reports and its causality violations
+ * prefixed by its index; on the simple path the step failures, the solve's own reports and the causality violations;
+ * then the unresolved edges, so that a failing solve's diagnostics end with `unresolved-edges`; then the holed
+ * guard's findings, counted only on a solve that would otherwise be complete.
+ *
+ * Causality violations do NOT enter `blocking`: `complete` keeps its meaning, and the diagnostic is what makes a
+ * causally wrong answer signalled.
+ */
+function summarise(
+    boundary: PreparedBoundary,
+    solve: UnitSolve,
+    findings: PostSolveFindings,
+    diagnostics: SkeletonDiagnostic[],
+): SkeletonSolveResult {
+    const {graph, context, decomposition} = solve;
+
+    if (decomposition !== null) {
+        diagnostics.push({
+            kind: 'self-intersecting',
+            detail: `Input self-intersects; decomposed into ${decomposition.subPolygons.length} sub-polygon(s) at ${decomposition.crossingPoints.length} crossing point(s) and merged. Solver context is unavailable for merged results.`,
+        });
+        solve.runs.forEach((run, index) => {
+            pushStepFailures(diagnostics, run.errors);
+            pushSolveDiagnostics(diagnostics, run);
+            pushCausalityViolations(diagnostics, findings.subPolygonCausality[index], `Sub-polygon ${index}: `);
+        });
+    } else {
+        const [run] = solve.runs;
+        pushStepFailures(diagnostics, run.errors);
+        pushSolveDiagnostics(diagnostics, run);
+        pushCausalityViolations(diagnostics, findings.causality, '');
     }
 
     const unresolvedEdgeIds = findUnresolvedInteriorEdgeIds(graph);
@@ -257,10 +325,10 @@ function solveSkeletonObserved(
 
     // THE GUARD ON A HOLED SOLVE (BSA.D314, BSA.D318; `holed-guard.ts`): a result of more than one loop that would
     // otherwise be complete is checked for its topology, its nodes' equal time, its edges' time order and its arcs'
-    // planarity (read above, in unit space, at the solve's perceptual floor), and each violation is a BLOCKING
+    // planarity (read in unit space, at the solve's perceptual floor), and each violation is a BLOCKING
     // diagnostic. An un-culled self-loop is reported and blocks nothing. It changes nothing in the graph. A single-loop
     // result never reaches it, so it is unchanged.
-    const guardFindings = !blocking && graph.interiorEdges.length > 0 ? holedFindings : [];
+    const guardFindings = !blocking && graph.interiorEdges.length > 0 ? findings.holed : [];
     diagnostics.push(...guardFindings);
     const guardBlocks = guardFindings.some(finding => finding.kind !== HOLED_UNCULLED_SELF_LOOP);
     const complete = !blocking && !guardBlocks && graph.interiorEdges.length > 0;
@@ -270,11 +338,11 @@ function solveSkeletonObserved(
         context,
         complete,
         diagnostics,
-        normalisation,
+        normalisation: boundary.normalisation,
         // Every loop's weights, concatenated in exterior id order (decision 34); the outline's alone with no holes.
-        weights: workingWeights,
+        weights: boundary.weights,
         // `null` exactly when `context` is `null` (decision 25).
-        loopMaps: context === null ? null : loopMaps,
+        loopMaps: context === null ? null : boundary.loopMaps,
     };
 }
 
