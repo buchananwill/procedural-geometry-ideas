@@ -21,7 +21,7 @@ import {
     SKELETON_NOISE_FLOOR,
     solveSkeleton,
 } from '@proc-geo/core';
-import {MergeGap, wallFacingGap} from '@proc-geo/core/straight-skeleton/coincident-events';
+import {MergeGap, wallFacingGap} from '@proc-geo/core/straight-skeleton/vertex-event';
 import {closeFlatRings, flatRingVerdict, FlatRingVerdict} from '@proc-geo/core/straight-skeleton/flat-rings';
 import {linkInitialRing, setWavefrontProbe} from '@proc-geo/core/straight-skeleton/wavefront';
 import {ringsAmong} from '@proc-geo/core/straight-skeleton/wavefront-links';

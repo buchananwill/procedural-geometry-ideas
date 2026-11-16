@@ -4,7 +4,7 @@ import {
     StraightSkeletonSolverContext, WavefrontSegment
 } from "./types";
 import {byArrival, compareArrivals, findOrComputeCollision, priceHeadOnPair, timeOf} from "./collision-helpers";
-import {HELD_SIMULTANEITY_WINDOW, mergeDisplacementUncertainty} from "./constants";
+import {HELD_SIMULTANEITY_WINDOW} from "./constants";
 import {
     byEdgeIds,
     compareEdgeIdLists,
@@ -14,25 +14,27 @@ import {
     inPlaceOrder,
     nearerAlongSharedBisector,
 } from "./event-order";
-import {inwardDistanceFromWall} from "./wall-time";
 import {applyDegenerateClosure, climbTerminalLadder} from "./algorithm-termination-cases";
 import handleCollisionEvent from "./collision-handling";
 import {bisectWithParams} from "./algorithm-helpers";
 import {
-    bisectionsForCrossRingMerge,
-    bisectionsForMerge,
-    bisectionsForMergeOnWall,
+    chargeSitingResidual,
     clusterCoincidentMerges,
     CoincidentMerge,
     coincidentEventPositions,
+    mergesShareAnEdge,
+} from "./coincident-events";
+import {
+    bearGaps,
+    bisectionsForMerge,
+    bisectionsForMergeOnWall,
     contiguousRuns,
     crossRingRuns,
     CrossRingRuns,
     MergeGap,
     mergeGaps,
-    mergesShareAnEdge,
     wallFacingGap,
-} from "./coincident-events";
+} from "./vertex-event";
 import {closeFlatRings} from "./flat-rings";
 import {retireBisectors, ringsAmong, ringsOfWavefront} from "./wavefront-links";
 import {
@@ -46,33 +48,6 @@ import {
 import {componentsOfRings} from "./ring-components";
 import {refuseStep} from "./step-scope";
 import {accept, formatRing, PASSED, refuse, Verdict} from "./verdict";
-
-/**
- * A NODE CARRIES WHERE IT WAS PUT (journal-5 decisions 170 and 171(c)): raise `nodeId`'s position budget to
- * the largest equi-time residual, at the node, of the bisectors it emits — {@link mergeDisplacementUncertainty}
- * for each one's two parents. ONE TERM, TWO SITES, because both sites take ONE release: the coincidence
- * clustering sites a group of meetings at its MEDOID (decision 157's release, below the floor the solver is
- * not obliged to tell them apart), and every bisector born there reads its clock from the node's distance to
- * its clockwise parent, so wherever the node is off that bisector's own locus the reading carries the residual
- * to the bisector's next meeting. The whole-event merge pays it (decision 170); so does a split re-pointed by
- * `coincidentEventPositions` (decision 171(c)).
- *
- * THE RESIDUAL, NOT THE DISTANCE MOVED. The budget answers for the disagreement between the emitted bisector's
- * two parent clocks at the node, and the residual IS that disagreement, exactly. The distance from a member's
- * own point to the medoid is not a bound on it in either direction: a displacement ALONG the bisector's locus
- * moves no clock and costs nothing, and one across it moves both parents' distances, by up to twice itself at
- * unit weights. So the distance would overcharge the first and could undercharge the second.
- */
-function chargeSitingResidual(nodeId: number, bisections: BisectionParams[], context: StraightSkeletonSolverContext): void {
-    const position = context.graph.nodes[nodeId].position;
-    context.positionUncertainties[nodeId] = Math.max(
-        context.positionUncertainties[nodeId] ?? 0,
-        ...bisections.map(params => mergeDisplacementUncertainty(
-            inwardDistanceFromWall(context, params.clockwiseExteriorEdgeIndex, position),
-            context.weightOf(params.clockwiseExteriorEdgeIndex),
-            inwardDistanceFromWall(context, params.widdershinsExteriorEdgeIndex, position),
-            context.weightOf(params.widdershinsExteriorEdgeIndex))));
-}
 
 /**
  * The partition bisectors a layer will bear, in the order it bears them: sorted by arc, with nested re-reports
@@ -378,9 +353,9 @@ function bisectionsOfWholeMerge(
     }
     switch (placement.kind) {
         case 'ring':
-            return bisectionsForMerge(placement.ring, {position: merge.position, edgeIds: arrivals}, nodeId, context, layer);
+            return bisectionsForMerge(placement.ring, arrivals, nodeId, context, layer);
         case 'cross':
-            return bisectionsForCrossRingMerge(placement.runs, nodeId, context, layer);
+            return bearGaps(mergeGaps(placement.runs, context), nodeId, layer);
     }
 }
 
@@ -554,7 +529,7 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
      *
      * A merge is resolvable as a whole if all its arrivals lie on one wavefront ring, or, ON A STEP OF SEVERAL RINGS,
      * if they are one run on each of two rings (simultaneous-rings spec, decisions 3 and 7): a vertex event across
-     * rings, whose two bisectors `bisectionsForCrossRingMerge` bears. Any other merge across rings sends the layer to
+     * rings, whose two bisectors `bisectionsOfWholeMerge` bears. Any other merge across rings sends the layer to
      * the narrowing and, failing that, to `pairwiseLayerRefusal` (decision 21). And no two merges may claim the same edge —
      * a bisector arrives somewhere once, so an edge in two merges means the first merge resolved would consume it and
      * strand the second. Deciding both for every merge before mutating anything keeps the answer all-or-nothing,

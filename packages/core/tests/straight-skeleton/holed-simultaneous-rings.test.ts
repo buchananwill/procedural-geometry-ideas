@@ -21,7 +21,7 @@
  */
 import type {BisectionParams, Vector2} from '@proc-geo/core';
 import {initInteriorEdges, makeStraightSkeletonSolverContext, setSkeletonLogLevel} from '@proc-geo/core';
-import {crossRingRuns} from '@proc-geo/core/straight-skeleton/coincident-events';
+import {crossRingRuns} from '@proc-geo/core/straight-skeleton/vertex-event';
 import {LayerLinks, linkBirth, linkSplit} from '@proc-geo/core/straight-skeleton/wavefront';
 import {
     HOLED_F1 as F1,
