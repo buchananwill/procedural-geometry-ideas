@@ -19,6 +19,7 @@ import {byArrival} from "./collision-helpers";
 import {byEdgeIds} from "./event-order";
 import {wallsAreAntiparallel} from "./wall-time";
 import {LayerLinks, linkMergeGap, linkMergeGapOnWall} from "./layer-links";
+import {accept, refuse, Verdict} from "./verdict";
 
 /**
  * Are these two arrivals the same vertex event, as far as anything that will ever look at the
@@ -521,30 +522,30 @@ function bearGap(gap: MergeGap, sourceNodeId: number, layer: LayerLinks): Bisect
 /**
  * A GAP'S DIRECTION, THE KERNEL'S (skeleton flat-ring and third-front spec, decision 35): the `v` with `v · n_cw = w_cw`
  * and `v · n_ws = w_ws`, `n` a wall's inward normal. Walls parallel and facing the same way give `n · w` at equal weights,
- * and at unequal weights no direction, the reason being returned; antiparallel walls give the clockwise wall's basis, as
- * `addBisectionEdge` does. Parallelism is read at the angular resolution.
+ * and at unequal weights no direction, the reason being the refusal; antiparallel walls give the clockwise wall's basis,
+ * as `addBisectionEdge` does. Parallelism is read at the angular resolution.
  */
-function gapDirection(gap: MergeGap, context: StraightSkeletonSolverContext): Vector2 | string {
+function gapDirection(gap: MergeGap, context: StraightSkeletonSolverContext): Verdict<Vector2> {
     const clockwise = context.getEdgeWithId(gap.clockwiseWall).basisVector;
     const widdershins = context.getEdgeWithId(gap.widdershinsWall).basisVector;
     const clockwiseWeight = context.weightOf(gap.clockwiseWall);
     const widdershinsWeight = context.weightOf(gap.widdershinsWall);
     if (wallsAreAntiparallel(context, gap.clockwiseWall, gap.widdershinsWall)) {
-        return clockwise;
+        return accept(clockwise);
     }
     if (directionsAreSame(clockwise, widdershins, context.angularResolution)) {
         return clockwiseWeight === widdershinsWeight
-            ? scaleVector(rotateCw90(clockwise), clockwiseWeight)
-            : `the gap {cw: ${gap.clockwiseWall}, ws: ${gap.widdershinsWall}} lies between same-facing parallel walls `
-            + `of unequal weight (${clockwiseWeight}, ${widdershinsWeight})`;
+            ? accept(scaleVector(rotateCw90(clockwise), clockwiseWeight))
+            : refuse(`the gap {cw: ${gap.clockwiseWall}, ws: ${gap.widdershinsWall}} lies between same-facing parallel `
+                + `walls of unequal weight (${clockwiseWeight}, ${widdershinsWeight})`);
     }
     const n1 = rotateCw90(clockwise);
     const n2 = rotateCw90(widdershins);
     const determinant = crossProduct(n1, n2);
-    return {
+    return accept({
         x: (clockwiseWeight * n2.y - widdershinsWeight * n1.y) / determinant,
         y: (n1.x * widdershinsWeight - n2.x * clockwiseWeight) / determinant,
-    };
+    });
 }
 
 /**
@@ -553,22 +554,24 @@ function gapDirection(gap: MergeGap, context: StraightSkeletonSolverContext): Ve
  * between, it grazes. The facing gap's index when exactly one faces and none grazes; otherwise the reason the meeting
  * stays refused (decision 44 (c) and (d)).
  */
-export function wallFacingGap(gaps: readonly MergeGap[], wall: number, context: StraightSkeletonSolverContext): number | string {
+export function wallFacingGap(gaps: readonly MergeGap[], wall: number, context: StraightSkeletonSolverContext): Verdict<number> {
     const normal = rotateCw90(context.getEdgeWithId(wall).basisVector);
     const facing: number[] = [];
     for (const [index, gap] of gaps.entries()) {
         const direction = gapDirection(gap, context);
-        if (typeof direction === 'string') {
+        if (!direction.ok) {
             return direction;
         }
-        const cosine = dotProduct(direction, normal) / (sizeOfVector(direction) * sizeOfVector(normal));
+        const cosine = dotProduct(direction.value, normal) / (sizeOfVector(direction.value) * sizeOfVector(normal));
         if (cosine < -context.angularResolution) {
             facing.push(index);
         } else if (cosine <= context.angularResolution) {
-            return `the gap {cw: ${gap.clockwiseWall}, ws: ${gap.widdershinsWall}} grazes wall ${wall}`;
+            return refuse(`the gap {cw: ${gap.clockwiseWall}, ws: ${gap.widdershinsWall}} grazes wall ${wall}`);
         }
     }
-    return facing.length === 1 ? facing[0] : `${facing.length} of its ${gaps.length} gaps face wall ${wall}, not one`;
+    return facing.length === 1
+        ? accept(facing[0])
+        : refuse(`${facing.length} of its ${gaps.length} gaps face wall ${wall}, not one`);
 }
 
 /**

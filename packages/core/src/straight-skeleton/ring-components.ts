@@ -3,6 +3,7 @@ import {degenerateAreaBar} from "./constants";
 import {distanceToSegment, isPointInPolygon, ringPerimeter, signedArea} from "./planar-geometry";
 import {findFirstCrossing} from "./polygon-decomposition";
 import {refuseStep} from "./step-scope";
+import {formatRing} from "./verdict";
 
 // ── Components: which child each ring goes to (decisions 10 to 17) ────────────────────────────────
 
@@ -103,12 +104,12 @@ export function componentsOfRings(
         const {polygon, area, bar, degenerate} = ringArea(context, ring, time, newborn);
         const crossing = findFirstCrossing(polygon, floor);
         if (crossing !== null) {
-            refuseStep(context, 'multi-ring-step-refused', `ring [${ring.join(', ')}]'s polygon crosses itself at time `
+            refuseStep(context, 'multi-ring-step-refused', `ring ${formatRing(ring)}'s polygon crosses itself at time `
                 + `${time}: its edges ${crossing.edgeI} and ${crossing.edgeJ} cross at (${crossing.point.x}, `
                 + `${crossing.point.y}), so the sign of its area cannot classify it as outer or inner.`);
         }
         if (degenerate) {
-            refuseStep(context, 'multi-ring-step-refused', `ring [${ring.join(', ')}] has area ${area} at time ${time}, `
+            refuseStep(context, 'multi-ring-step-refused', `ring ${formatRing(ring)} has area ${area} at time ${time}, `
                 + `at or under the ${bar} degenerate-area bar: it cannot be classified as outer or inner.`);
         }
         return {ring, polygon, area};
@@ -130,9 +131,9 @@ export function componentsOfRings(
             const near = polygon.some((vertex, k) =>
                 distanceToSegment(witness, vertex, polygon[(k + 1) % polygon.length]) < floor);
             if (near) {
-                refuseStep(context, 'multi-ring-step-refused', `inner ring [${entry.ring.join(', ')}]'s witness `
+                refuseStep(context, 'multi-ring-step-refused', `inner ring ${formatRing(entry.ring)}'s witness `
                     + `(${witness.x}, ${witness.y}) lies within the ${floor} floor of outer ring `
-                    + `[${outer.ring.join(', ')}] at time ${time}: which ring holds it cannot be read.`);
+                    + `${formatRing(outer.ring)} at time ${time}: which ring holds it cannot be read.`);
             }
             if (isPointInPolygon(witness, polygon)
                 && (container === -1 || Math.abs(outer.area) < Math.abs(outers[container].area))) {
@@ -140,7 +141,7 @@ export function componentsOfRings(
             }
         });
         if (container === -1) {
-            refuseStep(context, 'multi-ring-step-refused', `inner ring [${entry.ring.join(', ')}]'s witness `
+            refuseStep(context, 'multi-ring-step-refused', `inner ring ${formatRing(entry.ring)}'s witness `
                 + `(${witness.x}, ${witness.y}) lies in no outer ring at time ${time}.`);
         }
         componentOf.get(outers[container].ring)!.inner.push(entry.ring);

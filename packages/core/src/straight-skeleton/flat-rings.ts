@@ -15,6 +15,7 @@ import {bisectWithParams} from "./algorithm-helpers";
 import {retireBisectors} from "./wavefront-links";
 import {ringArea, ringPolygonAt} from "./ring-components";
 import {refuseStep} from "./step-scope";
+import {accept, formatRing, PASSED, Refused, Verdict} from "./verdict";
 
 /**
  * FLAT-RING TERMINATION (skeleton flat-ring and third-front spec, decisions 7 to 29). A ring a layer of a step of
@@ -62,9 +63,13 @@ export interface FlatRingPlan {
     stretches: FlatStretch[];
 }
 
-export type FlatRingVerdict = {flat: true; plan: FlatRingPlan} | {flat: false; clause: FlatRingClause; detail: string};
+/** Why a ring is not a flat termination: the clause it fails, and the reason in that clause's words. */
+export interface FlatRingRefusal extends Refused {
+    readonly clause: FlatRingClause;
+}
 
-type FlatRingFailure = Extract<FlatRingVerdict, {flat: false}>;
+/** The flatness test's answer: the ring's plan, or the first clause it fails. */
+export type FlatRingVerdict = Verdict<FlatRingPlan, FlatRingRefusal>;
 
 /** A piece of a ring's segment between two nodes, on the front of `wall` (decision 14). */
 interface Piece {
@@ -73,9 +78,7 @@ interface Piece {
     wall: number;
 }
 
-const fail = (clause: FlatRingClause, detail: string): FlatRingFailure => ({flat: false, clause, detail});
-
-const isFailure = (value: object): value is FlatRingFailure => 'clause' in value;
+const fail = (clause: FlatRingClause, reason: string): FlatRingRefusal => ({ok: false, clause, reason});
 
 function wallBasis(context: StraightSkeletonSolverContext, wall: number): Vector2 {
     return context.getEdgeWithId(wall).basisVector;
@@ -117,7 +120,7 @@ function frontSegments(
     nodes: Vector2[],
     nodeOf: number[],
     time: number,
-): Piece[] | FlatRingFailure {
+): Verdict<Piece[], FlatRingRefusal> {
     const segments: Piece[] = [];
     ring.forEach((id, index) => {
         const next = (index + 1) % ring.length;
@@ -139,7 +142,7 @@ function frontSegments(
             }
         }
     }
-    return segments;
+    return accept(segments);
 }
 
 /** Each segment cut at every other node within δ of its line and more than δ from both its ends along it (decision 14). */
@@ -169,7 +172,7 @@ function piecesOf(segments: Piece[], nodes: Vector2[], floor: number): Piece[] {
  * The stretches the pieces cover (decision 15): every pair of nodes a piece joins is joined by exactly two pieces,
  * running opposite ways, on antiparallel walls. Each clause is tested over every pair before the next.
  */
-function stretchesOf(context: StraightSkeletonSolverContext, pieces: Piece[]): FlatStretch[] | FlatRingFailure {
+function stretchesOf(context: StraightSkeletonSolverContext, pieces: Piece[]): Verdict<FlatStretch[], FlatRingRefusal> {
     const byPair = new Map<string, Piece[]>();
     for (const piece of pieces) {
         const key = `${Math.min(piece.from, piece.to)}-${Math.max(piece.from, piece.to)}`;
@@ -190,8 +193,8 @@ function stretchesOf(context: StraightSkeletonSolverContext, pieces: Piece[]): F
         return fail('stretch-walls-not-antiparallel', `the stretch between nodes ${parallel[0]} lies on walls `
             + `${parallel[1][0].wall} and ${parallel[1][1].wall}, which are not antiparallel`);
     }
-    return pairs.map(([, [first, second]]) =>
-        ({from: first.from, to: first.to, clockwiseWall: first.wall, widdershinsWall: second.wall}));
+    return accept(pairs.map(([, [first, second]]) =>
+        ({from: first.from, to: first.to, clockwiseWall: first.wall, widdershinsWall: second.wall})));
 }
 
 /**
@@ -216,11 +219,11 @@ function stretchesMeet(first: FlatStretch, second: FlatStretch, nodes: Vector2[]
 }
 
 /** Decisions 16 to 18: the stretches meet only at shared nodes, form one tree on one line, and each is over the bar. */
-function stretchShapeFailure(
+function stretchShape(
     stretches: FlatStretch[],
     nodes: Vector2[],
     context: StraightSkeletonSolverContext,
-): FlatRingFailure | undefined {
+): Verdict<void, FlatRingRefusal> {
     const floor = context.perceptualFloor;
     for (let i = 0; i < stretches.length; i++) {
         for (let j = i + 1; j < stretches.length; j++) {
@@ -255,7 +258,7 @@ function stretchShapeFailure(
         return fail('stretch-under-bar', `the stretch ${short.from}-${short.to} is no longer than `
             + `${FLAT_STRETCH_BAR_FLOORS} floors (${FLAT_STRETCH_BAR_FLOORS * floor})`);
     }
-    return undefined;
+    return PASSED;
 }
 
 /**
@@ -268,14 +271,14 @@ function levelFailure(
     context: StraightSkeletonSolverContext,
     plan: FlatRingPlan,
     newborn: ReadonlySet<number>,
-): FlatRingFailure | undefined {
+): Verdict<void, FlatRingRefusal> {
     const levels = plan.ring.map((id, index) => ({id, node: plan.nodeOf[index]})).filter(member => isLevel(context, member.id));
     const old = levels.find(member => !newborn.has(member.id));
     if (old !== undefined) {
         return fail('level-not-newborn', `the level member e${old.id} was not born in this layer`);
     }
     if (plan.nodes.length === 1) {
-        return undefined;
+        return PASSED;
     }
     const runs = levels.map(member => {
         const {clockwiseExteriorEdgeIndex: clockwise, widdershinsExteriorEdgeIndex: widdershins} = context.getInteriorWithId(member.id);
@@ -296,7 +299,7 @@ function levelFailure(
         }
         stretch![way] = id;
     }
-    return undefined;
+    return PASSED;
 }
 
 /**
@@ -316,20 +319,21 @@ export function flatRingVerdict(
     // A RING WHOSE MEMBERS ALL FALL IN ONE NODE has no segment and no stretch (decision 20).
     if (nodes.length > 1) {
         const segments = frontSegments(context, ring, nodes, nodeOf, time);
-        if (isFailure(segments)) {
+        if (!segments.ok) {
             return segments;
         }
-        const stretches = stretchesOf(context, piecesOf(segments, nodes, context.perceptualFloor));
-        if (isFailure(stretches)) {
+        const stretches = stretchesOf(context, piecesOf(segments.value, nodes, context.perceptualFloor));
+        if (!stretches.ok) {
             return stretches;
         }
-        const shape = stretchShapeFailure(stretches, nodes, context);
-        if (shape !== undefined) {
+        const shape = stretchShape(stretches.value, nodes, context);
+        if (!shape.ok) {
             return shape;
         }
-        plan.stretches = stretches;
+        plan.stretches = stretches.value;
     }
-    return levelFailure(context, plan, newborn) ?? {flat: true, plan};
+    const levels = levelFailure(context, plan, newborn);
+    return levels.ok ? accept(plan) : levels;
 }
 
 /**
@@ -399,12 +403,12 @@ export function closeFlatRings(
                 return [];
             }
             const verdict = flatRingVerdict(context, ring, time, newborn, polygon);
-            if (!verdict.flat) {
-                refuseStep(context, 'multi-ring-step-refused', `ring [${ring.join(', ')}] has area ${area} at time `
+            if (!verdict.ok) {
+                refuseStep(context, 'multi-ring-step-refused', `ring ${formatRing(ring)} has area ${area} at time `
                     + `${time}, at or under the ${bar} degenerate-area bar, and is not a flat termination: `
-                    + `${verdict.clause}: ${verdict.detail}.`);
+                    + `${verdict.clause}: ${verdict.reason}.`);
             }
-            return [verdict.plan];
+            return [verdict.value];
         });
     for (const plan of plans) {
         closeFlatRing(context, plan, newborn);

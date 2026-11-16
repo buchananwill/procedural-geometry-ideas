@@ -45,6 +45,7 @@ import {
 } from "./layer-links";
 import {componentsOfRings} from "./ring-components";
 import {refuseStep} from "./step-scope";
+import {accept, formatRing, PASSED, refuse, Verdict} from "./verdict";
 
 /**
  * A NODE CARRIES WHERE IT WAS PUT (journal-5 decisions 170 and 171(c)): raise `nodeId`'s position budget to
@@ -184,7 +185,7 @@ interface WholeEvents {
 
 /*
  * WHAT A STEP OF SEVERAL RINGS STILL REFUSES (skeleton simultaneous-rings spec, decisions 20 to 23): why this layer's
- * final event set cannot be resolved, or `undefined` when it can. Asked once the set is final and before its first
+ * final event set cannot be resolved, as a refused {@link Verdict}, or `PASSED` when it can. Asked once the set is final and before its first
  * event is resolved, so a refused layer changes no link, node or acceptance, and only on a step of more than one ring
  * (decision 1). The events are the layer's own, chosen by `HELD_SIMULTANEITY_WINDOW`, the narrowing to the earliest
  * moment and the clustering at δ: no window or tolerance is added here. Two refusals, one for each way the layer is
@@ -201,11 +202,15 @@ interface WholeEvents {
  * the layer only because every merge lies on one ring or is one run on each of two, and no two merges share a bisector,
  * and its merges are the clustering at δ of the same interior events.
  */
-function wholeLayerRefusal(thirdFronts: readonly ThirdFront[]): string | undefined {
-    const refused = thirdFronts.find(third => typeof third.resolution === 'string');
-    return refused === undefined ? undefined : `the vertex event [${refused.merge.edgeIds.join(', ')}] meets a third `
-        + `front, edge ${refused.splits[0].struckSegment.exteriorEdge}: ${refused.resolution} (flat-ring and `
-        + `third-front spec, decision 44).`;
+function wholeLayerRefusal(thirdFronts: readonly ThirdFront[]): Verdict<void> {
+    for (const third of thirdFronts) {
+        if (!third.resolution.ok) {
+            return refuse(`the vertex event [${third.merge.edgeIds.join(', ')}] meets a third front, edge `
+                + `${third.splits[0].struckSegment.exteriorEdge}: ${third.resolution.reason} (flat-ring and third-front `
+                + `spec, decision 44).`);
+        }
+    }
+    return PASSED;
 }
 
 /**
@@ -229,7 +234,7 @@ function pairwiseLayerRefusal(
     context: StraightSkeletonSolverContext,
     rings: number[][],
     events: CollisionEvent[],
-): string | undefined {
+): Verdict<void> {
     const ringOf = new Map<number, number>();
     rings.forEach((ring, index) => ring.forEach(id => ringOf.set(id, index)));
     const describe = (event: CollisionEvent) =>
@@ -240,16 +245,17 @@ function pairwiseLayerRefusal(
     for (const merge of merges) {
         const ringCount = new Set(merge.edgeIds.map(id => ringOf.get(id))).size;
         if (ringCount > 1 && crossRingRuns(rings, merge) === undefined) {
-            return `the vertex event [${merge.edgeIds.join(', ')}] gathers bisectors of ${ringCount} rings in other than `
-                + `one run on each of two, so its pairing would depend on the angular order round its node (decision 21).`;
+            return refuse(`the vertex event [${merge.edgeIds.join(', ')}] gathers bisectors of ${ringCount} rings in `
+                + `other than one run on each of two, so its pairing would depend on the angular order round its node `
+                + `(decision 21).`);
         }
     }
 
     if (mergesShareAnEdge(merges)) {
         const across = interior.find(event => ringOf.get(event.collidingEdges[0]) !== ringOf.get(event.collidingEdges[1]));
         if (across !== undefined) {
-            return `the layer cannot be resolved whole, because two of its vertex events share a bisector, and `
-                + `${describe(across)} meets bisectors of two rings (decision 21).`;
+            return refuse(`the layer cannot be resolved whole, because two of its vertex events share a bisector, and `
+                + `${describe(across)} meets bisectors of two rings (decision 21).`);
         }
     }
 
@@ -257,12 +263,12 @@ function pairwiseLayerRefusal(
         const merge = merges.find(candidate => candidate.edgeIds.includes(split.collidingEdges[0]));
         if (merge !== undefined && meetsThirdFront(split, merge)) {
             const segment = split.struckSegment;
-            return `the split ${describe(split)} meets a third front: its instigator arrives at the vertex event `
+            return refuse(`the split ${describe(split)} meets a third front: its instigator arrives at the vertex event `
                 + `[${merge.edgeIds.join(', ')}], and neither end of its struck segment (e${segment.from}, e${segment.to}) `
-                + `of edge ${segment.exteriorEdge} does (decision 22).`;
+                + `of edge ${segment.exteriorEdge} does (decision 22).`);
         }
     }
-    return undefined;
+    return PASSED;
 }
 
 /**
@@ -285,7 +291,7 @@ interface ThirdFront {
     mergeIndex: number;
     merge: CoincidentMerge;
     splits: SplitEvent[];
-    resolution: {gaps: MergeGap[]; facing: number; segment: WavefrontSegment} | string;
+    resolution: Verdict<{gaps: MergeGap[]; facing: number; segment: WavefrontSegment}>;
 }
 
 /**
@@ -307,16 +313,16 @@ function thirdFrontsOf(
         const segment = splits[0].struckSegment;
         const walls = new Set(splits.map(split => split.struckSegment.exteriorEdge));
         if (walls.size > 1) {
-            return third(`its splits strike ${walls.size} walls (${[...walls].join(', ')})`);
+            return third(refuse(`its splits strike ${walls.size} walls (${[...walls].join(', ')})`));
         }
         const ring = resolution.ringOfMerge[mergeIndex];
         const runs = resolution.runsOfMerge[mergeIndex] ?? contiguousRuns(ring!, new Set(merge.edgeIds));
         if (runs.length === 1 && runs[0].length === ring!.length) {
-            return third('a run of it is its whole ring');
+            return third(refuse('a run of it is its whole ring'));
         }
         const gaps = mergeGaps(runs, context);
         const facing = wallFacingGap(gaps, segment.exteriorEdge, context);
-        return third(typeof facing === 'string' ? facing : {gaps, facing, segment});
+        return third(facing.ok ? accept({gaps, facing: facing.value, segment}) : facing);
     });
 }
 
@@ -432,7 +438,7 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         // DECISION 23: a step of several rings with no event never climbs the terminal ladder. Its closures and its
         // coaxial completion are statements about one live set, and would pair bisectors of different rings.
         refuseStep(context, 'multi-ring-step-refused', `a step of ${rings.length} rings `
-            + `(${rings.map(ring => `[${ring.join(', ')}]`).join(', ')}) produced no event.`);
+            + `(${rings.map(ring => formatRing(ring)).join(', ')}) produced no event.`);
     }
 
     if (collisions.length === 0) {
@@ -559,12 +565,12 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         : null;
     if (multiRing) {
         // On a step of several rings, `thirdFronts` is read exactly when the layer is resolved whole.
-        const refusal = thirdFronts !== null
+        const verdict = thirdFronts !== null
             ? wholeLayerRefusal(thirdFronts)
             : pairwiseLayerRefusal(context, rings, eventsToResolve);
-        if (refusal !== undefined) {
+        if (!verdict.ok) {
             refuseStep(context, 'simultaneous-across-rings', `rings `
-                + `${rings.map(ring => `[${ring.join(', ')}]`).join(', ')}: ${refusal} Events of different rings `
+                + `${rings.map(ring => formatRing(ring)).join(', ')}: ${verdict.reason} Events of different rings `
                 + `coincide in this layer in a form the simultaneous-rings spec refuses by name.`);
         }
     }
@@ -629,14 +635,14 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
             // their instigators consumed here.
             const runs = resolution.runsOfMerge[index];
             const onWall = thirdFronts?.find(third => third.mergeIndex === index)?.resolution;
-            const bisections = typeof onWall === 'object'
-                ? bisectionsForMergeOnWall(onWall.gaps, onWall.facing, onWall.segment.exteriorEdge, onWall.segment,
-                    merge.position, node.id, layer)
+            const bisections = onWall?.ok === true
+                ? bisectionsForMergeOnWall(onWall.value.gaps, onWall.value.facing, onWall.value.segment.exteriorEdge,
+                    onWall.value.segment, merge.position, node.id, layer)
                 : runs === undefined
                     ? bisectionsForMerge(resolution.ringOfMerge[index]!, {position: merge.position, edgeIds: arrivals}, node.id, context, layer)
                     : bisectionsForCrossRingMerge(runs, node.id, context, layer);
-            if (typeof onWall === 'object') {
-                context.probe?.thirdFrontResolved?.(context, merge.edgeIds, onWall.segment.exteriorEdge);
+            if (onWall?.ok === true) {
+                context.probe?.thirdFrontResolved?.(context, merge.edgeIds, onWall.value.segment.exteriorEdge);
             }
             // The arrivals leave the wavefront, once each gap has been linked from them.
             retireBisectors(context, arrivals);

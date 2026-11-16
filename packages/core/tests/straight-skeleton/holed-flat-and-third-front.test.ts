@@ -411,7 +411,7 @@ const NORTH = {x: 0, y: 1};
 const SOUTH = {x: 0, y: -1};
 
 /** The clause a verdict names, or `flat`. */
-const clauseOf = (verdict: FlatRingVerdict) => verdict.flat ? 'flat' : verdict.clause;
+const clauseOf = (verdict: FlatRingVerdict) => verdict.ok ? 'flat' : verdict.clause;
 
 /*
  * THE BASE LINE RING, `2h-int-1`'s at t = 1 in miniature. Walls T1 and T2 run east with fronts on y = 2, two collinear
@@ -436,11 +436,11 @@ describe('flatRingVerdict on hand-built rings (decision 51)', () => {
     it('passes the base line ring: three nodes, two stretches, a forward on P–M and b backward on M–Q', () => {
         const {context, a, m, b} = baseLine();
         const verdict = flatRingVerdict(context, [a, m, b], 1, new Set([a, m, b]));
-        if (!verdict.flat) {
-            throw new Error(`${verdict.clause}: ${verdict.detail}`);
+        if (!verdict.ok) {
+            throw new Error(`${verdict.clause}: ${verdict.reason}`);
         }
-        expect(verdict.plan.nodes).toEqual([{x: 2, y: 2}, {x: 5, y: 2}, {x: 8, y: 2}]);
-        expect(verdict.plan.stretches).toEqual([
+        expect(verdict.value.nodes).toEqual([{x: 2, y: 2}, {x: 5, y: 2}, {x: 8, y: 2}]);
+        expect(verdict.value.stretches).toEqual([
             {from: 0, to: 1, clockwiseWall: T1, widdershinsWall: B, forward: a},
             {from: 1, to: 2, clockwiseWall: T2, widdershinsWall: B, backward: b},
         ]);
@@ -654,26 +654,28 @@ describe('wallFacingGap on synthetic gaps (decision 51)', () => {
     const G = gap(G_CW, G_WS);
 
     it('one facing: E′\'s gaps, Y facing and X clear', () => {
-        expect(wallFacingGap([X, Y], BOTTOM, context)).toBe(1);
+        expect(wallFacingGap([X, Y], BOTTOM, context)).toEqual({ok: true, value: 1});
     });
 
     it('none facing: X alone', () => {
-        expect(wallFacingGap([X], BOTTOM, context)).toBe('0 of its 1 gaps face wall 0, not one');
+        expect(wallFacingGap([X], BOTTOM, context)).toEqual({ok: false, reason: '0 of its 1 gaps face wall 0, not one'});
     });
 
     it('two facing: Y twice', () => {
-        expect(wallFacingGap([Y, Y], BOTTOM, context)).toBe('2 of its 2 gaps face wall 0, not one');
+        expect(wallFacingGap([Y, Y], BOTTOM, context)).toEqual({ok: false, reason: '2 of its 2 gaps face wall 0, not one'});
     });
 
     it('a grazing gap: G, on walls a legal input can pair, whose direction is within the resolution of the wall', () => {
         expect(context.angularResolution).toBe(RESOLUTION);
         expect(inConeOfGap(context, BOTTOM_NORMAL, G)).toBe(true);
-        expect(wallFacingGap([X, Y, G], BOTTOM, context)).toBe('the gap {cw: 5, ws: 6} grazes wall 0');
+        expect(wallFacingGap([X, Y, G], BOTTOM, context)).toEqual({ok: false, reason: 'the gap {cw: 5, ws: 6} grazes wall 0'});
     });
 
     it('a gap between same-facing parallel walls of unequal weight has no direction (decision 44 (d))', () => {
-        expect(wallFacingGap([X, gap(H2_HEAVY, H1_BOTTOM)], BOTTOM, context))
-            .toBe('the gap {cw: 7, ws: 3} lies between same-facing parallel walls of unequal weight (2, 1)');
+        expect(wallFacingGap([X, gap(H2_HEAVY, H1_BOTTOM)], BOTTOM, context)).toEqual({
+            ok: false,
+            reason: 'the gap {cw: 7, ws: 3} lies between same-facing parallel walls of unequal weight (2, 1)',
+        });
     });
 });
 
@@ -707,8 +709,9 @@ describe('wallFacingGap: the weights decide no verdict on walls a legal input ca
         const verdicts = STRUCK.flatMap(wall => pairs.map(([first, second]) => {
             const clear = gap(wallAt(Y1, first), wallAt(Y2, second));
             const facing = gap(wallAt(X1, first), wallAt(X2, second));
+            const verdict = wallFacingGap([clear, facing], wall, context);
             return `wall of weight ${context.weightOf(wall)}, gap walls (${first}, ${second}): `
-                + `${wallFacingGap([clear, facing], wall, context)}`;
+                + `${verdict.ok ? verdict.value : verdict.reason}`;
         }));
         expect(verdicts).toEqual(STRUCK.flatMap(wall => pairs.map(([first, second]) =>
             `wall of weight ${context.weightOf(wall)}, gap walls (${first}, ${second}): 1`)));
