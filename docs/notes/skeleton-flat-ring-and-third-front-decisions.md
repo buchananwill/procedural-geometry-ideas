@@ -48,24 +48,24 @@ that a mis-paired ring cannot pass the flatness test.
 |---|---|---|
 | + | `type FlatRingClause = 'segment-against-wall' \| 'segment-off-front' \| 'stretch-cover-count' \| 'stretch-same-way' \| 'stretch-walls-not-antiparallel' \| 'stretches-meet' \| 'not-a-tree' \| 'not-one-line' \| 'stretch-under-bar' \| 'level-not-newborn' \| 'level-off-stretch' \| 'level-doubled'` | `flat-rings.ts` (new) |
 | + | `interface FlatStretch { from: number; to: number; clockwiseWall: number; widdershinsWall: number; forward?: number; backward?: number }` (node indices; the level member running from→to, and to→from) | `flat-rings.ts` |
-| + | `interface FlatRingPlan { ring: number[]; nodes: Vector2[]; nodeOf: number[]; stretches: FlatStretch[] }` | `flat-rings.ts` |
-| + | `type FlatRingVerdict = {flat: true; plan: FlatRingPlan} \| {flat: false; clause: FlatRingClause; detail: string}` | `flat-rings.ts` |
+| + | `interface FlatRingPlan { ring: number[]; nodes: Vector2[]; nodeOf: number[]; stretches: FlatStretch[] }` (with `levelEnd` and `ridges`, where the level members run, since BSA.D356) | `flat-rings.ts` |
+| + | `type FlatRingVerdict = {flat: true; plan: FlatRingPlan} \| {flat: false; clause: FlatRingClause; detail: string}` (since BSA.D356 `Verdict<FlatRingPlan, FlatRingRefusal>`, `verdict.ts`: `{ok: true; value}` or `{ok: false; reason; clause}`) | `flat-rings.ts` |
 | + | `flatRingVerdict(context, ring: number[], time: number, newborn: ReadonlySet<number>): FlatRingVerdict` | `flat-rings.ts` |
-| + | `closeFlatRings(context, outgoing: number[], time: number, newborn: ReadonlySet<number>): Set<number>` (the ids closed; refuses by name) | `flat-rings.ts` |
+| + | `closeFlatRings(context, outgoing: number[], time: number, newborn: ReadonlySet<number>): Set<number>` (the ids closed; refuses by name; since BSA.D356 it takes the rings the layer left, `rings: readonly number[][]`, read once by its caller) | `flat-rings.ts` |
 | + | `FLAT_STRETCH_BAR_FLOORS = 4` (provisional and incidental, §6 item 1) | [constants.ts](../../packages/core/src/straight-skeleton/constants.ts) |
-| + | `interface MergeGap { lastArrival: number; firstDeparture: number; clockwiseWall: number; widdershinsWall: number }` | [coincident-events.ts](../../packages/core/src/straight-skeleton/coincident-events.ts) |
-| + | `mergeGaps(runs: readonly (readonly number[])[], context): MergeGap[]` | coincident-events.ts |
-| + | `wallFacingGap(gaps: readonly MergeGap[], wall: number, context): number \| string` (the facing gap's index, or the refusal's reason) | coincident-events.ts |
-| + | `bisectionsForMergeOnWall(gaps: readonly MergeGap[], facing: number, wall: number, segment: WavefrontSegment, position: Vector2, sourceNodeId: number, context): BisectionParams[]` | coincident-events.ts |
-| + | `linkMergeGapOnWall(context, lastArrival, firstDeparture, segment, position, towardsClockwise, towardsWiddershins): void` | [wavefront.ts](../../packages/core/src/straight-skeleton/wavefront.ts) |
-| ~ | `WavefrontProbe` gains `flatRingClosed?(context, ring: readonly number[])` and `thirdFrontResolved?(context, merge: readonly number[], wall: number)` | wavefront.ts |
-| ~ | `handleInteriorNGon`: the third fronts of a whole layer, their refusals before resolution, their resolution in the merge loop, and `closeFlatRings` before `componentsAsChildren` | [algorithm-complex-cases.ts](../../packages/core/src/straight-skeleton/algorithm-complex-cases.ts) |
-| ~ | `multiRingRefusal`: its decision-22 clause is asked only of a layer not resolved whole; it gains the third-front clauses of decision 44 | algorithm-complex-cases.ts |
+| + | `interface MergeGap { lastArrival: number; firstDeparture: number; clockwiseWall: number; widdershinsWall: number }` | [vertex-event.ts](../../packages/core/src/straight-skeleton/vertex-event.ts) (built in `coincident-events.ts`; moved by BSA.D356) |
+| + | `mergeGaps(runs: readonly (readonly number[])[], context): MergeGap[]` | vertex-event.ts |
+| + | `wallFacingGap(gaps: readonly MergeGap[], wall: number, context): number \| string` (the facing gap's index, or the refusal's reason; a `Verdict<number>` since BSA.D356) | vertex-event.ts |
+| + | `bisectionsForMergeOnWall(gaps: readonly MergeGap[], facing: number, wall: number, segment: WavefrontSegment, position: Vector2, sourceNodeId: number, context): BisectionParams[]` (its last argument the layer's `LayerLinks` since BSA.D356) | vertex-event.ts |
+| + | `linkMergeGapOnWall(context, lastArrival, firstDeparture, segment, position, towardsClockwise, towardsWiddershins): void` (its first argument the layer's `LayerLinks` since BSA.D356) | [layer-links.ts](../../packages/core/src/straight-skeleton/layer-links.ts) (built in `wavefront.ts`, which BSA.D356 split) |
+| ~ | `WavefrontProbe` gains `flatRingClosed?(context, ring: readonly number[])` and `thirdFrontResolved?(context, merge: readonly number[], wall: number)` | [wavefront-check.ts](../../packages/core/src/straight-skeleton/wavefront-check.ts) |
+| ~ | `handleInteriorNGon`: the third fronts of a whole layer, their refusals before resolution, their resolution in the merge loop, and `closeFlatRings` before `componentsAsChildren` | [algorithm-complex-cases.ts](../../packages/core/src/straight-skeleton/algorithm-complex-cases.ts); the third fronts' reading in [whole-events.ts](../../packages/core/src/straight-skeleton/whole-events.ts) |
+| ~ | `multiRingRefusal`: its decision-22 clause is asked only of a layer not resolved whole; it gains the third-front clauses of decision 44 (split by BSA.D356 into `wholeLayerRefusal`, the third-front clauses, and `pairwiseLayerRefusal`, the decision-21 and decision-22 clauses) | whole-events.ts |
 | ~ | doc comments of `simultaneous-across-rings` and `multi-ring-step-refused` | [types.ts](../../packages/core/src/straight-skeleton/types.ts) |
-| = | `componentsOfRings`, `linkSplit`, `linkMergeGap`, `bisectionsForMerge`, `bisectionsForCrossRingMerge`, `crossRingRuns`, `contiguousRuns`, `applyDegenerateClosure`, `addBisectionEdge`, `holed-guard.ts`, `SkeletonDiagnosticKind` | |
+| = | `componentsOfRings`, `linkSplit`, `linkMergeGap`, `bisectionsForMerge`, `bisectionsForCrossRingMerge` (folded into `bearGaps` by BSA.D356), `crossRingRuns`, `contiguousRuns`, `applyDegenerateClosure`, `addBisectionEdge`, `holed-guard.ts`, `SkeletonDiagnosticKind` | |
 | ~ | `BLOCKING_DIAGNOSTIC_HEADINGS` for the two kinds | [holed-fixture-text.ts](../../packages/dashboard/src/components/holed-fixture-text.ts) |
 | ~ | `HOLED_CAUSES` for the two kinds | [skeleton.ts](../../apps/building-shell/src/roof/skeleton.ts) |
-| ~ | `HOLED_REFUSALS` (cured layouts leave, a remaining refusal enters), `HOLED_FIXTURES` (cured layouts enter) | [robustness-fixtures.ts](../../apps/building-shell/tests/robustness-fixtures.ts), [fixture.ts](../../apps/building-shell/src/fixture.ts) |
+| ~ | `HOLED_REFUSALS` (cured layouts leave, a remaining refusal enters), `HOLED_FIXTURES` (cured layouts enter) | [fixture.ts](../../apps/building-shell/src/fixture.ts), both (`HOLED_REFUSALS` in `tests/robustness-fixtures.ts` until BSA.D356) |
 | + | `holed-flat-and-third-front.test.ts` | `packages/core/tests/straight-skeleton/` |
 | + | `holed-grid-fuzz.test.ts` | `apps/building-shell/tests/` |
 | ~ | `holed-simultaneous-rings.test.ts`, `solve-skeleton-stepped.test.ts`, `holed-solve-boundary.test.ts`, `skeletonToScene-holes.test.ts`, `holed-specimens.ts`, `holed-roof.test.ts`, `holed-fixtures.test.ts`, `courtyard.test.ts` (comments) | core, dashboard and building-shell tests |
@@ -76,6 +76,9 @@ that a mis-paired ring cannot pass the flatness test.
 
 1. **Both rules are reached only in a step of more than one ring** (`multiRing` in `handleInteriorNGon`). A step of
    one ring keeps its present dispatch to the pair, triangle and n-gon handlers, flat rings of one-ring steps included.
+   **AMENDED 2026-11-16** (BSA.D356): the local `multiRing` is gone; `handleInteriorNGon`'s phases test
+   `rings.length > 1` (`resolveLayerEvents`, `refuseUnsettledLayer`) and the step of several rings goes to
+   `childrenOfSeveralRings`, where `closeFlatRings` runs.
 2. **Every solve whose graph changes is one refused today,** by `componentsOfRings`' crossing or area clause on a ring
    the flatness test passes, or by node 5 decision 22. Every other solve, complete or refused, is byte-identical.
 3. **Single-loop identity is a gate:** the 60 `FULL_CORPUS` digests, the sweep harness's output sets for every group
@@ -184,8 +187,12 @@ Traced by hand from the issue note; this ring was not in the measured samples.
 33. **`M`'s gaps are `mergeGaps(runs)`:** one per run `k`, with `lastArrival` the last of run `k`, `firstDeparture` the
     first of run `k + 1` cyclically, `clockwiseWall = cp(lastArrival)` and `widdershinsWall = wp(firstDeparture)`,
     exactly the gaps `bisectionsForMerge` and `bisectionsForCrossRingMerge` bear.
+    **AMENDED 2026-11-16** (BSA.D356): `bisectionsForCrossRingMerge` is gone; one `bearGaps` (`vertex-event.ts`) bears
+    the gaps of a merge on one ring, of a merge across two rings and the clear gaps of a third front.
 34. **The struck wall is the exterior edge every split of `S(M)` strikes,** and the struck segment is that of the first
     split of `S(M)` by `byEventPriority`.
+    **AMENDED 2026-11-16** (BSA.D356): `byEventPriority` is gone. The splits of `S(M)`, all of one priority, are
+    sorted by their edge ids (`byEdgeIds`, `event-order.ts`), the order `byEventPriority` gave them.
 35. **A gap's direction `v` is the kernel's:** `v · n_cw = w_cw` and `v · n_ws = w_ws`, `n` the inward normal. Walls
     parallel and facing the same way with equal weights give `n · w`; antiparallel walls give the clockwise wall's
     basis, as `addBisectionEdge` does.
@@ -226,12 +233,18 @@ front.
 43. **Every third-front refusal is decided with `multiRingRefusal`, once the layer's event set is final and before its
     first event is resolved,** so a refused layer changes no link, node or acceptance (node 5 decision 20). The
     classification reads runs, walls and weights only.
+    **AMENDED 2026-11-16** (BSA.D356): `multiRingRefusal` is split in two, asked by `refuseUnsettledLayer`:
+    `wholeLayerRefusal` (`whole-events.ts`) holds this decision's third-front clauses for a layer resolved whole, and
+    `pairwiseLayerRefusal` the decision-21 and decision-22 clauses for a layer that is not.
 44. **Each pushes `simultaneous-across-rings`, naming the step, the merge, the wall and the reason, with the phrase
     `meets a third front`:** (a) `S(M)` strikes more than one wall; (b) a run of `M` is its whole ring; (c) no gap, or
     more than one, faces the wall; (d) a gap grazes the wall, or lies between same-facing parallel walls of unequal
     weight.
 45. **`multiRingRefusal`'s decision-21 clauses are asked of the layer's events less the splits of resolved third-front
     meetings.**
+    **AMENDED 2026-11-16** (BSA.D356): the filter is deleted as vacuous. A layer resolved whole is asked only
+    `wholeLayerRefusal`, and on it the decision-21 clauses cannot fire, since `asWholeEvents` resolved it only because
+    every merge lies on one ring or is one run on each of two and no two merges share a bisector.
 
 ### Weights
 

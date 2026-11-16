@@ -122,9 +122,10 @@ outside the repo.
 - **The events.** `createCollisions` reports `[26,30]` and `[26,31]` at `(950,900)` and `[27,30]` and `[27,31]` at
   `(750,900)`, each from both ends, **every one at exactly one arrival, `d = 0.09765625` in unit space (`t = 200`)**:
   the ridge bisectors have zero offset rate, so every point of the collapsing ridge is reached at one time.
-- **The branch.** In `handleInteriorNGon` (`algorithm-complex-cases.ts`), `asWholeEvents` clusters the events at δ
-  into two merges, `{26, 30, 31}` at `(950,900)` and `{27, 30, 31}` at `(750,900)`, which share `e30` and `e31`, so
-  `mergesShareAnEdge` refuses the whole-event resolution. `earliestArrivalMoment` cannot narrow it, because all four
+- **The branch.** In `handleInteriorNGon` (`algorithm-complex-cases.ts`), `asWholeEvents` (`whole-events.ts`) clusters
+  the events at δ into two merges, `{26, 30, 31}` at `(950,900)` and `{27, 30, 31}` at `(750,900)`, which share `e30`
+  and `e31`, so `mergesShareAnEdge` refuses the whole-event resolution. `earliestArrivalMoment` (`event-order.ts`)
+  cannot narrow it, because all four
   events are one moment. The layer goes to **the pairwise fallback**, `inArrivalOrder(eventsToResolve,
   byEventPriority).map(handleCollisionEvent)`. Within one moment `byEventPriority` orders by event priority (all
   `interiorPair`) and then by the colliding edge ids, so `[26,30]` is handled first: the left ridge bisector `e30` is

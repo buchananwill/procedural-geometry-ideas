@@ -66,7 +66,7 @@ Roadmap node 9 ([the holed roof spec](./building-shell-holed-roof-decisions.md),
 `solveSkeleton` each island's outline and holes, and these layouts are refused as `multi-ring-step-refused`. Each is
 one storey, every Ring hipped at 30°, Rings as `[x0, y0, x1, y1]` in cm. The first four built clean under the courtyard
 cut and are the regression the spec states; in each, a jut's wall lies in line with a courtyard wall, facing the same
-way. Each is an entry of `HOLED_REFUSALS` in `apps/building-shell/tests/robustness-fixtures.ts`, whose test in
+way. Each is an entry of `HOLED_REFUSALS` in `apps/building-shell/src/fixture.ts`, whose test in
 `tests/holed-roof.test.ts` asserts the hard error naming the island and this kind; the guard is green, and a cure turns
 it red.
 

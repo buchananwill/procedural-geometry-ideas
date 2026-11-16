@@ -195,8 +195,8 @@ THROWS on a non-finite position (`d307547`, design-doc decision 24 — "a NaN po
 to itself under an absolute tolerance … appends a fresh node on every call"), and every entry point
 rejects non-finite input at the door (`898538e`: `solveSkeleton` and `runAlgorithmV5` throw naming the
 caller's vertex index; `runAlgorithmV5Stepped` reports it on `error`) — see
-[algorithm-termination-cases.ts](../../packages/core/src/straight-skeleton/algorithm-termination-cases.ts)
-`nonFiniteVertexComplaint`. The epsilon inside `findOrAddNode` is FROZEN by measurement (journal F41,
+[boundary-stage.ts](../../packages/core/src/straight-skeleton/boundary-stage.ts)
+`nonFiniteVertexComplaint` (in `algorithm-termination-cases.ts` until BSA.D356). The epsilon inside `findOrAddNode` is FROZEN by measurement (journal F41,
 audit constraint C1): widening it to the render floor "delivered every promised cure and broke four
 independent axes at once" (F27), so it stays the arithmetic-equality backstop and geometric merging
 happens at the event layer (§3.3). Your `SkeletonSolverContext.cpp:123-133` `FindOrAddNode` still has
@@ -234,7 +234,11 @@ delta to adopt (§3.10).
 by the same argument.* Upstream `offset-projection.ts` still uses `Math.hypot` in its private
 `distanceToSupportingLine` (lines 258–260 at `e88da1f`), and the new
 `canonicalisation.ts` reuses `vertex-budget.ts`'s exported `distanceToSupportingLine`, also `Math.hypot`.
-The unit-space argument that makes the two interchangeable is unchanged.
+The unit-space argument that makes the two interchangeable is unchanged. Since BSA.D356 there is one
+`distanceToSupportingLine`, `Math.hypot` still, in
+[planar-geometry.ts](../../packages/core/src/straight-skeleton/planar-geometry.ts); `canonicalisation.ts` imports it,
+`vertex-budget.ts` re-exports it, and the offset projection's private copy is gone in favour of `distanceToWallLine`
+([wall-time.ts](../../packages/core/src/straight-skeleton/wall-time.ts)), which calls it.
 
 **An entry you carry in code rather than in the register:** your `SkeletonCoincidentEvents.h` records
 that `ClusterCoincidentMerges` diverges from the reference by clustering on the TRANSITIVE CLOSURE with a
@@ -302,7 +306,9 @@ decision 30). Two things it does not have:
 
 ### 3.4 The terminal closed forms — `35aed25`, `d307547`, `37aea38`, `a8ecbdf`, `4d12eac`
 
-[algorithm-termination-cases.ts](../../packages/core/src/straight-skeleton/algorithm-termination-cases.ts).
+[algorithm-termination-cases.ts](../../packages/core/src/straight-skeleton/algorithm-termination-cases.ts) (the pair,
+the triangle and the snap); the degenerate and parallel closures are in
+[terminal-ladder.ts](../../packages/core/src/straight-skeleton/terminal-ladder.ts) since BSA.D356.
 
 - **Three edges** (`solveTerminalTriangle`, design-doc decision 22): the meeting point and the wavefront
   clock are solved TOGETHER by Cramer's rule over the three distinct exterior parents' supporting lines
@@ -388,7 +394,7 @@ defect that motivated the containment sweep (§4.2). **Port: absent** (no `Reach
 Journal decision 102 (user, 2026-08-29): "collision events are handled with a strict linear causality
 (within the appropriate tolerance). Breaking that is a first-class bug." Five pieces:
 
-1. **Arrival ordering** (`inArrivalOrder`, `algorithm-complex-cases.ts`): the pairwise fallback used to
+1. **Arrival ordering** (`inArrivalOrder`, `event-order.ts` since BSA.D356; `algorithm-complex-cases.ts` before): the pairwise fallback used to
    sort a layer by priority then edge id, which — because each event CONSUMES its edges — was a pairing
    rule that threw the offsets away. Events are now ordered by offset; the lexicographic tie-break
    (priority, then `collidingEdges`) applies only WITHIN one moment.
@@ -396,13 +402,15 @@ Journal decision 102 (user, 2026-08-29): "collision events are handled with a st
    ulps of the larger — "a representation bar, not a geometric tolerance". The corpus's two live
    populations sit four orders either side: rounding noise at 1–few ulps, genuine separations at
    3.9e5–1.1e6 ulps (asserted as ratios in `arrival-ordering.test.ts`).
-3. **`arrivalOffsetOfPair = max(offsetFromA, offsetFromB)`** (`collision-helpers.ts`): an event's offset
+3. **`arrivalOffsetOfPair = max(offsetFromA, offsetFromB)`** (`collision-helpers.ts`; since BSA.D356 the pair's
+   arrival is `laterArrival` called directly, and `arrivalOffsetOfPair` is gone): an event's offset
    was the INSTIGATOR's reading, so one physical arrival reached the solver as two events 9.03e-11 apart
    depending on which edge reported it, letting a ring's latest arrival present as earliest. Measured
    first that the walls are genuinely non-concurrent ("there is no truer offset to recover"), so the
    pair has met when the slower one arrives. Cost: five fixtures move a node coordinate by ≤2.3e-16 of
    extent; the other 54 are bit-identical.
-4. **Earliest-arrival narrowing on refusal** (`earliestArrivalMoment`, `ae59a5f`): the layer window
+4. **Earliest-arrival narrowing on refusal** (`earliestArrivalMoment`, `ae59a5f`; in `event-order.ts` and called
+   from `resolveLayerEvents` since BSA.D356): the layer window
    `collisionsToHandle` is an absolute `fp_compare` at 1e-8 on offsets of order 1e-1 — ~1e8 ulps wide —
    so when whole-event resolution REFUSED a layer (an edge claimed by two merges) the pairwise fallback
    consumed arrivals a million ulps apart as simultaneous. Now the refused layer is narrowed to its
@@ -452,7 +460,7 @@ in `SkeletonGraphHelpers.cpp`; `FCoincidentMerge.EdgeIds` "in FIRST-SEEN order")
 ### 3.11 The fold fix — `3ce94a7` (decision 100)
 
 `canonicalisation.ts` measures deviation with the UNCLAMPED `distanceToSupportingLine` (added to
-`vertex-budget.ts` beside the clamped `distanceToSegment`). The clamp measured a fold's LENGTH where the
+`vertex-budget.ts` beside the clamped `distanceToSegment`; both are in `planar-geometry.ts` since BSA.D356). The clamp measured a fold's LENGTH where the
 stage's charter requires its WIDTH: a fold on `(seed 55433)`'s region `r0.10` measured 3.88× the floor
 clamped and 3.3e-5× the floor unclamped. The root pairing defect was pinned loudly FIRST (the I5 sweep)
 so the cure could not re-silence it. Census 55433 3 → 0, k4 11 → 7, plus 15 → 13; 39 surviving spikes on
@@ -537,9 +545,9 @@ scale-free). No behavioural delta for the port; adopt the names.
 | `collision-helpers.ts` | `SkeletonCollisionHelpers.h/.cpp` |
 | `collision-handling.ts` | `SkeletonCollisionHandling.h/.cpp` |
 | `generate-split-event.ts` | `SkeletonSplitEvents.h/.cpp` |
-| `coincident-events.ts` | `SkeletonCoincidentEvents.h/.cpp` |
-| `algorithm-complex-cases.ts` | `SkeletonAlgorithmComplexCases.h/.cpp` |
-| `algorithm-termination-cases.ts` | `SkeletonAlgorithmTerminationCases.h/.cpp` |
+| `coincident-events.ts` (the clustering), `vertex-event.ts` (a vertex event's runs, gaps and bearing; split from it by BSA.D356) | `SkeletonCoincidentEvents.h/.cpp` |
+| `algorithm-complex-cases.ts` (the n-gon driver), `event-order.ts` (the ordering primitives) and `whole-events.ts` (a layer resolved whole; both split from it by BSA.D356) | `SkeletonAlgorithmComplexCases.h/.cpp` |
+| `algorithm-termination-cases.ts` (the pair and the triangle), `terminal-ladder.ts`, `step-driver.ts`, `boundary-stage.ts` and `solve-entry.ts` (the ladder, the step loop, the boundary stage and the solve entries; split from it by BSA.D356) | `SkeletonAlgorithmTerminationCases.h/.cpp` |
 | `polygon-decomposition.ts` | `SkeletonPolygonDecomposition.h/.cpp` |
 | `normalisation.ts` | `SkeletonNormalisation.h/.cpp` (+ `FSkeletonNormalisation` in `SkeletonTypes.h`) |
 | `offset-projection.ts` | `SkeletonOffsetProjection.h/.cpp` |
@@ -552,7 +560,7 @@ scale-free). No behavioural delta for the port; adopt the names.
 | `spine.ts` | no counterpart yet (spine mode) |
 | `recursive-subdivision.ts` | no counterpart yet (deep recursion) |
 | `debug-helpers.ts`, `logger.ts` | no counterpart |
-| `../stroke-spline/vertex-budget.ts` (`distanceToSupportingLine` added) | your stroke port, outside this directory |
+| `../stroke-spline/vertex-budget.ts` (`distanceToSupportingLine` added; since BSA.D356 it and the other planar primitives are in `planar-geometry.ts`, which `vertex-budget.ts` re-exports) | your stroke port, outside this directory |
 
 ## 4. The invariant conformance kit
 
@@ -679,7 +687,8 @@ in six spaces):
 - The perceptual floor (`SKELETON_NOISE_FLOOR = 1e-6` library default, unit space) answers "can anything
   that will ever look at the skeleton tell these apart?" It reaches exactly TWO production bars:
   canonicalisation's deviation bar and the coincidence-clustering `isOneEvent` bar. Everything else stays
-  a module constant for a stated reason (`canonicalisation.ts` `PerceptualFloorOptions` doc).
+  a module constant for a stated reason (the `PerceptualFloorOptions` doc, in `types.ts` since BSA.D356 and in
+  `canonicalisation.ts` before).
 
 **5.3 Magic numbers: none (decision 104).** Every inline tolerance either derives from one of the two
 constants with its derivation written at the site, or is a named constant carrying its space and its
@@ -779,7 +788,7 @@ exactly `1.0`, and the 59-fixture digest is the proof.
 ### 8.1 The contract
 
 **Per-edge strictly positive weights, normalised to minimum one.** `WeightOptions { weights?: readonly
-number[] }` is declared in `algorithm-termination-cases.ts` and mixed into `SolveSkeletonOptions`;
+number[] }` is declared in `types.ts` (in `algorithm-termination-cases.ts` until BSA.D356) and mixed into `SolveSkeletonOptions`;
 `runAlgorithmV5`, `runAlgorithmV5Stepped` and `canonicaliseForSolve` all take `PerceptualFloorOptions &
 WeightOptions`. One entry per INPUT VERTEX: `weights[i]` is the speed of exterior edge `i`, the edge from
 vertex `i` to vertex `(i + 1) % n`. Absent, or of length zero, means all ones. After the door the array
@@ -804,7 +813,9 @@ collapses onto that edge's own line), so it is refused at the door and a gable i
 all-positive solve. This is the same class of fence as the turn guard.
 
 **Both door guards, with their exact constants and messages.** All three refusals are THROWS, not
-diagnostics — the reason `assertVerticesAreFinite` already gives: `diagnostics` reports a solve that ran
+diagnostics — the reason `assertVerticesAreFinite` already gives (since BSA.D356 the finiteness check is
+`nonFiniteVertexComplaint` in `prepareBoundary`, and every refusal here is a thrown `SkeletonInputRefusal`, its
+message unchanged): `diagnostics` reports a solve that ran
 and came back degraded, these are inputs the solver cannot solve at all. All of them run BEFORE
 canonicalisation and before winding reversal, so the index in the message is the caller's own.
 `weightsAtTheDoor(unitVertices, weights)` runs them in this fixed order and returns the normalised array:
@@ -973,18 +984,18 @@ today's operations on today's operands in today's order and the 59-fixture diges
 | `meetHeadOn` | `alongA = (s_B·w_A − s_A·w_B + sep·r_B·w_A) / (r_A·w_B + r_B·w_A)`, cancellation test scaled by `w_A·w_B` | `SkeletonCollisionHelpers` | BIT (same order; 0 mismatches in 100 000) |
 | `collideInteriorEdges` | builds two `Arrival`s and reports `laterArrival`; phantom test is `!arrivalsAreEqual(...)`; `offsetDistance <= 0` becomes `arrival.distance <= 0` | `SkeletonCollisionHelpers` | BIT |
 | `bestNonPhantomCollision` | sorts by `compareArrivals(…, 0)` | `SkeletonCollisionHelpers` | BIT (tie → 0 keeps stable order) |
-| `inArrivalOrder`, `earliestArrivalMoment`, `areSimultaneousArrivals` | sort by arrival; 64-ulp bar cross-multiplied on the pair | `SkeletonAlgorithmComplexCases` | BIT |
-| `handleInteriorNGon`'s layer window | `bestArrival` tracked by `compareArrivals(…, 0)`; window is `compareArrivals(event.arrival, bestArrival, ε) <= 0` | `SkeletonAlgorithmComplexCases` | BIT |
+| `inArrivalOrder`, `earliestArrivalMoment`, `areSimultaneousArrivals` (since BSA.D356 the first two in `event-order.ts`, the third `arrivalsShareMoment` in `collision-helpers.ts`) | sort by arrival; 64-ulp bar cross-multiplied on the pair | `SkeletonAlgorithmComplexCases` | BIT |
+| `handleInteriorNGon`'s layer window (`layerWindow` since BSA.D356) | `bestArrival` tracked by `compareArrivals(…, 0)`; window is `compareArrivals(event.arrival, bestArrival, ε) <= 0` | `SkeletonAlgorithmComplexCases` | BIT |
 | `findOffsetByDirectStrike` | `s = L·negT·w_cw / (crossCw·w_t + negT·w_cw)`, `arrival = {s·crossCw, w_cw}` | `SkeletonSplitEvents` | BIT (0 mismatches in 100 000) |
 | `findOffsetViaIncenter` | **replaced outright** by the linear equi-time form (§8.5) | `SkeletonSplitEvents` | **NOT identical — the one exception** |
 | `solveTerminalPoint` | rows `[n.x, n.y, −w]`; singularity bar `ε·max(w)` | `SkeletonAlgorithmTerminationCases` | BIT (the row is the same double `−1`) |
 | `solveDegenerateClosure` | simultaneity is `arrivalsAreEqual`; the not-before-birth test is `compareArrivals(arrival, birth, ε) >= 0` | `SkeletonAlgorithmTerminationCases` | BIT |
-| the snap pre-pass / `nodeOffset` | return and compare `Arrival`s | `SkeletonAlgorithmTerminationCases` | BIT |
+| the snap pre-pass / `nodeOffset` (`nodeBirthArrival` in `collision-helpers.ts` since BSA.D356) | return and compare `Arrival`s | `SkeletonAlgorithmTerminationCases` | BIT |
 | `validateSplitReachesEdge` | takes an `Arrival`; the split edge's OWN weight converts the local time to travel along it | `SkeletonSolverContext` | BIT |
-| `clockwiseVertexAtOffset`, `widdershinsVertexAtOffset` | argument is a local TIME, carried by `localTime · weightOf(edgeId)` | `SkeletonSolverContext` | BIT (`· 1.0`) |
-| `weightsAtTheDoor` + its four checks + `normaliseWeights` (new) | the door (§8.1) | `SkeletonAlgorithmTerminationCases` | BIT (divides by `1.0`; angular test unreached) |
+| `clockwiseVertexAtOffset`, `widdershinsVertexAtOffset` (deleted as dead code by BSA.D356) | argument is a local TIME, carried by `localTime · weightOf(edgeId)` | `SkeletonSolverContext` | BIT (`· 1.0`) |
+| `weightsAtTheDoor` + its four checks + `normaliseWeights` (new; `boundary-stage.ts` since BSA.D356) | the door (§8.1) | `SkeletonAlgorithmTerminationCases` | BIT (divides by `1.0`; angular test unreached) |
 | `weightChangeVertexIndices` → `canonicalisePolygon(…, pinnedIndices)` | a weight-change vertex is pinned, never merged | `canonicalisation.ts` has **no port counterpart yet** | BIT (equal weights pin nothing) |
-| `remapWeightsThroughCanonicalisation`, `reverseWeights` | W45's index remaps: `weights'[j] = weights[(n − 2 − j) mod n]` on reversal | `SkeletonAlgorithmTerminationCases` | BIT |
+| `remapWeightsThroughCanonicalisation`, `reverseWeights` (`boundary-stage.ts` since BSA.D356) | W45's index remaps: `weights'[j] = weights[(n − 2 − j) mod n]` on reversal | `SkeletonAlgorithmTerminationCases` | BIT |
 | `decomposePolygon` | carries `subPolygonWeights`; each piece of a split edge keeps its original edge's weight | `SkeletonPolygonDecomposition` | BIT |
 | `mergeSkeletonGraphs` | `exteriorWeights` is the sub-graphs' arrays CONCATENATED in sub-graph order, NOT indexed by merged edge id; `weightOf` on a merged context is unsupported | no counterpart by design | n/a |
 | `computeNodeOffsets` / `rederiveInteriorNodeOffsets` | divides by `graph.exteriorWeights[parentEdgeId]` — the whole of W40's node table | `SkeletonOffsetProjection` | BIT (`/ 1.0`) |
@@ -1243,7 +1254,8 @@ to build your own so that your port has the same tripwire against its own regres
   equi-time solve; I describe it by behaviour and flag the name as residue. (ii) The spec's §2 roster
   lists `arrivalsAreSimultaneous` as an exported member of the arrival vocabulary; it does NOT exist.
   The simultaneity predicate is a module-private `areSimultaneousArrivals(first: Arrival, second:
-  Arrival)` in `algorithm-complex-cases.ts`, and I have described it as internal. (iii) W52(i) says the
+  Arrival)` in `algorithm-complex-cases.ts`, and I have described it as internal. (Since BSA.D356 it is
+  `arrivalsShareMoment` in `collision-helpers.ts`, beside `compareArrivals`.) (iii) W52(i) says the
   Cramer spelling differs from the reference "by up to 4 ulps"; W12's own measurement says max 3 ulps
   over 100 000 with 31 % bit-identical. I used W12's figures because they are the measured ones; the
   disagreement is unreconciled. (iv) `MIN_WEIGHT_TURN_SINE` is quoted in the sources as both `1.41e-4`
@@ -1256,7 +1268,10 @@ to build your own so that your port has the same tripwire against its own regres
   (normalisation runs last), but the turn sine is computed on the unit-extent ring, not on the caller's
   coordinates. W49 says "the check reads the caller's ring in unit space", which I read as licensing
   exactly this; I state both halves because a port that evaluates the sine in caller space agrees in
-  exact arithmetic and can disagree in the last bits within a few ulps of the bar.
+  exact arithmetic and can disagree in the last bits within a few ulps of the bar. (Since BSA.D356
+  the door is `weightsAtTheDoorForLoops`, called once by `prepareBoundary` in `boundary-stage.ts`, which every solve
+  entry calls, after the one normalisation as before; `weightsAtTheDoor` is its one-loop form, which
+  `canonicaliseForSolve` calls.)
 - **§8.2's "the Cramer prohibition is on the DIRECTION, not the kernel quotient"** is my reading, not a
   sentence either the spec or the code states. `parcel-slicing.ts`'s `marchDirection` does divide by the
   determinant, and it is correct to: it wants the velocity, whose magnitude carries the clock, and its

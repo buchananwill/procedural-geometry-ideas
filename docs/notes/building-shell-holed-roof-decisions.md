@@ -103,19 +103,19 @@ a single-pitch island it also asserts each node's and sample's height against `d
 | ~ | `Wall` gains `loop: number` (0 the outer loop, `k` the comp's hole `k - 1`) and `edge: number` (its index in that loop) | roof/model.ts |
 | ~ | `Comp { walls: Wall[]; outer: Pt[]; holes: Pt[][] }`; `ring` removed | roof/model.ts |
 | + | `compLoops(c: Comp): Pt[][]`, `[c.outer, ...c.holes]` | roof/model.ts |
-| ~ | `finishBuilding(rawComps: {outer: Pt[]; holes: Pt[][]; attrs: Partial<Wall>[][]}[])`, `attrs[k][j]` for loop `k`'s edge `j` | roof/model.ts |
-| ~ | `buildFromRects(rects, sels, defaultTan)` takes holes; `buildCourtyard(outerR, innerR, defaultTan = 1)`; `transformBuilding` per loop | roof/model.ts |
+| ~ | `finishBuilding(rawComps: RawComp[])`, `RawComp = {outer: Pt[]; holes: Pt[][]; attrs: WallAttrs[][]}`, `attrs[k][j]` for loop `k`'s edge `j` | roof/model.ts |
+| ~ | `buildFromRects(rects, sels, defaultTan)` takes holes, as `buildFromLoops(unionLoops(rects), sels, defaultTan)`; `buildCourtyard(outerR, innerR, defaultTan = 1)`; `transformBuilding` per loop | roof/model.ts |
 | ~ | `solveFaces(comp, weights: number[][])`; `SolveRefused.kind` gains `'door-loops'` and `'strip-missing'`, and `SolveRefused` gains `cause: string` | [roof/skeleton.ts](../../apps/building-shell/src/roof/skeleton.ts) |
 | + | `HOLED_CAUSES: Readonly<Record<string, string>>` | roof/skeleton.ts |
-| ~ | `extentOf`, `buildPieces` (cut branch removed), `planeUsable`, `solveRoofParts`, `runB`; `BOptions.literalCut` removed | [roof/algoB.ts](../../apps/building-shell/src/roof/algoB.ts) |
+| ~ | `extentOf` ([roof/wall-line.ts](../../apps/building-shell/src/roof/wall-line.ts)), `buildPieces` (cut branch removed), `planeUsable`, `solveRoofParts`, `runB`; `BOptions.literalCut` removed | [roof/algoB.ts](../../apps/building-shell/src/roof/algoB.ts) |
 | ~ | `measure` (its two cut lines removed); cases 9a to 9d; `SLIT` removed | [roof/measure.ts](../../apps/building-shell/src/roof/measure.ts), [roof/cases.ts](../../apps/building-shell/src/roof/cases.ts) |
 | - | `courtyard.ts` whole: `selectCut`, `leavesBothSides`, `cutPitch`, `freeCutPitch`, `spliceCourtyard`, `CourtyardCut`, `SplicedCourtyard` | [courtyard.ts](../../apps/building-shell/src/courtyard.ts) |
 | ~ | `buildingOf`, `planChecked`, `extrudeOutline`, `plateBottom`, `hipSolid`, `gablePiece`, `gableGenerating`, `zoneTag`; `GableZone` loses `kind`; `pickedAttrs`, `capLoops` removed | [storey.ts](../../apps/building-shell/src/storey.ts) |
 | ~ | `checkedSide` and `checkedRun` messages; `selPicks` removed (its one reader was `pickedAttrs`) | [ring-forms.ts](../../apps/building-shell/src/ring-forms.ts) |
-| ~ | the copies of `extentOf` and `farWall`, `wallsOnLine`, `risePieces`' corner rule | [rise.ts](../../apps/building-shell/src/rise.ts) |
+| ~ | `extentOf` and `farWall` (copies in `rise.ts` when this spec was built; one module, [roof/wall-line.ts](../../apps/building-shell/src/roof/wall-line.ts), since BSA.D356), `wallsOnLine`, `risePieces`' corner rule | [rise.ts](../../apps/building-shell/src/rise.ts) |
 | + | `HOLED_FIXTURES` | [fixture.ts](../../apps/building-shell/src/fixture.ts) |
 | ~ | research conversion and catalogue label; `catalogue-facts.ts` regenerated | [viewer/research-cases.ts](../../apps/building-shell/src/viewer/research-cases.ts), [viewer/catalogue.ts](../../apps/building-shell/src/viewer/catalogue.ts) |
-| + | `HOLED_REFUSALS`: each refused layout, its Rings, its skeleton kind and its issue note | [tests/robustness-fixtures.ts](../../apps/building-shell/tests/robustness-fixtures.ts) |
+| + | `HOLED_REFUSALS`: each refused layout, its Rings, its skeleton kind and its issue note | [fixture.ts](../../apps/building-shell/src/fixture.ts) |
 | - | `cutPlaneViolations` and its call in `invariantViolations` | [tests/shell-invariants.ts](../../apps/building-shell/tests/shell-invariants.ts) |
 | = | `roof/surface.ts`, `tags.ts`, `union.ts`, `tuck.ts`, `ShellKind` (`Internal` stays for plate caps) | |
 
@@ -141,10 +141,15 @@ a single-pitch island it also asserts each node's and sample's height against `d
 5. **`Comp.ring` is removed, not kept as the outline,** so no reader of the slit ring silently reads the outline as the
    footprint. `extentOf` in `algoB.ts`, and its `rise.ts` copy, take their breaks from every vertex of `compLoops`.
    `extrudeOutline` and `plateBottom` read `compLoops`, and `transformBuilding` maps and reverses each loop alone.
+   **AMENDED 2026-11-16** (BSA.D356): there is one `extentOf`, in `roof/wall-line.ts`, which `algoB.ts` and `rise.ts`
+   both import; the `rise.ts` copy is gone.
 6. **Walls follow loop order:** a monopitch's dead wall is the previous or next edge of its own loop, and wall `j` of
    loop `k` is the prism side from that loop's vertex `j` to `j + 1`.
 7. **`buildingOf` always calls `buildFromRects`, which takes holes and reads each loop's attributes by
    `applySelectors`;** `pickedAttrs` and `selPicks` go, since a traced wall lies on one union wall and so one `Sel`.
+   **AMENDED 2026-11-16** (BSA.D356): `buildingOf(loops, walls)` calls `buildFromLoops(loops, sels)` on the loops
+   `storeyForms` traced once with `storeyLoops`, and `buildFromRects` is `buildFromLoops(unionLoops(rects), …)`. Each
+   loop's attributes are still read by `applySelectors`, which returns them with its hits.
 8. **Each hole joins the outer loop of least area containing its vertex 0, by building-shell's own `pointInPoly`, not by
    `groupLoopsByNesting`.** The two agree on 39,551 measured storeys. The helper refuses `GapAligned` and `GapOffset` at
    0.5/1024 and 1/1024 cm, which build today, because it tests contact across the whole storey and islands are solved
@@ -170,6 +175,9 @@ a single-pitch island it also asserts each node's and sample's height against `d
     measured carries one, and the direction oracle fires on every weighted backwards edge measured (BSA.F102), so this
     closes the open weighted defect's silent path. A single-loop island keeps today's count-and-continue.
 15. **A throw containing `Loop conflict (` is the `'door-loops'` refusal,** which `classify` tests first.
+    **AMENDED 2026-11-16** (BSA.D356): `classify` reads no message text. Core throws its input refusals as a typed
+    `SkeletonInputRefusal`, and a refusal of kind `loop-conflict`, whose message still contains `Loop conflict (`, is
+    the `'door-loops'` refusal (`REFUSAL_KIND_OF_INPUT` in `roof/skeleton.ts`); any other throw is `'threw'`.
 16. **`HOLED_CAUSES` gives each refusal the app's cause in the user's terms:**
 
     ```ts
@@ -191,6 +199,9 @@ a single-pitch island it also asserts each node's and sample's height against `d
     <y>) with <h> holes cannot be roofed: <cause> [<kind>: <message>]`, where `(x, y)` is the outer loop's vertex 0,
     and `planBuilding` prefixes `<label> storey <n>: `. The viewer shows it in its failure panel. `runB` keeps its
     note-and-continue, so a research case reads `BLOCKED`.
+    **AMENDED 2026-11-16** (BSA.D356): the throw is an `IslandRefusal` (`errors.ts`) carrying `island`, `at`,
+    `holes`, `kind`, `reason` and `detail`, with this message exactly; `planBuilding` re-wraps it through `relabelled`,
+    which keeps the class. `runB` and `solveRoofParts` share the island solve, `solveIslandFaces`.
 
 ### Pitches and weights
 
@@ -213,6 +224,8 @@ a single-pitch island it also asserts each node's and sample's height against `d
 23. **`endWall` is unchanged, since no two walls hold the point `EPS` inside a line's end; `farWall` and its `rise.ts`
     copy break a tie at one distance by `comp.walls` order.** A tie moves a plane only between walls on one line, at
     one distance, with different pitches, and any such move shows in the re-export's canonical diff.
+    **AMENDED 2026-11-16** (BSA.D356): `endWall` and `farWall` are one module, `roof/wall-line.ts`, which `algoB.ts`
+    and `rise.ts` both import; the `rise.ts` copy of `farWall` is gone, and the tie-break is the one function's.
 
 ### The raw solids and tags
 
@@ -322,7 +335,8 @@ a single-pitch island it also asserts each node's and sample's height against `d
     `OffCentreCourtyard` then asserts (127.3, 251.7) at `250 + 101.7 tan 30°`.
 49. **A pin whose outcome changes to another defect is reported, never re-pinned by the implementer,** and the lead
     rules it a fact pin (BSA.D260) or a red test with an issue note (BSA.D266). An emptied `'algorithm-B cut-piece
-    overshoot'` joins a new `EMPTIED_BY_HOLED_ROOF`.
+    overshoot'` joins a new `EMPTIED_BY_HOLED_ROOF`. **AMENDED 2026-11-16** (BSA.D356): the emptied lists left the
+    tests; the class is in `RETIRED_BY_HOLED_ROOF` in `src/golden.ts`, one of `RETIRED_RESIDUE_CLASSES`.
 
 ### Tests deleted and replaced
 

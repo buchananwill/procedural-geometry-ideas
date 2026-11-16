@@ -31,8 +31,8 @@ Notation: δ = perceptual floor (unit space); u = `UNIT_ROUNDOFF`; ε = `Number.
 | `compareArrivals`, `arrivalsAreEqual` | [collision-helpers.ts](../../packages/core/src/straight-skeleton/collision-helpers.ts):64, :75 | Default removed; window stated per pair (T13). |
 | `StraightSkeletonSolverContext` | [types.ts](../../packages/core/src/straight-skeleton/types.ts) | Gains `simultaneityWindow` (T5). |
 | `checkWavefrontCausality` | [causality-check.ts](../../packages/core/src/straight-skeleton/causality-check.ts) | Gains a fourth oracle, `rate` (T18). |
-| `pointLiesOnRay`, `intersectRays`, `makeOffsetDistance`, `addBisectionEdge` | termination-cases:122, intersection-edges:167, collision-helpers:180, algorithm-helpers:219 | Ruled in T29–T32. |
-| `weightsAtTheDoor` | [algorithm-termination-cases.ts](../../packages/core/src/straight-skeleton/algorithm-termination-cases.ts):1335 | Takes δ (T21, T22). |
+| `pointLiesOnRay`, `intersectRays`, `makeOffsetDistance`, `addBisectionEdge` | [algorithm-termination-cases.ts](../../packages/core/src/straight-skeleton/algorithm-termination-cases.ts), intersection-edges:167, collision-helpers:180, algorithm-helpers:219 | Ruled in T29–T32. |
+| `weightsAtTheDoor` | [boundary-stage.ts](../../packages/core/src/straight-skeleton/boundary-stage.ts) (in `algorithm-termination-cases.ts` until BSA.D356) | Takes δ (T21, T22). |
 | Tests importing the constant | core tests (13 files), [near-floor-jitter.ts](../../packages/test-fixtures/src/near-floor-jitter.ts), dashboard `regionInspector.test.ts` | The jitter-grid unit becomes a local `JITTER_UNIT = 1e-8`. It sizes a grid of cells, not a tolerance, and pinned cells stay addressed by it (T1). |
 | `tolerance-derivation.test.ts` | NEW, `packages/core/tests/straight-skeleton/` | Pins every derivation as arithmetic (T36). |
 | Site comments | canonicalisation.ts:153-170, graph-merge.ts:119-128, constants.ts:124-184 | Rewritten to the derivations (I2, I3). |
@@ -73,7 +73,7 @@ Every tolerance site at `2ef58d8`. **Audit** gives the row's line in the audit (
 | S26 | termination:tryAttachEdgeToNode:181 | Is the snap before the bisector's birth? | arrivals | 1e-8 | P+A | S22's window (T14) | measure (detector-adjacent) | 136 |
 | S27 | termination:solveDegenerateClosure:306 | Is the arrival before the birth? | arrivals | 1e-8 | P+A | S22's window (T14) | measure | new |
 | S28 | solver-context:validateSplitReachesEdge:413 | Is a bounding bisector not yet born? | arrivals | 1e-8 | P+A | S22's window (T14) | measure | new |
-| S29 | complex-cases:areSimultaneousArrivals:119 | One moment of the clock (tie-break scope)? | relative, 64·ε | 64 ulps | A | Kept; grounded in u, multiple measured (T26) | none | new |
+| S29 | complex-cases:areSimultaneousArrivals:119 (since BSA.D356 `arrivalsShareMoment`, collision-helpers.ts) | One moment of the clock (tie-break scope)? | relative, 64·ε | 64 ulps | A | Kept; grounded in u, multiple measured (T26) | none | new |
 | S30 | offset-projection:canonicaliseSimultaneousOffsets:451 | Are re-derived offsets one instant? | relative to max offset | 1e-12 | A | S29's bar (T26) | none (1.42e-15 < 1.42e-14 < 1.23e-4) | 179 |
 | S31 | complex-cases:93, :138, :189, :192; collision-helpers:119, :445 | Order arrivals; out of bounds | arrivals | `compareArrivals(…, 0)` | X | Exact, unchanged (T4) | none | new |
 | S32 | collision-helpers:meetHeadOn:238-240 | Do the head-on rates cancel? | rate sum | k·u(wA+wB) + 2u(\|tA\|+\|tB\|) | L/A | The pattern for T19 | none | 148 |
@@ -177,7 +177,7 @@ Every tolerance site at `2ef58d8`. **Audit** gives the row's line in the audit (
 
 ### (h) Area and degeneracy floors
 
-**T23 —** `DEGENERATE_AREA_EPSILON` is one constant read in two spaces: a caller-space area in the recursion (S43, where decision 96's declines were ruled correct behaviour), and a unit-space area in the decomposition (S44, because solveSkeleton normalises before `decomposePolygon`, algorithm-termination-cases.ts:1578, :1615), where 1e-6 is a square 1e-3 on a side — 1000δ — so a visible lobe of a self-intersection can be discarded. Both take one δ-derived bar: the recursion with the root floor restated in caller units, as canonicalisation already does; the decomposition in unit space. Its form is **OPEN — O3**.
+**T23 —** `DEGENERATE_AREA_EPSILON` is one constant read in two spaces: a caller-space area in the recursion (S43, where decision 96's declines were ruled correct behaviour), and a unit-space area in the decomposition (S44, because solveSkeleton normalises before `decomposePolygon`: `prepareBoundary` in boundary-stage.ts, then `solveUnitPolygon` in solve-entry.ts), where 1e-6 is a square 1e-3 on a side — 1000δ — so a visible lobe of a self-intersection can be discarded. Both take one δ-derived bar: the recursion with the root floor restated in caller units, as canonicalisation already does; the decomposition in unit space. Its form is **OPEN — O3**.
 
 **T24 —** The decomposition's endpoint test is a question about input geometry ("do these edges meet at their shared vertex?"). It becomes a length: `min(t, 1 − t)·|segment| < δ` for both segments, in unit space. S46's parallel test becomes `|cross| ≤ k·u·|a|·|b|`, and its t-slack becomes exact containment in [0, 1].
 
@@ -276,7 +276,7 @@ Every tolerance site at `2ef58d8`. **Audit** gives the row's line in the audit (
 
 **I1 —** In auto mode the harness asked for file reads through Bash. The user's CLAUDE.md requires the dedicated tools, and as the user's standing instruction it governed, as in the angular spec's I9.
 
-**I2 —** graph-merge.ts:119-128 says its dedupe runs "after the sub-graphs have been denormalised". All three callers merge in UNIT space before denormalising: algorithm-termination-cases.ts:1452, :1643 and :1765. The audit's row 151 and register C6's "caller-space epsilon" inherit that stale comment. It is flagged here and not corrected.
+**I2 —** graph-merge.ts:119-128 says its dedupe runs "after the sub-graphs have been denormalised". All three callers merge in UNIT space before denormalising: `runAlgorithmV5`, `solveUnitPolygon` and `runAlgorithmV5Stepped`, in solve-entry.ts. The audit's row 151 and register C6's "caller-space epsilon" inherit that stale comment. It is flagged here and not corrected.
 
 **I3 —** `DEGENERATE_AREA_EPSILON`'s header and canonicalisation.ts:166-167 ("an absolute caller-space area") describe only the recursion consumer. The decomposition consumer runs in unit space, where the same number is 1000δ on a side. Audit D11 describes it as caller-only.
 

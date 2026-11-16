@@ -86,7 +86,7 @@ meeting on one ring is not refused. It reaches the one-ring machinery, which is
 Roadmap node 9 ([the holed roof spec](./building-shell-holed-roof-decisions.md), decisions 41 to 43) hands
 `solveSkeleton` each island's outline and holes, and these layouts are refused under this kind. Each is one storey,
 every Ring hipped at 30°, Rings as `[x0, y0, x1, y1]` in cm. The first four built clean under the courtyard cut and are
-the regression the spec states. Each is an entry of `HOLED_REFUSALS` in `apps/building-shell/tests/robustness-fixtures.ts`,
+the regression the spec states. Each is an entry of `HOLED_REFUSALS` in `apps/building-shell/src/fixture.ts`,
 whose test in `tests/holed-roof.test.ts` asserts the hard error naming the island and this kind; the guard is green, and
 a cure turns it red.
 

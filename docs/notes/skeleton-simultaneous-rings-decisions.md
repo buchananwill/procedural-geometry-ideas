@@ -57,16 +57,16 @@ with two pieces on the instigator's ring. Node 4's F1 to F7: unmoved.
 
 | | Surface | File |
 |---|---|---|
-| + | `type CrossRingRuns = readonly [first: readonly number[], second: readonly number[]]` | [coincident-events.ts](../../packages/core/src/straight-skeleton/coincident-events.ts) |
-| + | `crossRingRuns(rings: readonly number[][], merge: Pick<CoincidentMerge, 'edgeIds'>): CrossRingRuns \| undefined` | coincident-events.ts |
-| + | `bisectionsForCrossRingMerge(runs: CrossRingRuns, sourceNodeId: number, context): BisectionParams[]` | coincident-events.ts |
-| ~ | `handleInteriorNGon`: `asWholeEvents` admits a cross-ring merge, the merge loop bears its births, the new refusal | [algorithm-complex-cases.ts](../../packages/core/src/straight-skeleton/algorithm-complex-cases.ts) |
-| + | `multiRingRefusal(context, rings, events, resolution): string \| undefined` (module-private) | algorithm-complex-cases.ts |
+| + | `type CrossRingRuns = readonly [first: readonly number[], second: readonly number[]]` | [vertex-event.ts](../../packages/core/src/straight-skeleton/vertex-event.ts) (built in `coincident-events.ts`; moved by BSA.D356) |
+| + | `crossRingRuns(rings: readonly number[][], merge: Pick<CoincidentMerge, 'edgeIds'>): CrossRingRuns \| undefined` | vertex-event.ts |
+| + | `bisectionsForCrossRingMerge(runs: CrossRingRuns, sourceNodeId: number, context): BisectionParams[]` (folded by BSA.D356 into `bearGaps(mergeGaps(runs), …)`, the one bearing of a merge's gaps) | vertex-event.ts |
+| ~ | `handleInteriorNGon`: `asWholeEvents` admits a cross-ring merge, the merge loop bears its births, the new refusal | [algorithm-complex-cases.ts](../../packages/core/src/straight-skeleton/algorithm-complex-cases.ts); `asWholeEvents` in [whole-events.ts](../../packages/core/src/straight-skeleton/whole-events.ts) |
+| + | `multiRingRefusal(context, rings, events, resolution): string \| undefined` (module-private; split by BSA.D356 into `wholeLayerRefusal` and `pairwiseLayerRefusal`, each returning a `Verdict`) | whole-events.ts |
 | - | `crossRingCoincidence`, `isJoin` | algorithm-complex-cases.ts |
-| ~ | `linkSplit`: the struck piece when two pieces stand on the instigator's ring | [wavefront.ts](../../packages/core/src/straight-skeleton/wavefront.ts) |
-| ~ | `componentsOfRings`: a ring of two bisectors is its own component | wavefront.ts |
-| = | `linkMergeGap`, `linkVertexToVertex`, `contiguousRuns`, `bisectionsForMerge`, `clusterCoincidentMerges`, `mergesShareAnEdge`, `coincidentEventPositions`, `birthsClosedAtOneNode`, `exteriorFaceIsClosed` | wavefront.ts, coincident-events.ts |
-| = | `handleInteriorEdgePair`, `crossWireEdges`, `climbTerminalLadder`; `addBisectionEdge`'s zero-rate branch; `SkeletonDiagnosticKind` | [algorithm-termination-cases.ts](../../packages/core/src/straight-skeleton/algorithm-termination-cases.ts), [algorithm-helpers.ts](../../packages/core/src/straight-skeleton/algorithm-helpers.ts), types.ts |
+| ~ | `linkSplit`: the struck piece when two pieces stand on the instigator's ring | [layer-links.ts](../../packages/core/src/straight-skeleton/layer-links.ts) (`wavefront.ts` until BSA.D356) |
+| ~ | `componentsOfRings`: a ring of two bisectors is its own component | [ring-components.ts](../../packages/core/src/straight-skeleton/ring-components.ts) |
+| = | `linkMergeGap`, `linkVertexToVertex`, `contiguousRuns`, `bisectionsForMerge`, `clusterCoincidentMerges`, `mergesShareAnEdge`, `coincidentEventPositions`, `birthsClosedAtOneNode`, `exteriorFaceIsClosed` | layer-links.ts (the link writers and `birthsClosedAtOneNode`), vertex-event.ts (`contiguousRuns`, `bisectionsForMerge`), [coincident-events.ts](../../packages/core/src/straight-skeleton/coincident-events.ts) (the clustering), [wavefront-links.ts](../../packages/core/src/straight-skeleton/wavefront-links.ts) (`exteriorFaceIsClosed`) |
+| = | `handleInteriorEdgePair`, `crossWireEdges`, `climbTerminalLadder`; `addBisectionEdge`'s zero-rate branch; `SkeletonDiagnosticKind` | [algorithm-termination-cases.ts](../../packages/core/src/straight-skeleton/algorithm-termination-cases.ts), [terminal-ladder.ts](../../packages/core/src/straight-skeleton/terminal-ladder.ts) (`climbTerminalLadder`), [algorithm-helpers.ts](../../packages/core/src/straight-skeleton/algorithm-helpers.ts), types.ts |
 | + | `holed-simultaneous-rings.test.ts`; ~ `holed-join-divide.test.ts` (its refusal block goes) | `packages/core/tests/straight-skeleton/` |
 
 ## 4. Decisions
@@ -76,6 +76,9 @@ with two pieces on the instigator's ring. Node 4's F1 to F7: unmoved.
 1. **Every rule of this spec is reached only in a step of more than one ring** (`multiRing` in `handleInteriorNGon`).
    The one exception is the piece rule of decision 17, which is reached only when more than one piece of a struck
    segment stands on the instigator's ring, and that needs a join earlier in the same layer.
+   **AMENDED 2026-11-16** (BSA.D356): the local `multiRing` is gone; `handleInteriorNGon`'s phases test
+   `rings.length > 1` (`resolveLayerEvents`, `refuseUnsettledLayer`), and a step of several rings leaves its children
+   through `childrenOfSeveralRings`.
 2. **The layer's event set is formed as today:** the same window, narrowing and clustering at δ. This spec changes only
    how a multi-ring layer's events are resolved and which of them are refused.
 
@@ -138,6 +141,8 @@ with two pieces on the instigator's ring. Node 4's F1 to F7: unmoved.
     today's `byEventPriority` order.** A split whose instigator a merge has consumed is void, by `handleCollisionEvent`'s
     acceptance return. The rings a layer leaves do not depend on the order of its splits (measured with the splits
     reversed) or of its vertex events among themselves (measured with each kind shuffled, on the pairwise path). The rule of node 4 decision 19 that a join may not share its layer is retired.
+    **AMENDED 2026-11-16** (BSA.D356): `byEventPriority` is gone. `resolveSplits` sorts the layer's splits, all of one
+    priority, by their edge ids (`byEdgeIds`, `event-order.ts`), the order `byEventPriority` gave them.
 17. **The piece rule.** In `linkSplit`, when the `from` of more than one piece of the struck segment stands on the
     instigator's ring, the struck piece is the first of those pieces whose closing cut lies ahead of the strike along
     the edge. That is the existing fallback's test, applied only to those pieces. Elsewhere the choice is today's.

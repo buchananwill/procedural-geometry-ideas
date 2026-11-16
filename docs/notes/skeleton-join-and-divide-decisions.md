@@ -34,23 +34,23 @@ before approval:** `hasInteriorLoop` accepts the last open face of a hole too ea
 
 | | Surface | File |
 |---|---|---|
-| ~ | `handleAlgorithmStepInput`: records the current step, then dispatches by ring count before edge count | [algorithm-termination-cases.ts](../../packages/core/src/straight-skeleton/algorithm-termination-cases.ts) |
-| ~ | `solveSkeleton`: the holed stop removed; `blocking` gains the two new kinds | algorithm-termination-cases.ts |
+| ~ | `handleAlgorithmStepInput`: records the current step, then dispatches by ring count before edge count | [step-driver.ts](../../packages/core/src/straight-skeleton/step-driver.ts) |
+| ~ | `solveSkeleton`: the holed stop removed; `blocking` gains the two new kinds | [solve-entry.ts](../../packages/core/src/straight-skeleton/solve-entry.ts) (the blocking kinds in [diagnostic-kinds.ts](../../packages/core/src/straight-skeleton/diagnostic-kinds.ts)) |
 | ~ | `handleInteriorNGon`: rings from the links only, the cross-ring refusal, the partition order, children as components | [algorithm-complex-cases.ts](../../packages/core/src/straight-skeleton/algorithm-complex-cases.ts) |
 | - | `ringsOfSubPolygon` | [coincident-events.ts](../../packages/core/src/straight-skeleton/coincident-events.ts) |
-| + | `beginStep(context, interiorEdgeIds)`, `currentStepMembers(context): ReadonlySet<number> \| null` | [wavefront.ts](../../packages/core/src/straight-skeleton/wavefront.ts) |
-| + | `partitionArc(context, params: BisectionParams): number` | wavefront.ts |
-| + | `RingComponent { outer: number[]; inner: number[][] }`, `componentsOfRings(context, rings: number[][], time: number): RingComponent[]` | wavefront.ts |
+| + | `beginStep(context, interiorEdgeIds)`, `currentStepMembers(context): ReadonlySet<number> \| null` | [step-scope.ts](../../packages/core/src/straight-skeleton/step-scope.ts) |
+| + | `partitionArc(context, params: BisectionParams): number` (its first argument the layer's `LayerLinks` since BSA.D356) | [layer-links.ts](../../packages/core/src/straight-skeleton/layer-links.ts) |
+| + | `RingComponent { outer: number[]; inner: number[][] }`, `componentsOfRings(context, rings: number[][], time: number): RingComponent[]` | [ring-components.ts](../../packages/core/src/straight-skeleton/ring-components.ts) |
 | + | `StraightSkeletonSolverContext.wavefrontVertexAt(bisectorId: number, time: number): Vector2` | [types.ts](../../packages/core/src/straight-skeleton/types.ts), [solver-context.ts](../../packages/core/src/straight-skeleton/solver-context.ts) |
 | ~ | `validateSplitReachesEdge(...)` returns `WavefrontSegment[]`, every validating segment in the current step | solver-context.ts |
 | ~ | `generateSplitEvent`, `generateSplitEventFromTheEdgeItself`: choose from that list | [generate-split-event.ts](../../packages/core/src/straight-skeleton/generate-split-event.ts) |
 | ~ | `SkeletonDiagnosticKind`: `+ 'simultaneous-across-rings'`, `+ 'multi-ring-step-refused'`, `- 'holes-not-solved'` | types.ts |
 | ~ | `checkWavefrontCausality`: `deriveOffsets` and the clearance boundary read each exterior edge's own ends | [causality-check.ts](../../packages/core/src/straight-skeleton/causality-check.ts) |
-| = | `linkSplit`, `linkVertexToVertex`, `linkGuardRefuses`, `ringsOfWavefront`, `checkWavefront` | wavefront.ts |
-| = | `clusterCoincidentMerges`, `mergesShareAnEdge`, `bisectionsForMerge`; `handleCollisionEvent` | coincident-events.ts, [collision-handling.ts](../../packages/core/src/straight-skeleton/collision-handling.ts) |
+| = | `linkSplit`, `linkVertexToVertex`, `linkGuardRefuses`, `ringsOfWavefront`, `checkWavefront` | layer-links.ts (the first two), [wavefront-links.ts](../../packages/core/src/straight-skeleton/wavefront-links.ts) (the next two), [wavefront-check.ts](../../packages/core/src/straight-skeleton/wavefront-check.ts) |
+| = | `clusterCoincidentMerges`, `mergesShareAnEdge`, `bisectionsForMerge`; `handleCollisionEvent` | coincident-events.ts, [vertex-event.ts](../../packages/core/src/straight-skeleton/vertex-event.ts) (`bisectionsForMerge`), [collision-handling.ts](../../packages/core/src/straight-skeleton/collision-handling.ts) |
 | = | `hasInteriorLoop`, `tryToAcceptExteriorEdge`, until the user rules on decision 31 | [algorithm-helpers.ts](../../packages/core/src/straight-skeleton/algorithm-helpers.ts) |
 | = | `adjacentExteriorEdge`, `loopOfExteriorEdge`, `StraightSkeletonGraph.loops` (nodes 2 and 3) | graph-helpers.ts, types.ts |
-| = | `isPointInPolygon` (line 106), `signedArea` (line 63), `distanceToSegment` (line 111), `degenerateAreaBar`, `birthArrivalOf`, `timeOf` | [polygon-slope.ts](../../packages/core/src/terrain/polygon-slope.ts), [geometry-helpers.ts](../../packages/core/src/random-polygon/geometry-helpers.ts), [vertex-budget.ts](../../packages/core/src/stroke-spline/vertex-budget.ts), constants.ts, collision-helpers.ts |
+| = | `isPointInPolygon`, `signedArea`, `distanceToSegment`, `degenerateAreaBar`, `birthArrivalOf`, `timeOf` | [planar-geometry.ts](../../packages/core/src/straight-skeleton/planar-geometry.ts) (the first three, re-exported by their former homes `terrain/polygon-slope.ts`, `random-polygon/geometry-helpers.ts` and `stroke-spline/vertex-budget.ts`), constants.ts, collision-helpers.ts |
 | + | `holed-join-divide.test.ts`, `holed-test-helpers.ts` | `packages/core/tests/straight-skeleton/` |
 
 ## 3. Decisions

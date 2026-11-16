@@ -39,7 +39,7 @@ cases have no coincidence handling at all and answer a well-defined terminal sta
 
 **[algorithm-termination-cases.ts](../../packages/core/src/straight-skeleton/algorithm-termination-cases.ts)**
 
-- `handleInteriorEdgeTriangle` — behaviour replaced, signature unchanged: `(context: StraightSkeletonSolverContext, input: AlgorithmStepInput) => AlgorithmStepOutput`.
+- `handleInteriorEdgeTriangle` — behaviour replaced, signature unchanged: `(context: StraightSkeletonSolverContext, input: AlgorithmStepInput) => AlgorithmStepOutput`. Since BSA.D356 every handler returns its child steps, `AlgorithmStepInput[]`.
 - `handleInteriorEdgePair` — one new branch, signature unchanged.
 - New module-private closed-form solver over three supporting lines, returning position and offset together, or `undefined` when the system is not solvable.
 

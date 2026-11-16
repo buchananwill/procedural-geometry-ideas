@@ -35,13 +35,13 @@ to the lead.
 
 | | Surface | File |
 |---|---|---|
-| + | `exteriorFaceIsClosed(context, exteriorEdge: number): boolean`: no live bisector has the edge as either parent | [wavefront.ts](../../packages/core/src/straight-skeleton/wavefront.ts) |
+| + | `exteriorFaceIsClosed(context, exteriorEdge: number): boolean`: no live bisector has the edge as either parent | [wavefront-links.ts](../../packages/core/src/straight-skeleton/wavefront-links.ts) |
 | ~ | `tryToAcceptExteriorEdge`: signature and export unchanged; accepts on `exteriorFaceIsClosed` | [algorithm-helpers.ts](../../packages/core/src/straight-skeleton/algorithm-helpers.ts) line 437 |
 | - | `hasInteriorLoop` and its export | algorithm-helpers.ts line 338; [index.ts](../../packages/core/src/index.ts) line 141 |
-| ~ | `handleInteriorNGon`: its two acceptance calls (lines 356, 551) and its birth filters' accepted-parent clauses (lines 224, 566–569, 575–579) go | [algorithm-complex-cases.ts](../../packages/core/src/straight-skeleton/algorithm-complex-cases.ts) |
-| = | `runSimplePolygon` line 1255, `runSimplePolygonStepped` line 1981: the call sites that stay | [algorithm-termination-cases.ts](../../packages/core/src/straight-skeleton/algorithm-termination-cases.ts) |
+| ~ | `handleInteriorNGon`: its two acceptance calls and its birth filters' accepted-parent clauses go | [algorithm-complex-cases.ts](../../packages/core/src/straight-skeleton/algorithm-complex-cases.ts) |
+| = | `runSimplePolygon`, `runSimplePolygonStepped`: the call sites that stay, one call in their shared `driveSteps` since BSA.D356 | [step-driver.ts](../../packages/core/src/straight-skeleton/step-driver.ts) |
 | = | the accepted-parent throws of `addBisectionEdge` (line 154) and the incenter fallback | algorithm-helpers.ts; [generate-split-event.ts](../../packages/core/src/straight-skeleton/generate-split-event.ts) line 440 |
-| + | optional `WavefrontProbe` members for the measuring step, removed again at the switch | wavefront.ts |
+| + | optional `WavefrontProbe` members for the measuring step, removed again at the switch | [wavefront-check.ts](../../packages/core/src/straight-skeleton/wavefront-check.ts) |
 | ~ | `closeSolve` loses the cause-based discard; `solveFinished` records unaccepted exterior edges | [wavefront-probe-helpers.ts](../../packages/core/tests/straight-skeleton/wavefront-probe-helpers.ts) |
 | ~ | header comment only; every assertion unchanged | [wavefront-order-early-acceptance.test.ts](../../packages/core/tests/straight-skeleton/wavefront-order-early-acceptance.test.ts) |
 | + | `skeleton-edge-acceptance.test.ts`, constructed tests of the predicate | `packages/core/tests/straight-skeleton/` |
@@ -50,7 +50,7 @@ to the lead.
 
 ### The predicate
 
-1. **A live bisector is what `isLiveBisector` in wavefront.ts says: an interior edge not accepted.** It names exterior
+1. **A live bisector is what `isLiveBisector` in wavefront-links.ts says: an interior edge not accepted.** It names exterior
    edge E when E is its clockwise or its widdershins parent. Both parents are read, as BSA.D296 words it; where the
    links are sound W2 makes the readings agree, since a live `to` with widdershins parent E has a live widdershins
    neighbour with clockwise parent E.
@@ -60,6 +60,9 @@ to the lead.
    every n-gon that returns has settled its layer, and the pair, triangle and ladder closures bear nothing. Tokens a
    thrown layer leaves in the link store are not pending births, since nothing will bear them, and the predicate never
    reads that store.
+   **AMENDED 2026-11-16** (BSA.D356): `beginLayerLinks` and the module's link store are gone. `handleInteriorNGon`
+   constructs the layer's `LayerLinks` (`layer-links.ts`), passes it to every reader and writer of pending births, and
+   settles it with `settleLayerLinks` at the foot of the call; a thrown layer's `LayerLinks` dies with the call.
 3. **The predicate reads no graph topology** (no `inEdges`, `outEdges`, targets or nodes). A cycle in the accepted
    subgraph, two unified nodes, a duplicate ridge or a bisector wired onto another face cannot accept an edge, which
    is the defect's mechanism; and it is loop-neutral by construction.

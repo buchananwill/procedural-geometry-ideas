@@ -33,9 +33,9 @@ graph.**
 
 | | Surface | File |
 |---|---|---|
-| + | `SkeletonHole { vertices: readonly Vector2[]; weights?: readonly number[] }`, `HoleOptions { holes?: readonly SkeletonHole[] }` | [algorithm-termination-cases.ts](../../packages/core/src/straight-skeleton/algorithm-termination-cases.ts) |
-| ~ | `SolveSkeletonOptions extends PerceptualFloorOptions, WeightOptions, HoleOptions`; `solveSkeleton`'s signature unchanged | algorithm-termination-cases.ts |
-| = | `runAlgorithmV5`, `runAlgorithmV5Stepped`, `canonicaliseForSolve`: signatures and options types unchanged | algorithm-termination-cases.ts |
+| + | `SkeletonHole { vertices: readonly Vector2[]; weights?: readonly number[] }`, `HoleOptions { holes?: readonly SkeletonHole[] }` | [types.ts](../../packages/core/src/straight-skeleton/types.ts) (in `algorithm-termination-cases.ts` until BSA.D356) |
+| ~ | `SolveSkeletonOptions extends PerceptualFloorOptions, WeightOptions, HoleOptions`; `solveSkeleton`'s signature unchanged | types.ts; `solveSkeleton` in [solve-entry.ts](../../packages/core/src/straight-skeleton/solve-entry.ts) |
+| = | `runAlgorithmV5`, `runAlgorithmV5Stepped`, `canonicaliseForSolve`: signatures and options types unchanged | solve-entry.ts; `canonicaliseForSolve` in [boundary-stage.ts](../../packages/core/src/straight-skeleton/boundary-stage.ts) |
 | + | `SkeletonLoop`, `SkeletonLoopMap`; `StraightSkeletonGraph.loops`; `SkeletonSolveResult.loopMaps`; `SkeletonDiagnosticKind` gains `'holes-not-solved'` | [types.ts](../../packages/core/src/straight-skeleton/types.ts) |
 | + | `adjacentExteriorEdge(graph, exteriorEdgeId, direction: SkeletonDirection): number`, `loopOfExteriorEdge(graph, exteriorEdgeId): number` | [graph-helpers.ts](../../packages/core/src/straight-skeleton/graph-helpers.ts) |
 | ~ | `initBoundingPolygon(nodes, weights?, loops?)` | graph-helpers.ts, line 43 |
@@ -44,10 +44,10 @@ graph.**
 | ~ | `mergeSkeletonGraphs`: the merged graph carries `loops: []` | [graph-merge.ts](../../packages/core/src/straight-skeleton/graph-merge.ts) |
 | + | `LoopConflict`, `findLoopConflict(loops, perceptualFloor): LoopConflict \| null`, `LoopGroup { outline: number; holes: number[] }`, `groupLoopsByNesting(loops, options?): LoopGroup[]` | new file `skeleton-loops.ts` beside the others |
 | ~ | exports of every `+` above | [index.ts](../../packages/core/src/index.ts) |
-| = | `checkWavefront`, `ringsOfWavefront` (stage 1) | `wavefront.ts` |
+| = | `checkWavefront`, `ringsOfWavefront` (stage 1) | [wavefront-check.ts](../../packages/core/src/straight-skeleton/wavefront-check.ts), [wavefront-links.ts](../../packages/core/src/straight-skeleton/wavefront-links.ts) (`wavefront.ts` until BSA.D356) |
 | = | `makeSkeletonNormalisation` (line 213), `canonicalisePolygon` (line 240) | [normalisation.ts](../../packages/core/src/straight-skeleton/normalisation.ts), [canonicalisation.ts](../../packages/core/src/straight-skeleton/canonicalisation.ts) |
 | = | `findFirstCrossing` (line 57), `decomposePolygon` (line 195) | [polygon-decomposition.ts](../../packages/core/src/straight-skeleton/polygon-decomposition.ts) |
-| = | `segmentSegmentIntersection` (line 22), `isClockwise` (line 91); `distanceToSegment` (line 111); `isPointInPolygon` (line 106); `degenerateAreaBar` | [geometry-helpers.ts](../../packages/core/src/random-polygon/geometry-helpers.ts), [vertex-budget.ts](../../packages/core/src/stroke-spline/vertex-budget.ts), [polygon-slope.ts](../../packages/core/src/terrain/polygon-slope.ts), [constants.ts](../../packages/core/src/straight-skeleton/constants.ts) |
+| = | `segmentSegmentIntersection`, `isClockwise`; `distanceToSegment`; `isPointInPolygon`; `degenerateAreaBar` | [planar-geometry.ts](../../packages/core/src/straight-skeleton/planar-geometry.ts) (the first four, re-exported by their former homes `random-polygon/geometry-helpers.ts`, `stroke-spline/vertex-budget.ts` and `terrain/polygon-slope.ts`), [constants.ts](../../packages/core/src/straight-skeleton/constants.ts) |
 | = | `checkWavefrontCausality`, body unchanged | [causality-check.ts](../../packages/core/src/straight-skeleton/causality-check.ts) |
 | = | the dashboard's solve boundary and scene adapter | [skeleton-solve-boundary.ts](../../packages/dashboard/src/hooks/skeleton-solve-boundary.ts), [skeletonToScene.ts](../../packages/dashboard/src/scene/adapters/skeletonToScene.ts) |
 

@@ -26,13 +26,13 @@ the footprint. Nothing in the roof stage refuses it:
 
 - **The solver's own signal is dropped.** On a single-loop island, `facesOfSolve` counts a `causality-violation`
   diagnostic into `SolveOk.causality` and goes on (holed roof decision 14 keeps that only for islands with a hole).
-  `solveRoofParts` ([algoB.ts](../../apps/building-shell/src/roof/algoB.ts), about lines 228 to 246) reads only
-  `solved.faces`, and `RoofParts` has no field for the count, so nothing downstream sees it. The app's
+  `solveRoofParts` ([algoB.ts](../../apps/building-shell/src/roof/algoB.ts), through `solveIslandFaces`) reads only
+  the island's `faces`, and `RoofParts` has no field for the count, so nothing downstream sees it. The app's
   "count and continue" amounts to "ignore".
 - **On some of these footprints the solver gives no signal at all.** About two in five of the wrong roofs measured
   carry no causality diagnostic.
 - **Core's holed guard does not run on single loops.** It runs on a result of more than one loop only
-  (`algorithm-termination-cases.ts`, "THE GUARD ON A HOLED SOLVE"). The reviewer found that if a courtyard is attached
+  (`solve-entry.ts`, "THE GUARD ON A HOLED SOLVE"; the guard itself is `holed-guard.ts`). The reviewer found that if a courtyard is attached
   to the same footprint, every such footprint is refused by name, mostly as `holed-planarity-violation`. This was not
   re-measured here.
 

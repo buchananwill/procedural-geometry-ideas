@@ -49,9 +49,9 @@ One line each; `+` added, `~` changed, `=` unchanged but named because a reader 
 
 | | Surface | File |
 |---|---|---|
-| + | `interface WeightOptions { weights?: readonly number[] }` — one entry per input vertex, `weights[i]` is the speed of edge `i` (vertex `i` to `i+1`); default all ones | [algorithm-termination-cases.ts](../../packages/core/src/straight-skeleton/algorithm-termination-cases.ts) beside `SolveSkeletonOptions` (line 886) |
-| ~ | `SolveSkeletonOptions extends PerceptualFloorOptions, WeightOptions` | same file, line 886 |
-| ~ | `runAlgorithmV5(nodes, options?: PerceptualFloorOptions & WeightOptions)`, same for `runAlgorithmV5Stepped` | same file, lines 844, 1065 |
+| + | `interface WeightOptions { weights?: readonly number[] }` — one entry per input vertex, `weights[i]` is the speed of edge `i` (vertex `i` to `i+1`); default all ones | [types.ts](../../packages/core/src/straight-skeleton/types.ts) beside `SolveSkeletonOptions` (both in `algorithm-termination-cases.ts` until BSA.D356) |
+| ~ | `SolveSkeletonOptions extends PerceptualFloorOptions, WeightOptions` | types.ts |
+| ~ | `runAlgorithmV5(nodes, options?: PerceptualFloorOptions & WeightOptions)`, same for `runAlgorithmV5Stepped` | [solve-entry.ts](../../packages/core/src/straight-skeleton/solve-entry.ts) |
 | + | `const MAX_WEIGHT_RATIO: number` (a refusal, W48) and `const MIN_WEIGHT_TURN_SINE: number` (a refusal, W49, arc decision 124(b)) | [constants.ts](../../packages/core/src/straight-skeleton/constants.ts) |
 | + | `StraightSkeletonGraph.exteriorWeights: number[]` — normalised per W4, indexed by exterior edge id, length `numExteriorNodes`, plain data so it survives `structuredClone` | [types.ts](../../packages/core/src/straight-skeleton/types.ts) line 49 |
 | + | `GraphHelpers.weightOf(exteriorEdgeId): number` | types.ts line 61; implemented in [solver-context.ts](../../packages/core/src/straight-skeleton/solver-context.ts) |
@@ -64,7 +64,7 @@ One line each; `+` added, `~` changed, `=` unchanged but named because a reader 
 | = | `makeOffsetDistance`, `sourceOffsetDistance` keep computing the DISTANCE against the clockwise parent, bit for bit (W6) | collision-helpers.ts lines 45, 75 |
 | ~ | `makeBisectedBasis(iBasis, jBasis)` gains a sibling `makeWeightedBisectedBasis(c, bWs, wCw, wWs)` (W12) | [core-functions.ts](../../packages/core/src/straight-skeleton/core-functions.ts) line 73 |
 | ~ | `addBisectionEdge` reads the two parents' weights and calls the weighted basis (W12–W14) | [algorithm-helpers.ts](../../packages/core/src/straight-skeleton/algorithm-helpers.ts) line 130 |
-| ~ | `solveTerminalPoint` rows become `[n.x, n.y, -w]` (W28) | algorithm-termination-cases.ts line 561 |
+| ~ | `solveTerminalPoint` rows become `[n.x, n.y, -w]` (W28) | [algorithm-termination-cases.ts](../../packages/core/src/straight-skeleton/algorithm-termination-cases.ts) |
 | ~ | `computeNodeOffsets(result)` returns TIMES (W38); `computeOffsetRings(result, time)`, `computeMaxOffset(result)` take and return time | [offset-projection.ts](../../packages/core/src/straight-skeleton/offset-projection.ts) lines 319, 505, 850 |
 | ~ | `StripOptions.depth` is a TIME (W40) | [strip-decomposition.ts](../../packages/core/src/straight-skeleton/strip-decomposition.ts) line 158 |
 | ~ | `FaceEdge` gains `weight: number`; `marchDirection`, `nextActive` and the march loop take weights (W41) | [parcel-slicing.ts](../../packages/core/src/straight-skeleton/parcel-slicing.ts) lines 224, 484, 504, 581 |
@@ -73,7 +73,7 @@ One line each; `+` added, `~` changed, `=` unchanged but named because a reader 
 | ~ | `computeNodeOffsetDistances(context)` returns TIMES | [debug-helpers.ts](../../packages/core/src/straight-skeleton/debug-helpers.ts) line 54 |
 | + | `tests/straight-skeleton/full-graph-digest.test.ts` — the 112(d) instrument (W51) | packages/core/tests |
 | ~ | `canonicalisePolygon` is called with `pinnedIndices` containing every vertex whose incident weights differ (W44, arc decision 120 narrowed by 124(c)) | canonicalisation.ts line 231 |
-| + | `assertWeightsChangeOnlyAtVisibleCorners(vertices, weights)` — the turn-guard refusal, run before canonicalisation (W49, arc decision 124(b)) | algorithm-termination-cases.ts beside `assertVerticesAreFinite` |
+| + | `assertWeightsChangeOnlyAtVisibleCorners(vertices, weights)` — the turn-guard refusal, run before canonicalisation (W49, arc decision 124(b)) | [boundary-stage.ts](../../packages/core/src/straight-skeleton/boundary-stage.ts), beside the finiteness check `nonFiniteVertexComplaint` (`assertVerticesAreFinite` in `algorithm-termination-cases.ts` until BSA.D356) |
 | + | `test-fixtures/src/weighted-fixtures.ts` — `WEIGHTED_TEST_POLYGONS: {name, vertices, weights, expected}` (§4) | packages/test-fixtures/src |
 
 ## 3. Decisions
@@ -90,6 +90,10 @@ vertex count is rejected by a thrown `Error` naming both lengths.
 `assertVerticesAreFinite` (algorithm-termination-cases.ts line 837). Zero, negative, `NaN` and
 infinite weights throw, naming the index. Gables are a post-process and never a solver input
 (112(e)).
+**AMENDED 2026-11-16** (BSA.D356): `assertVerticesAreFinite` is gone. The door is `prepareBoundary`
+(boundary-stage.ts), whose first phase checks each loop's count and finiteness (`nonFiniteVertexComplaint`) and whose
+weight door runs these checks after it; every refusal is a thrown `SkeletonInputRefusal` with its message unchanged.
+The same holds where W48 and W49 say "matching `assertVerticesAreFinite`".
 
 **W3 — The weight ratio is checked at the door and refused by a throw.** `max(weights) / min(weights)`
 above `MAX_WEIGHT_RATIO` (W44) throws an `Error` naming the two extreme indices and the constant.
@@ -133,7 +137,7 @@ simultaneity moment (W25).
 
 **W9 — The vertex velocity is the solution of `v · n₁ = w₁`, `v · n₂ = w₂`** (112(e)), with
 `n = rotateCw90(basis)` the inward unit normal — the convention `solveTerminalPoint` already states
-(algorithm-termination-cases.ts line 542–548) — `n₁` the clockwise parent's normal with `w₁` its
+(algorithm-termination-cases.ts, `solveTerminalPoint`) — `n₁` the clockwise parent's normal with `w₁` its
 weight, `n₂` the widdershins parent's with `w₂`. Closed form, with `c` the clockwise parent basis and
 `b` the widdershins parent basis:
 
@@ -277,11 +281,11 @@ random near-equal pairs at `ε = 1e-8`.
 weight is positive, so the sign is the distance's).
 
 **W24 — The layer window is `compareArrivals(event.arrival, bestArrival, FLOATING_POINT_EPSILON) <= 0`**
-(algorithm-complex-cases.ts line 189), with `bestArrival` the earliest by the same comparator; the
-sort at line 183 orders by `compareArrivals(…, 0)`.
+(algorithm-complex-cases.ts, `layerWindow` since BSA.D356), with `bestArrival` the earliest by the same comparator; the
+sort before it orders by `compareArrivals(…, 0)`.
 
-**W25 — Simultaneity keeps its 64-ulp bar, cross-multiplied** (algorithm-complex-cases.ts lines
-107–110): `|d₁·w₂ − d₂·w₁| ≤ SIMULTANEOUS_ARRIVAL_ULPS · Number.EPSILON · max(|d₁·w₂|, |d₂·w₁|)`.
+**W25 — Simultaneity keeps its 64-ulp bar, cross-multiplied** (`arrivalsShareMoment` in collision-helpers.ts since
+BSA.D356; `areSimultaneousArrivals` in algorithm-complex-cases.ts before): `|d₁·w₂ − d₂·w₁| ≤ SIMULTANEOUS_ARRIVAL_ULPS · Number.EPSILON · max(|d₁·w₂|, |d₂·w₁|)`.
 `inArrivalOrder` and `earliestArrivalMoment` sort by `compareArrivals(…, 0)`. At unit weights the
 products are by `1.0` and the verdict is today's.
 
@@ -294,7 +298,7 @@ stated once so no site derives its own.
 ### Terminal cases
 
 **W28 — `solveTerminalPoint` rows are `[n.x, n.y, −w]` and the solution's third unknown is time**
-(algorithm-termination-cases.ts line 561). Each line contributes `n · P − w · t = n · A`. At unit
+(algorithm-termination-cases.ts). Each line contributes `n · P − w · t = n · A`. At unit
 weights the row is `[n.x, n.y, −1]` — the same double — so position and time are bit-identical by
 construction. The singularity test becomes `|det| < FLOATING_POINT_EPSILON · max(w₁, w₂, w₃)` (W26); at
 unit weights that is today's `areEqual(det, 0)`.
@@ -303,31 +307,33 @@ unit weights that is today's `areEqual(det, 0)`.
 `n₁ = n₃`, the determinant is `(w₃ − w₁) · (n₁ × n₂)`: singular today, non-singular when the two
 parallel parents differ in weight, and the solve then returns the point where the faster wall
 overtakes the slower — the event 112(f) names. No new branch: the existing singular fall-through
-(line 564–567) simply stops being taken.
+(in `solveTerminalPoint`) simply stops being taken.
 
-**W30 — The snap pre-pass compares times as arrivals** (algorithm-termination-cases.ts lines 106,
-128–130, 145–146): `birthOffset` and `snapOffset` become arrivals from `arrivalOf`; the two rejection
+**W30 — The snap pre-pass compares times as arrivals** (algorithm-termination-cases.ts,
+`tryAttachEdgeToNode`): `birthOffset` and `snapOffset` become arrivals from `arrivalOf`; the two rejection
 tests are `compareArrivals(snap, birth, ε) < 0` and `!arrivalsAreEqual(candidate, snap, ε)`.
-`nodeOffset` (line 63) returns an arrival.
+`nodeOffset` returns an arrival.
+**AMENDED 2026-11-16** (BSA.D356): `nodeOffset` is gone; the snap reads a node's arrival from `nodeBirthArrival`
+(collision-helpers.ts, beside `birthArrivalOf`), which also serves the debug overlay's node times.
 
 ### Degenerate closures
 
-**W31 — `solveDegenerateClosure`'s simultaneity is equi-time** (algorithm-termination-cases.ts line
-268): every collected arrival must satisfy `arrivalsAreEqual(arrival, arrivals[0], ε)`; the
-not-before-birth test at lines 255–256 is `compareArrivals(arrival, birth, ε) >= 0`. The premise —
+**W31 — `solveDegenerateClosure`'s simultaneity is equi-time** (terminal-ladder.ts since BSA.D356;
+algorithm-termination-cases.ts before): every collected arrival must satisfy `arrivalsAreEqual(arrival, arrivals[0], ε)`; the
+not-before-birth test is `compareArrivals(arrival, birth, ε) >= 0`. The premise —
 "all exterior parents parallel, so one offset governs the whole sub-polygon" — holds under weights
 only for the ANTI-facing case; for same-facing parallel parents with unequal weights the wavefront has
 a step that moves, and the closure's arrival check fails as it should, sending the step to the
 collision path (W29).
 
 **W32 — `solveParallelClosure`'s premise is false for same-facing parallel walls at unequal weights,
-and the function is not the site that breaks** (algorithm-termination-cases.ts lines 326–359). The
+and the function is not the site that breaks** (terminal-ladder.ts since BSA.D356; algorithm-termination-cases.ts before). The
 premise "parallel rays pointing the same way never meet" is a statement about BISECTOR rays. Under
 unit weights the two vertices of a riser between same-facing walls at `y = 0` and `y = h` trace
 parallel rays (measured: both `v = (1, −1)` in the scratchpad's step configuration). Under weights
 `w_low = 2`, `w_high = 1` they trace `v = (1, −2)` and `v = (1, −1)`: the riser's wavefront shrinks at
 rate `|w_low − w_high| = 1` and collapses at `t = h / |w_low − w_high|`. Those rays are NOT parallel,
-so `directionsAreSame` at line 343 returns false, the function returns `undefined`, and the pair
+so `directionsAreSame` in it returns false, the function returns `undefined`, and the pair
 resolves on the ordinary collision path. What breaks is therefore the CALLER's assumption that
 reaching this function with no collision means no event was possible; under weights that is true only
 because the weighted collision path already found the event. The function's own gate — all parents
@@ -335,11 +341,10 @@ parallel, all bisectors same-direction — is kept as written, and the same-faci
 weights (the slit the plus fixture leaves behind) still closes here.
 
 **W33 — The `co-linear-from-1` leading-source closure gains an equi-time check** (algorithm-
-termination-cases.ts lines 481–486). Today the trailing bisector is closed onto the leading source on
+termination-cases.ts, `handleInteriorEdgePair`). Today the trailing bisector is closed onto the leading source on
 the raw separation alone. Under weights the trailer reaches that point at `arrival_T = arrivalOf(T,
 …, distance to leading source)` and the leader was born there at `arrival_L`; the closure stands only
-if `arrivalsAreEqual(arrival_T, arrival_L, ε)`, else the branch falls through to the throw at line
-445. This check is NOT gated on weights (W36). It is reached twice on the corpus at native placement
+if `arrivalsAreEqual(arrival_T, arrival_L, ε)`, else the branch falls through to its throw. This check is NOT gated on weights (W36). It is reached twice on the corpus at native placement
 (the plus seed) and on the large-coordinate cells; if it fails there at unit weights the digest moves,
 and that movement is a finding to attribute, not a reason to gate. **NOT IMPLEMENTED 2026-09-10 (arc
 decision 126).** The check was written and measured at unit weights over the whole corpus: the digest
@@ -379,10 +384,12 @@ d₂·w₁` to `EQUIDISTANCE_BAR · w₁ · w₂`.
 
 ### Coincidence and I5
 
-**W38 — `coincident-events.ts` is unchanged.** `isOneEvent` (line 45) is a POSITION test at the
-perceptual floor; `medoidPosition` (line 258) picks a member; `bisectionsForMerge` (line 442) emits
+**W38 — `coincident-events.ts` is unchanged.** `isOneEvent` is a POSITION test at the
+perceptual floor; `medoidPosition` picks a member; `bisectionsForMerge` emits
 parents and a source only; `ringsOfSubPolygon` is topological. None of them reads a time or assumes a
 midpoint. The layer they are fed is selected by W24–W25.
+**AMENDED 2026-11-16** (BSA.D356): `bisectionsForMerge` is in `vertex-event.ts`, which BSA.D356 split from
+`coincident-events.ts`; `isOneEvent` and `medoidPosition` stay in `coincident-events.ts`.
 
 **W39 — Mirror-symmetry assumptions, enumerated, and their equi-time replacements.** (i) "A bisector's
 source is equidistant from its two parents" (I3, graph-index-invariants.test.ts line 238–266):
@@ -406,6 +413,9 @@ first incident bisector exactly as today. Dividing by `1.0` is exact. `SIMULTANE
 TIME to travel: `projectFromPerpendicular(basis, cwParent.basis, localTime · weightOf(cwParent))` —
 at unit weights `localTime · 1.0` is exact. Lifetimes `[birth, death)` (line 547) compare times read
 from the one table, bit-exact as today.
+**AMENDED 2026-11-16** (BSA.D356): offset-projection.ts' private `distanceToSupportingLine` and its dating copy are
+gone. The re-derivation reads `distanceToWallLine` and `datingWallOf` (wall-time.ts), the first of which calls the one
+`distanceToSupportingLine`, in planar-geometry.ts.
 
 **W41 — `computeStrips`' `depth` is a time; the clip is unchanged in form** (strip-decomposition.ts
 lines 563–564, 596–597, 927–941): node "offsets" are times from W40, `current.offset <= depth` is a
@@ -465,7 +475,7 @@ silently merged in either direction. Unit weights are untouched: with every weig
 pinned by this rule and the digest cannot move.
 
 **W45 — Weights are remapped through every boundary-stage index change.** Winding reversal
-(algorithm-termination-cases.ts lines 984–990): `weights'[j] = weights[(n − 2 − j) mod n]`, because
+(`reverseWeights`, boundary-stage.ts since BSA.D356; algorithm-termination-cases.ts before): `weights'[j] = weights[(n − 2 − j) mod n]`, because
 reversed edge `j` runs from `v_{n−1−j}` to `v_{n−2−j}`, which is original edge `n−2−j`. Canonicalisation:
 edge `i` survives as edge `indexRemap[i]` when both `v_i` and `v_{i+1}` survive (`CanonicalPolygon.
 indexRemap`, canonicalisation.ts line 89); a merge is W44. Decomposition (polygon-decomposition.ts
@@ -776,8 +786,8 @@ conditions holds only when the incident edges are short.
 **4.10 OPEN — unequal-wall corridor closing through `co-linear-from-1`** (arc decision 126). The
 discriminating fixture for W33: a corridor whose two walls carry different weights and whose two
 mid-lines are born pointing the same way along one line, so that the pair is classified
-`co-linear-from-1` and reaches the leading-source closure (algorithm-termination-cases.ts lines
-481–486). No expectation is stated yet: the fixture has to be constructed and measured before anything
+`co-linear-from-1` and reaches the leading-source closure (algorithm-termination-cases.ts,
+`handleInteriorEdgePair`). No expectation is stated yet: the fixture has to be constructed and measured before anything
 is pinned, and W33's check is re-opened by it and by nothing else.
 
 ## 5. Falsification bars
@@ -924,23 +934,23 @@ site's arithmetic is untouched), **no** (a new formula), **n/a** (no arithmetic 
 | 29 | solver-context.ts 291–296 `clockwise/widdershinsVertexAtOffset` | offset as distance | time; multiply by `weightOf(edgeId)` | yes | W40 |
 | 30 | solver-context.ts 347–366 `validateSplitReachesEdge` | `local = offset − sourceOffset`; `notYetBorn(local)`; `vertexAtOffset(…, local)` | `compareArrivals(split, birth, ε) < 0` rejects; `vertexAtOffset(…, timeOf(split) − timeOf(birth))` scaled by `w_edge` | yes | W30, W40 |
 | 31 | [algorithm-termination-cases.ts](../../packages/core/src/straight-skeleton/algorithm-termination-cases.ts) 63–74 `nodeOffset` | `sourceOffsetDistance` | arrival | yes | W30 |
-| 32 | algorithm-termination-cases.ts 106–151 `tryAttachEdgeToNode` | `snap − birth < 0`; `!areEqual(candidate, snap)` | `compareArrivals(…) < 0`; `!arrivalsAreEqual(…)` | yes | W30 |
-| 33 | algorithm-termination-cases.ts 191–205 `applyDegenerateClosure` | terminate, cull, accept | unchanged | n/a | W35 |
-| 34 | algorithm-termination-cases.ts 228–274 `solveDegenerateClosure` | arrivals all `areEqual` to the first; birth check | `arrivalsAreEqual`; `compareArrivals ≥ 0` | yes | W31 |
-| 35 | algorithm-termination-cases.ts 326–359 `solveParallelClosure` | parents parallel, bisectors same-direction, leading source | unchanged; the premise moves to the caller | yes | W32, N5 |
-| 36 | algorithm-termination-cases.ts 404–405 head-on cross-wire | topological | unchanged | n/a | W34 |
-| 37 | algorithm-termination-cases.ts 481–486 `co-linear-from-1` closure | leading source on raw separation | plus `arrivalsAreEqual(trailer-at-source, leader-birth, ε)` | yes at the arithmetic; verdict may move (N3-class) | W33 |
-| 38 | algorithm-termination-cases.ts 561 `solveTerminalPoint` rows | `[n.x, n.y, −1]` | `[n.x, n.y, −w]` | yes | W28 |
-| 39 | algorithm-termination-cases.ts 564–567 singular test | `areEqual(det, 0)` | `|det| < ε · max(w)` | yes | W28, W29 |
-| 40 | algorithm-termination-cases.ts 614 negative time | `offset < 0` | unchanged (time) | yes | W28 |
-| 41 | algorithm-termination-cases.ts 886–918 `SolveSkeletonOptions` | floor options | `+ weights` | n/a | W1 |
-| 42 | algorithm-termination-cases.ts 984–990 winding reversal | vertices reversed | weights reversed by `w'[j] = w[(n−2−j) mod n]` | n/a | W45 |
-| 43 | algorithm-termination-cases.ts 972, 860, 1085 canonicalise | vertex removal | weight remap through `indexRemap`; merge rule OPEN | n/a | W44, W45 |
-| 44 | [algorithm-complex-cases.ts](../../packages/core/src/straight-skeleton/algorithm-complex-cases.ts) 53, 107–110 simultaneity | 64 ulps on times | 64 ulps on `d₁w₂` vs `d₂w₁` | yes | W25 |
-| 45 | algorithm-complex-cases.ts 86–136 `inArrivalOrder`, `earliestArrivalMoment` | sort by offset | sort by `compareArrivals(…, 0)` | yes | W25 |
-| 46 | algorithm-complex-cases.ts 180–197 layer window | `fp_compare(offset, best) <= 0` | `compareArrivals(…, ε) <= 0` | yes | W24 |
+| 32 | algorithm-termination-cases.ts `tryAttachEdgeToNode` | `snap − birth < 0`; `!areEqual(candidate, snap)` | `compareArrivals(…) < 0`; `!arrivalsAreEqual(…)` | yes | W30 |
+| 33 | [terminal-ladder.ts](../../packages/core/src/straight-skeleton/terminal-ladder.ts) `applyDegenerateClosure` (algorithm-termination-cases.ts until BSA.D356) | terminate, cull, accept | unchanged | n/a | W35 |
+| 34 | terminal-ladder.ts `solveDegenerateClosure` | arrivals all `areEqual` to the first; birth check | `arrivalsAreEqual`; `compareArrivals ≥ 0` | yes | W31 |
+| 35 | terminal-ladder.ts `solveParallelClosure` | parents parallel, bisectors same-direction, leading source | unchanged; the premise moves to the caller | yes | W32, N5 |
+| 36 | algorithm-termination-cases.ts `handleInteriorEdgePair`, head-on cross-wire | topological | unchanged | n/a | W34 |
+| 37 | algorithm-termination-cases.ts `handleInteriorEdgePair`, `co-linear-from-1` closure | leading source on raw separation | plus `arrivalsAreEqual(trailer-at-source, leader-birth, ε)` | yes at the arithmetic; verdict may move (N3-class) | W33 |
+| 38 | algorithm-termination-cases.ts `solveTerminalPoint` rows | `[n.x, n.y, −1]` | `[n.x, n.y, −w]` | yes | W28 |
+| 39 | algorithm-termination-cases.ts `solveTerminalPoint`, singular test | `areEqual(det, 0)` | `|det| < ε · max(w)` | yes | W28, W29 |
+| 40 | algorithm-termination-cases.ts `solveTerminalTriangle`, negative time | `offset < 0` | unchanged (time) | yes | W28 |
+| 41 | [types.ts](../../packages/core/src/straight-skeleton/types.ts) `SolveSkeletonOptions` (algorithm-termination-cases.ts until BSA.D356) | floor options | `+ weights` | n/a | W1 |
+| 42 | [boundary-stage.ts](../../packages/core/src/straight-skeleton/boundary-stage.ts) `reverseWeights`, winding reversal (algorithm-termination-cases.ts until BSA.D356) | vertices reversed | weights reversed by `w'[j] = w[(n−2−j) mod n]` | n/a | W45 |
+| 43 | boundary-stage.ts `prepareBoundary` and `canonicaliseForSolve`, canonicalise | vertex removal | weight remap through `indexRemap`; merge rule OPEN | n/a | W44, W45 |
+| 44 | constants.ts `ARRIVAL_MOMENT_ULPS` and [collision-helpers.ts](../../packages/core/src/straight-skeleton/collision-helpers.ts) `arrivalsShareMoment`, simultaneity (algorithm-complex-cases.ts until BSA.D356) | 64 ulps on times | 64 ulps on `d₁w₂` vs `d₂w₁` | yes | W25 |
+| 45 | [event-order.ts](../../packages/core/src/straight-skeleton/event-order.ts) `inArrivalOrder`, `earliestArrivalMoment` (algorithm-complex-cases.ts until BSA.D356) | sort by offset | sort by `compareArrivals(…, 0)` | yes | W25 |
+| 46 | [algorithm-complex-cases.ts](../../packages/core/src/straight-skeleton/algorithm-complex-cases.ts) `layerWindow`, layer window | `fp_compare(offset, best) <= 0` | `compareArrivals(…, ε) <= 0` | yes | W24 |
 | 47 | [collision-handling.ts](../../packages/core/src/straight-skeleton/collision-handling.ts) 5–95 | topological | unchanged | n/a | — |
-| 48 | [coincident-events.ts](../../packages/core/src/straight-skeleton/coincident-events.ts) 45, 101, 171, 258, 442 | position floor, medoid, parents | unchanged | n/a | W38 |
+| 48 | [coincident-events.ts](../../packages/core/src/straight-skeleton/coincident-events.ts) `isOneEvent`, `medoidPosition` and the clustering; [vertex-event.ts](../../packages/core/src/straight-skeleton/vertex-event.ts) `bisectionsForMerge` (coincident-events.ts until BSA.D356) | position floor, medoid, parents | unchanged | n/a | W38 |
 | 49 | [graph-helpers.ts](../../packages/core/src/straight-skeleton/graph-helpers.ts) 38–63 `initBoundingPolygon` | edges `i → i+1` | plus `exteriorWeights` on the graph | n/a | W1 |
 | 50 | [offset-projection.ts](../../packages/core/src/straight-skeleton/offset-projection.ts) 359–366 re-derivation | `distanceToSupportingLine(...)` | `… / exteriorWeights[parent]` | yes | W40 |
 | 51 | offset-projection.ts 290 tolerance | relative `1e-12` | unchanged | yes | W40 |

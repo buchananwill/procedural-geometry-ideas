@@ -57,12 +57,12 @@ export function canonicalisePolygon(
 **Changed**
 
 - `SkeletonDiagnosticKind` ([types.ts](../../packages/core/src/straight-skeleton/types.ts)) — gains `'vertices-canonicalised'`.
-- `SolveSkeletonOptions` ([algorithm-termination-cases.ts](../../packages/core/src/straight-skeleton/algorithm-termination-cases.ts)) — gains an optional override of the noise floor, defaulting to `SKELETON_NOISE_FLOOR`.
+- `SolveSkeletonOptions` ([types.ts](../../packages/core/src/straight-skeleton/types.ts)) — gains an optional override of the noise floor, defaulting to `SKELETON_NOISE_FLOOR`.
 - `solveSkeleton`, `runAlgorithmV5`, `runAlgorithmV5Stepped` — canonicalise after normalising.
 
 **Reused, not reimplemented**
 
-- `distanceToSegment` ([vertex-budget.ts](../../packages/core/src/stroke-spline/vertex-budget.ts)) — the deviation predicate already exists and is already the one RDP uses.
+- `distanceToSegment` ([planar-geometry.ts](../../packages/core/src/straight-skeleton/planar-geometry.ts), re-exported by [vertex-budget.ts](../../packages/core/src/stroke-spline/vertex-budget.ts)) — the deviation predicate already exists and is already the one RDP uses.
 
 ## 2. Decisions / Specification
 

@@ -37,18 +37,18 @@ maintained and compared against the arithmetic while nothing reads them, then th
 | + | `StraightSkeletonSolverContext.wavefront: Wavefront` | types.ts; built in [solver-context.ts](../../packages/core/src/straight-skeleton/solver-context.ts) |
 | + | `interface WavefrontSegment { exteriorEdge: number; from: number; to: number }`: `from` is the bisector whose clockwise parent is `exteriorEdge`, `to` is `from`'s clockwise neighbour | types.ts |
 | + | `CollisionEvent.struckSegment?: WavefrontSegment`, set on every `interiorAgainstExterior` event | types.ts |
-| + | `ringsOfWavefront(context, interiorEdgeIds): number[][]`, the orbits of `clockwiseNeighbour` over the given bisectors | new file `wavefront.ts` beside the others |
-| + | `checkWavefront(context, inputs: AlgorithmStepInput[]): string[]`, the violations of W1 to W4, empty when sound | `wavefront.ts`; exported from [index.ts](../../packages/core/src/index.ts) |
+| + | `ringsOfWavefront(context, interiorEdgeIds): number[][]`, the orbits of `clockwiseNeighbour` over the given bisectors | new file `wavefront.ts` beside the others; since BSA.D356 [wavefront-links.ts](../../packages/core/src/straight-skeleton/wavefront-links.ts) |
+| + | `checkWavefront(context, inputs: AlgorithmStepInput[]): string[]`, the violations of W1 to W4, empty when sound | `wavefront.ts`; since BSA.D356 [wavefront-check.ts](../../packages/core/src/straight-skeleton/wavefront-check.ts); exported from [index.ts](../../packages/core/src/index.ts) |
 | ~ | `validateSplitReachesEdge(...)` returns `WavefrontSegment \| null`, the segment that validated | solver-context.ts |
 | ~ | `activeExteriorEdgeSegments(edgeId)` reads the links | solver-context.ts |
 | ~ | `generateSplitEvent`, `generateSplitEventFromTheEdgeItself`: the neighbour guard reads the links | [generate-split-event.ts](../../packages/core/src/straight-skeleton/generate-split-event.ts) |
-| ~ | `handleCollisionEvent`, the whole-event merge and the terminal handlers write the links | [collision-handling.ts](../../packages/core/src/straight-skeleton/collision-handling.ts), [algorithm-complex-cases.ts](../../packages/core/src/straight-skeleton/algorithm-complex-cases.ts), [algorithm-termination-cases.ts](../../packages/core/src/straight-skeleton/algorithm-termination-cases.ts), [coincident-events.ts](../../packages/core/src/straight-skeleton/coincident-events.ts) |
+| ~ | `handleCollisionEvent`, the whole-event merge and the terminal handlers write the links | [collision-handling.ts](../../packages/core/src/straight-skeleton/collision-handling.ts), [algorithm-complex-cases.ts](../../packages/core/src/straight-skeleton/algorithm-complex-cases.ts), [algorithm-termination-cases.ts](../../packages/core/src/straight-skeleton/algorithm-termination-cases.ts), [coincident-events.ts](../../packages/core/src/straight-skeleton/coincident-events.ts); since BSA.D356 every link writer is in [layer-links.ts](../../packages/core/src/straight-skeleton/layer-links.ts), the merge's bearing in [vertex-event.ts](../../packages/core/src/straight-skeleton/vertex-event.ts) and the ladder closures in [terminal-ladder.ts](../../packages/core/src/straight-skeleton/terminal-ladder.ts) |
 | ~ | `handleInteriorNGon`: child steps are the rings left by the layer | algorithm-complex-cases.ts |
 | ~ | `addBisectionEdge`: an accepted parent throws by a direct test | [algorithm-helpers.ts](../../packages/core/src/straight-skeleton/algorithm-helpers.ts) |
 | - | `span`, `clockwiseSpanExcludingAccepted`, `clockwiseSpanIncludingAccepted` | solver-context.ts, types.ts |
 | = | `initBoundingPolygon`, `initInteriorEdges`: one loop, wired `(i ± 1) % n` as today | [graph-helpers.ts](../../packages/core/src/straight-skeleton/graph-helpers.ts), algorithm-helpers.ts |
 | = | `ringsOfSubPolygon`: kept, and still the function whose `null` sends a layer to the pairwise fallback | coincident-events.ts |
-| = | `solveSkeleton`, `runAlgorithmV5`, `runAlgorithmV5Stepped`, every option, every constant | algorithm-termination-cases.ts, [constants.ts](../../packages/core/src/straight-skeleton/constants.ts) |
+| = | `solveSkeleton`, `runAlgorithmV5`, `runAlgorithmV5Stepped`, every option, every constant | [solve-entry.ts](../../packages/core/src/straight-skeleton/solve-entry.ts) (the entries), types.ts (the options), [constants.ts](../../packages/core/src/straight-skeleton/constants.ts); all three entries and the options in `algorithm-termination-cases.ts` until BSA.D356 |
 
 ## 3. Decisions
 
