@@ -2,11 +2,13 @@ import {
     PerceptualFloorOptions,
     SkeletonDiagnostic,
     SkeletonHole,
+    SkeletonInputRefusalKind,
     SkeletonLoop,
     SkeletonLoopMap,
     Vector2,
     WeightOptions,
 } from "./types";
+import {SkeletonInputRefusal} from "./input-refusal";
 import {crossProduct, makeBasis} from "./core-functions";
 import {maxWeightRatio, minWeightTurnSine} from "./constants";
 import {isClockwise} from "./planar-geometry";
@@ -83,23 +85,34 @@ export function canonicaliseForSolve(
  *
  * The index is the caller's own, taken before canonicalisation can renumber anything.
  */
-function nonFiniteVertexComplaint(vertices: readonly Vector2[]): string | undefined {
+function nonFiniteVertexComplaint(vertices: readonly Vector2[]): InputComplaint | undefined {
     for (let index = 0; index < vertices.length; index++) {
         const {x, y} = vertices[index];
         if (!Number.isFinite(x) || !Number.isFinite(y)) {
-            return `Vertex ${index} is not finite: (${x}, ${y}). Every input vertex coordinate must be a finite number.`;
+            return {
+                kind: 'non-finite-vertex',
+                index,
+                message: `Vertex ${index} is not finite: (${x}, ${y}). Every input vertex coordinate must be a finite number.`,
+            };
         }
     }
     return undefined;
+}
+
+/** A refusal not yet thrown: its kind, its text, and the caller's index where it has one. */
+export interface InputComplaint {
+    kind: SkeletonInputRefusalKind;
+    message: string;
+    index?: number;
 }
 
 /**
  * Decision 16: the complaint about a loop's vertex count, else about its first non-finite vertex, or `undefined`
  * when the loop can be solved. Unprefixed; a refusal of a hole adds the hole's name.
  */
-export function loopSolvabilityComplaint(vertices: readonly Vector2[]): string | undefined {
+export function loopSolvabilityComplaint(vertices: readonly Vector2[]): InputComplaint | undefined {
     if (vertices.length < 3) {
-        return "Must have at least three nodes to perform algorithm";
+        return {kind: 'too-few-vertices', message: "Must have at least three nodes to perform algorithm"};
     }
     return nonFiniteVertexComplaint(vertices);
 }
@@ -126,7 +139,7 @@ function resolveWeightArray(vertexCount: number, weights?: readonly number[]): n
         return new Array<number>(vertexCount).fill(1);
     }
     if (weights!.length !== vertexCount) {
-        throw new Error(
+        throw new SkeletonInputRefusal('weight-count',
             `Weight array has ${weights!.length} entries but the polygon has ${vertexCount} vertices; `
             + `there must be exactly one weight per vertex — the speed of the edge leaving it.`);
     }
@@ -138,10 +151,11 @@ function assertWeightsAreFinitePositive(weights: readonly number[]): void {
     for (let index = 0; index < weights.length; index++) {
         const weight = weights[index];
         if (!Number.isFinite(weight) || weight <= 0) {
-            throw new Error(
+            throw new SkeletonInputRefusal('weight-not-finite-positive',
                 `Weight ${index} is ${weight}. Every edge weight must be a finite, strictly positive `
                 + `number: a zero or infinite weight has no well-posed vertex velocity, and gables are `
-                + `a post-process on an all-positive solve rather than a solver input.`);
+                + `a post-process on an all-positive solve rather than a solver input.`,
+                {index});
         }
     }
 }
@@ -178,7 +192,7 @@ function assertWeightRatioIsInContract(
     const ratio = weights[fastestIndex] / weights[slowestIndex];
     const bound = maxWeightRatio(perceptualFloor);
     if (ratio > bound) {
-        throw new Error(
+        throw new SkeletonInputRefusal('weight-ratio',
             `Weight ratio ${ratio} exceeds maxWeightRatio(${perceptualFloor}) (${bound}): ${edgeName(fastestIndex)} `
             + `has weight ${weights[fastestIndex]} and ${edgeName(slowestIndex)} has weight `
             + `${weights[slowestIndex]}. Beyond that ratio the narrowest simultaneity window — the floor `
@@ -233,12 +247,13 @@ export function assertWeightsChangeOnlyAtVisibleCorners(
         const turnSine = Math.abs(crossProduct(outgoing, incoming));
         const turnBar = minWeightTurnSine(perceptualFloor, Math.abs(incomingWeight - outgoingWeight) / slowest);
         if (turnSine < turnBar) {
-            throw new Error(
+            throw new SkeletonInputRefusal('weight-change-without-corner',
                 `Vertex ${index} carries a weight change (${incomingWeight} to ${outgoingWeight}) at a `
                 + `turn whose sine is ${turnSine}, below minWeightTurnSine (${turnBar}). `
                 + `Weights may change only at a visible corner: a collinear or near-collinear weight `
                 + `change has no well-posed vertex velocity, and anything needing one — a dormer, for `
-                + `instance — is a separate feature stitched into the roof the skeleton produces.`);
+                + `instance — is a separate feature stitched into the roof the skeleton produces.`,
+                {index});
         }
     }
 }
@@ -408,17 +423,21 @@ interface SolvedLoop {
 }
 
 /**
- * Run a check of one loop, prefixing its refusal with {@link loopRefusalPrefix} (decision 16). The outline's refusal
- * is passed through untouched, so its message is today's word for word.
+ * Run a check of one loop, prefixing its refusal with {@link loopRefusalPrefix} (decision 16). The outline's prefix is
+ * empty, so its message is today's word for word. A {@link SkeletonInputRefusal} keeps its kind and index and gains
+ * the loop; any other throw is passed through as before, the outline's untouched and a hole's prefixed.
  */
 function refuseInLoop<T>(loop: number, check: () => T): T {
     const prefix = loopRefusalPrefix(loop);
-    if (prefix === '') {
-        return check();
-    }
     try {
         return check();
     } catch (error) {
+        if (error instanceof SkeletonInputRefusal) {
+            throw new SkeletonInputRefusal(error.kind, `${prefix}${error.message}`, {loop, index: error.index});
+        }
+        if (prefix === '') {
+            throw error;
+        }
         throw new Error(`${prefix}${error instanceof Error ? error.message : String(error)}`);
     }
 }
@@ -427,7 +446,8 @@ function refuseInLoop<T>(loop: number, check: () => T): T {
 function assertLoopIsSolvable(loop: CallerLoop): void {
     const complaint = loopSolvabilityComplaint(loop.vertices);
     if (complaint !== undefined) {
-        throw new Error(`${loopRefusalPrefix(loop.loop)}${complaint}`);
+        throw new SkeletonInputRefusal(complaint.kind, `${loopRefusalPrefix(loop.loop)}${complaint.message}`,
+            {loop: loop.loop, index: complaint.index});
     }
 }
 
@@ -573,15 +593,16 @@ export function prepareBoundary(request: BoundaryRequest, diagnostics: SkeletonD
                 // Under `normaliseWinding: true` the sign only reverses it, and the loop relations below refuse it
                 // in decision 27's order.
                 if (k > 0 && isDegenerateHole(workingVertices, perceptualFloor)) {
-                    throw new Error(describeDegenerateHole(k));
+                    throw new SkeletonInputRefusal('loop-conflict', describeDegenerateHole(k), {loop: k});
                 }
                 // DECISION 22: the option says the caller's winding is already right, and a holed solve has no
                 // meaning on the wrong side of a wall. A single loop is left to solve as it always did.
-                throw new Error(k === 0
+                throw new SkeletonInputRefusal('mis-wound-loop', k === 0
                     ? `The outline is wound counter-clockwise, and with normaliseWinding: false a holed input must `
                         + `give its outline clockwise and its holes counter-clockwise.`
                     : `Hole ${k - 1} is wound clockwise, and with normaliseWinding: false a holed input must give `
-                        + `its outline clockwise and its holes counter-clockwise.`);
+                        + `its outline clockwise and its holes counter-clockwise.`,
+                    {loop: k});
             }
         }
         return {vertices: workingVertices, weights: workingWeights, indexRemap: canonical.indexRemap, reversed};
@@ -603,8 +624,9 @@ export function prepareBoundary(request: BoundaryRequest, diagnostics: SkeletonD
     if (holes.length > 0) {
         const conflict = findLoopConflict(solvedLoops.map(loop => loop.vertices), perceptualFloor);
         if (conflict !== null) {
-            throw new Error(describeLoopConflict(conflict, loops.map(loop => loop.count),
-                (loop, local) => loopMaps[loop].vertexToNode.indexOf(loops[loop].start + local)));
+            throw new SkeletonInputRefusal('loop-conflict', describeLoopConflict(conflict, loops.map(loop => loop.count),
+                (loop, local) => loopMaps[loop].vertexToNode.indexOf(loops[loop].start + local)),
+                {loop: conflict.loops[0]});
         }
     }
 

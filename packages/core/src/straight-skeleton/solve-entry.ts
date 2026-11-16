@@ -23,6 +23,7 @@ import {DecompositionResult, decomposePolygon} from "./polygon-decomposition";
 import {checkWavefrontCausality} from "./causality-check";
 import {holedSkeletonViolations} from "./holed-guard";
 import {isBlockingDiagnosticKind} from "./diagnostic-kinds";
+import {SkeletonInputRefusal} from "./input-refusal";
 import {mergeSkeletonGraphs, makeMergedSolverContext} from "./graph-merge";
 import {
     SkeletonNormalisation,
@@ -70,7 +71,7 @@ export function runAlgorithmV5(
 ): StraightSkeletonSolverContext {
     const holesComplaint = legacyHolesComplaint('runAlgorithmV5', options);
     if (holesComplaint !== undefined) {
-        throw new Error(holesComplaint);
+        throw new SkeletonInputRefusal('holes-on-legacy-entry', holesComplaint);
     }
     const perceptualFloor = resolvePerceptualFloor(options);
     // THE BOUNDARY STAGE (count, finiteness, normalisation, the weight door, canonicalisation in unit space), as
@@ -409,7 +410,7 @@ export function runAlgorithmV5Stepped(
     // stage below asks the same two questions again and they pass; every later refusal of it is thrown.
     const complaint = loopSolvabilityComplaint(nodes);
     if (complaint !== undefined) {
-        return {snapshots: [], error: complaint};
+        return {snapshots: [], error: complaint.message};
     }
 
     // THE BOUNDARY STAGE, as `runAlgorithmV5` runs it, so the stepped visualiser walks the same polygon. EVERY

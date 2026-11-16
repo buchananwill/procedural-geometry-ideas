@@ -46,6 +46,8 @@ export {
   STEP_REFUSAL_KINDS,
 } from './straight-skeleton/diagnostic-kinds';
 export type { BlockingDiagnosticKind, InformationalDiagnosticKind } from './straight-skeleton/diagnostic-kinds';
+export { SkeletonInputRefusal } from './straight-skeleton/input-refusal';
+export type { SkeletonInputRefusalKind } from './straight-skeleton/types';
 
 // ── The loops of one input: an outline and its holes (skeleton loops-input spec) ──
 export { findLoopConflict, groupLoopsByNesting } from './straight-skeleton/skeleton-loops';

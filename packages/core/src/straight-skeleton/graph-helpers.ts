@@ -1,5 +1,6 @@
 import {PolygonEdge, PolygonNode, SkeletonDirection, SkeletonLoop, StraightSkeletonGraph, Vector2} from "./types";
 import {makeBasis} from "./core-functions";
+import {SkeletonInputRefusal} from "./input-refusal";
 
 /**
  * Record edges arriving at `node`, leaving `inEdges` in ascending edge-id order.
@@ -170,13 +171,16 @@ function validatedLoops(loops: readonly SkeletonLoop[], nodeCount: number): Skel
     if (breach !== undefined) {
         switch (breach.kind) {
             case 'too-small':
-                throw new Error(`Loop ${breach.loop} has ${breach.count} vertices; every loop must have at least 3.`);
+                throw new SkeletonInputRefusal('loop-table',
+                    `Loop ${breach.loop} has ${breach.count} vertices; every loop must have at least 3.`,
+                    {loop: breach.loop});
             case 'wrong-start':
-                throw new Error(
+                throw new SkeletonInputRefusal('loop-table',
                     `Loop ${breach.loop} starts at ${breach.start}, not ${breach.expected}: the loop table must tile `
-                    + `the ${nodeCount} nodes, contiguous from 0.`);
+                    + `the ${nodeCount} nodes, contiguous from 0.`,
+                    {loop: breach.loop});
             case 'wrong-cover':
-                throw new Error(
+                throw new SkeletonInputRefusal('loop-table',
                     `The loop table covers ${breach.covered} nodes but there are ${nodeCount}: it must tile the nodes, `
                     + `contiguous from 0.`);
         }
@@ -203,7 +207,7 @@ export function initBoundingPolygon(
     loops?: readonly SkeletonLoop[],
 ): StraightSkeletonGraph {
     if (!weightsAreOmitted(weights) && weights!.length !== nodes.length) {
-        throw new Error(
+        throw new SkeletonInputRefusal('weight-count',
             `Weight array has ${weights!.length} entries but the polygon has ${nodes.length} vertices; `
             + `there must be exactly one weight per vertex (the edge leaving it).`);
     }

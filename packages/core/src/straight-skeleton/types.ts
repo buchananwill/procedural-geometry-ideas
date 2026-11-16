@@ -513,6 +513,35 @@ export type SkeletonDiagnosticKind =
  */
 export type StepRefusalKind = 'simultaneous-across-rings' | 'multi-ring-step-refused';
 
+/**
+ * Why a solve entry refused its input outright, by a thrown `SkeletonInputRefusal` (`input-refusal.ts`), before any
+ * solve ran. Each names the rule the input breaks:
+ *
+ * - `too-few-vertices`             — a loop of fewer than three vertices.
+ * - `non-finite-vertex`            — a vertex coordinate that is not a finite number.
+ * - `weight-count`                 — a weight array not one weight per vertex (W-spec W1).
+ * - `weight-not-finite-positive`   — a weight that is not a finite, strictly positive number (W-spec W2).
+ * - `weight-ratio`                 — the fastest weight over the slowest exceeds `maxWeightRatio` (W-spec W3, W48).
+ * - `weight-change-without-corner` — a weight change at a turn below `minWeightTurnSine`: weights may change only at a
+ *   visible corner (W-spec W49).
+ * - `mis-wound-loop`               — under `normaliseWinding: false`, a holed input's loop wound the wrong way.
+ * - `loop-conflict`                — the loops of a holed input cross, touch, nest wrongly, or a hole is degenerate;
+ *   the message names the conflict (`LoopConflictKind`).
+ * - `loop-table`                   — a loop table that does not tile the nodes, or holds a loop of fewer than three.
+ * - `holes-on-legacy-entry`        — holes given to a legacy entry, which has no diagnostics channel to report them on.
+ */
+export type SkeletonInputRefusalKind =
+    'too-few-vertices'
+    | 'non-finite-vertex'
+    | 'weight-count'
+    | 'weight-not-finite-positive'
+    | 'weight-ratio'
+    | 'weight-change-without-corner'
+    | 'mis-wound-loop'
+    | 'loop-conflict'
+    | 'loop-table'
+    | 'holes-on-legacy-entry';
+
 /** Every diagnostic kind except `causality-violation`, which carries structured fields of its own. */
 export type GeneralSkeletonDiagnosticKind = Exclude<SkeletonDiagnosticKind, 'causality-violation'>;
 
