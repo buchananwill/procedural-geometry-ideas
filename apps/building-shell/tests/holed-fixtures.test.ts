@@ -10,9 +10,8 @@ import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {HOLED_FIXTURES, ShellFixture, fixtureByName, storeyRects} from '../src/fixture.ts';
 import {readInput} from '../src/wire/input-adapter.ts';
 import {roofViolations} from './roof-coverage.ts';
-import {loopWeights} from '../src/roof/algoB.ts';
 import {Pt, polyArea, unionLoops} from '../src/roof/model.ts';
-import {solveFaces} from '../src/roof/skeleton.ts';
+import {solveIsland} from '../src/roof/skeleton.ts';
 import {ShellBuild} from '../src/shell.ts';
 import {planStorey} from '../src/storey.ts';
 import {invariantViolations, planHolds} from './shell-invariants.ts';
@@ -106,7 +105,7 @@ describe.each(CASES)('%s (holed roof decision 40)', (_, fixture, genus, points) 
     const {building} = planStorey(fixture(), 0);
     expect(building.comps.map(c => c.holes.length).sort((p, q) => q - p)).toEqual(genus);
     for (const c of building.comps) {
-      const r = solveFaces(c, loopWeights(c));
+      const r = solveIsland(c);
       if (!r.ok) throw new Error(`${r.kind}: ${r.cause}`);
       expect(r.tilingError).toBeLessThan(1e-9);
     }

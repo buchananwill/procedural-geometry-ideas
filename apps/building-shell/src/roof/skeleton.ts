@@ -5,8 +5,8 @@ import {
   solveSkeleton, computeStrips, computeMaxOffset, setSkeletonLogLevel,
   INFORMATIONAL_DIAGNOSTIC_KINDS, SkeletonInputRefusal,
 } from '@proc-geo/core';
-import type {SkeletonDiagnosticKind, SkeletonInputRefusalKind, SkeletonSolveResult, Strip} from '@proc-geo/core';
-import {Comp, Pt, Wall, cross, dot, polyArea, sub} from './model.ts';
+import type {SkeletonDiagnosticKind, SkeletonInputRefusalKind, SkeletonSolveResult, SolveSkeletonOptions, Strip} from '@proc-geo/core';
+import {Comp, Pt, Wall, compLoops, cross, dot, loopWalls, polyArea, sub} from './model.ts';
 
 setSkeletonLogLevel('silent');
 
@@ -119,16 +119,31 @@ function incompleteCause(blocking: readonly {kind: SkeletonDiagnosticKind; detai
 export const footprintArea = (comp: Comp): number =>
   Math.abs(polyArea(comp.outer)) - comp.holes.reduce((s, h) => s + Math.abs(polyArea(h)), 0);
 
+/** Holed roof decision 9: `1 / tan` of each loop's walls in edge order, the outer loop first. */
+export const loopWeights = (comp: Comp): number[][] => compLoops(comp).map((_, k) => loopWalls(comp, k).map(w => 1 / w.tan));
+
+/** What core's `solveSkeleton` is called with for one island: its outer loop and its options. */
+export type SkeletonInput = [outer: Pt[], options: SolveSkeletonOptions];
+
 /**
- * Holed roof decision 9: `weights[k]` is `1 / tan` of loop `k`'s walls in edge order, loop 0 the outer loop and loop
- * `k` hole `k - 1`. With no hole this is today's single-loop call.
+ * Holed roof decision 9: exactly what core is called with for an island at `weights`. `weights[k]` is `1 / tan` of loop
+ * `k`'s walls in edge order, loop 0 the outer loop and loop `k` hole `k - 1`. An island with no hole is called with its
+ * outer loop's weights alone, no `holes` option.
  */
+export function skeletonInput(comp: Comp, weights: number[][]): SkeletonInput {
+  return comp.holes.length
+    ? [comp.outer, {weights: weights[0], holes: comp.holes.map((h, k) => ({vertices: h, weights: weights[k + 1]}))}]
+    : [comp.outer, {weights: weights[0]}];
+}
+
+/** An island's faces at its own walls' pitches (`loopWeights`), or its refusal: the roof's one call of the seam. */
+export const solveIsland = (comp: Comp): SolveResult => solveFaces(comp, loopWeights(comp));
+
+/** An island's faces at `weights` (see `skeletonInput`), or its refusal. A test may hand it perturbed weights. */
 export function solveFaces(comp: Comp, weights: number[][]): SolveResult {
   let result: SkeletonSolveResult;
   try {
-    result = comp.holes.length
-      ? solveSkeleton(comp.outer, {weights: weights[0], holes: comp.holes.map((h, k) => ({vertices: h, weights: weights[k + 1]}))})
-      : solveSkeleton(comp.outer, {weights: weights[0]});
+    result = solveSkeleton(...skeletonInput(comp, weights));
   } catch (e) {
     return refused(classify(e), (e as Error).message);
   }
@@ -155,45 +170,78 @@ export function facesOfSolve(comp: Comp, result: SkeletonSolveResult): SolveResu
   } catch (e) {
     return refused('threw', `computeStrips: ${(e as Error).message}`);
   }
-  return facesOfStrips(comp, result, strips, causalityDetail, diagnostics);
+  const read = facesOfStrips(comp, result, strips);
+  if (!read.ok) return read;
+  return {ok: true, faces: read.faces, diagnostics, causality: causalityDetail.length, causalityDetail, tilingError: read.tilingError};
 }
 
+/** A solve's strips read as faces (decisions 10 to 12), before `facesOfSolve` adds the solve's diagnostics. */
+export interface StripFaces {
+  ok: true;
+  faces: RawFace[];
+  tilingError: number; // |sum of face areas - footprint area| / footprint area
+}
+
+/** Each loop's map from its edges to the solved edges, as the solve gives it. */
+type LoopMaps = NonNullable<SkeletonSolveResult['loopMaps']>;
+
 /**
- * Decisions 10 to 12: one face per strip, in strip order. A strip's wall is the first wall of `comp.walls` whose own
- * loop's map carries it on the strip's supporting edge and whose span holds the frontage midpoint, the midpoint keeping
- * today's choice among the collinear walls canonicalisation merges. No strip is ever skipped (decision 11): a strip of
- * fewer than three points, an edge with no strip or two, and a strip count other than the solved edge count are each the
- * `'strip-missing'` refusal. Exported so a test can hand it constructed strips.
+ * Decision 11: every solved edge has exactly one strip. A strip count other than the solved edge count, and an edge
+ * with no strip or two, are each the `'strip-missing'` refusal.
  */
-export function facesOfStrips(comp: Comp, result: SkeletonSolveResult, strips: readonly Strip[], causalityDetail: string[] = [], diagnostics: string[] = []): SolveResult {
-  const maps = result.loopMaps;
-  if (!maps || maps.length !== 1 + comp.holes.length) {
-    return refused('unmapped', `the solve maps ${maps ? maps.length : 'no'} loops for ${1 + comp.holes.length}`);
-  }
-  const solvedEdges = result.graph.numExteriorNodes;
+function checkStripCoverage(strips: readonly Strip[], solvedEdges: number): SolveRefused | undefined {
   if (strips.length !== solvedEdges) return refused('strip-missing', `${strips.length} strips for ${solvedEdges} solved edges`);
   const seen: number[] = Array(solvedEdges).fill(0);
   for (const s of strips) for (const e of s.supportingEdgeIds) seen[e] = (seen[e] ?? 0) + 1;
   const off = seen.findIndex(n => n !== 1);
   if (off >= 0) return refused('strip-missing', `solved edge ${off} has ${seen[off]} strips`);
+  return undefined;
+}
+
+/** The midpoint of a strip's frontage, its first point to its last. */
+const frontageMidpoint = (s: Strip): Pt => {
+  const f = s.frontage;
+  return {x: (f[0].x + f[f.length - 1].x) / 2, y: (f[0].y + f[f.length - 1].y) / 2};
+};
+
+/**
+ * Decision 10: a strip's wall is the first wall of `comp.walls` whose own loop's map carries it on the strip's
+ * supporting edge and whose span holds the frontage midpoint `mid`, the midpoint choosing among the collinear walls
+ * canonicalisation merges.
+ */
+function wallOfStrip(comp: Comp, maps: LoopMaps, s: Strip, mid: Pt): Wall | undefined {
+  return comp.walls.find(w => {
+    if (!s.supportingEdgeIds.includes(maps[w.loop].edgeToEdge[w.edge])) return false;
+    const along = dot(sub(mid, w.a), w.dir);
+    return Math.abs(cross(w.dir, sub(mid, w.a))) < 1e-3 && along >= -1e-3 && along <= w.len + 1e-3;
+  });
+}
+
+/**
+ * Decisions 10 to 12: one face per strip, in strip order, each on its strip's wall (`wallOfStrip`), and the tiling
+ * error against the footprint. No strip is ever skipped (decision 11): coverage (`checkStripCoverage`) and a strip of
+ * fewer than three points are each the `'strip-missing'` refusal. Exported so a test can hand it constructed strips.
+ */
+export function facesOfStrips(comp: Comp, result: SkeletonSolveResult, strips: readonly Strip[]): StripFaces | SolveRefused {
+  const maps = result.loopMaps;
+  if (!maps || maps.length !== 1 + comp.holes.length) {
+    return refused('unmapped', `the solve maps ${maps ? maps.length : 'no'} loops for ${1 + comp.holes.length}`);
+  }
+  const uncovered = checkStripCoverage(strips, result.graph.numExteriorNodes);
+  if (uncovered) return uncovered;
   const faces: RawFace[] = [];
   let area = 0;
   for (const s of strips) {
     const edge = s.supportingEdgeIds.join(', ');
     if (s.boundary.length < 3) return refused('strip-missing', `the strip of solved edge ${edge} has ${s.boundary.length} boundary points`);
     const poly: Pt[] = s.boundary.map(p => ({x: p.x, y: p.y}));
-    const f = s.frontage;
-    const mid = {x: (f[0].x + f[f.length - 1].x) / 2, y: (f[0].y + f[f.length - 1].y) / 2};
-    const wall = comp.walls.find(w => {
-      if (!s.supportingEdgeIds.includes(maps[w.loop].edgeToEdge[w.edge])) return false;
-      const along = dot(sub(mid, w.a), w.dir);
-      return Math.abs(cross(w.dir, sub(mid, w.a))) < 1e-3 && along >= -1e-3 && along <= w.len + 1e-3;
-    });
+    const mid = frontageMidpoint(s);
+    const wall = wallOfStrip(comp, maps, s, mid);
     if (!wall) return refused('unmapped', `strip of solved edge ${edge} with frontage midpoint (${mid.x},${mid.y}) maps to no wall`);
     faces.push({wall, poly});
     area += Math.abs(polyArea(poly));
   }
   const footprint = footprintArea(comp);
-  return {ok: true, faces, diagnostics, causality: causalityDetail.length, causalityDetail, tilingError: Math.abs(area - footprint) / footprint};
+  return {ok: true, faces, tilingError: Math.abs(area - footprint) / footprint};
 }
 

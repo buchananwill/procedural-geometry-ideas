@@ -19,7 +19,7 @@ import {describe, expect, it} from 'vitest';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {ShellFixture, storeyRects} from '../src/fixture.ts';
 import {Pt, Rect, unionLoops} from '../src/roof/model.ts';
-import {loopWeights} from '../src/roof/algoB.ts';
+import {loopWeights} from '../src/roof/skeleton.ts';
 import {ShellBuild, buildShellDetailed} from '../src/shell.ts';
 import {storeyForms} from '../src/storey.ts';
 import {ring, storeyRings} from '../src/fixture.ts';

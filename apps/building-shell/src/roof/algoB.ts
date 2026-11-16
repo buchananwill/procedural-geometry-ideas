@@ -1,8 +1,9 @@
 // Algorithm B, projected intersection: the default hip over the footprint, plus one added piece per promoted line,
 // the two end walls' planes clipped to the wall's side and band, composed with the higher surface winning.
-import {Building, Comp, Pt, Wall, compLoops, dot, loopWalls, sub} from './model.ts';
+import {IslandRefusal} from '../errors.ts';
+import {Building, Comp, Pt, Wall, dot, sub} from './model.ts';
 import {PlaneFace, Sample, Surface, emptyInfo, evalFaces, makeFace} from './surface.ts';
-import {RawFace, solveFaces} from './skeleton.ts';
+import {RawFace, solveIsland} from './skeleton.ts';
 import {along, atAlong, endWall, extentOf, farWall, fixedOf, spanOf} from './wall-line.ts';
 
 export type FarEdge = 'plane' | 'none' | 'contact' | 'ridge';
@@ -92,7 +93,7 @@ export function runB(b: Building, opt: BOptions): Surface {
   const defaults: PlaneFace[] = [];
   let defaultRefused = false;
   for (const comp of b.comps) {
-    const solved = solveFaces(comp, loopWeights(comp));
+    const solved = solveIsland(comp);
     if (!solved.ok) {
       defaultRefused = true;
       info.notes.push(`default hip refused by the skeleton: ${solved.kind}: ${solved.message.slice(0, 200)}`);
@@ -152,9 +153,6 @@ export function runB(b: Building, opt: BOptions): Surface {
   };
 }
 
-/** Holed roof decision 9: `1 / tan` of each loop's walls in edge order, the outer loop first. */
-export const loopWeights = (comp: Comp): number[][] => compLoops(comp).map((_, k) => loopWalls(comp, k).map(w => 1 / w.tan));
-
 /** What `solveRoofParts` returns: the parts `runB` composes, and `buildPieces`' notes. */
 export interface RoofParts {
   defaults: PlaneFace[];
@@ -175,10 +173,13 @@ export function solveRoofParts(b: Building, opt: BOptions): RoofParts {
   const defaults: PlaneFace[] = [];
   const faces: RawFace[] = [];
   for (const [ci, comp] of b.comps.entries()) {
-    const solved = solveFaces(comp, loopWeights(comp));
+    const solved = solveIsland(comp);
     if (!solved.ok) {
       const {x, y} = comp.outer[0];
-      throw new Error(`solveRoofParts: island ${ci} at (${x}, ${y}) with ${comp.holes.length} holes cannot be roofed: ${solved.cause} [${solved.kind}: ${solved.message}]`);
+      throw new IslandRefusal(
+        `solveRoofParts: island ${ci} at (${x}, ${y}) with ${comp.holes.length} holes cannot be roofed: ${solved.cause} [${solved.kind}: ${solved.message}]`,
+        {island: ci, at: {x, y}, holes: comp.holes.length, kind: solved.kind, reason: solved.cause, detail: solved.message},
+      );
     }
     for (const f of solved.faces) {
       faces.push(f);

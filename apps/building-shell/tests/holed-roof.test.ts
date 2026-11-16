@@ -5,9 +5,9 @@ import {solveSkeleton} from '@proc-geo/core';
 import type {SkeletonSolveResult, Strip} from '@proc-geo/core';
 import {computeMaxOffset, computeStrips} from '@proc-geo/core';
 import {COURTYARD_RECTS, ring} from '../src/fixture.ts';
-import {loopWeights} from '../src/roof/algoB.ts';
+import {IslandRefusal} from '../src/errors.ts';
 import {Comp, Rect, buildCourtyard, buildFromRects, compLoops, polyArea} from '../src/roof/model.ts';
-import {HOLED_CAUSES, facesOfSolve, facesOfStrips, footprintArea, solveFaces} from '../src/roof/skeleton.ts';
+import {HOLED_CAUSES, facesOfSolve, facesOfStrips, footprintArea, loopWeights, skeletonInput, solveFaces} from '../src/roof/skeleton.ts';
 import {planStorey} from '../src/storey.ts';
 import {HOLED_REFUSALS, HOLED_REFUSAL_ISSUES} from './robustness-fixtures.ts';
 import {shellFixture} from './test-builds.ts';
@@ -17,11 +17,8 @@ const t30 = Math.tan(Math.PI / 6);
 /** The Courtyard's one island, every wall hipped at 30 degrees. */
 const courtyardComp = (): Comp => buildFromRects(COURTYARD_RECTS, [], t30).comps[0];
 
-/** A complete holed solve of `comp`, as `solveFaces` makes it. */
-const solveOf = (comp: Comp): SkeletonSolveResult => {
-  const w = loopWeights(comp);
-  return solveSkeleton(comp.outer, {weights: w[0], holes: comp.holes.map((h, k) => ({vertices: h, weights: w[k + 1]}))});
-};
+/** A complete solve of `comp`, as `solveFaces` makes it. */
+const solveOf = (comp: Comp): SkeletonSolveResult => solveSkeleton(...skeletonInput(comp, loopWeights(comp)));
 
 describe('the holed Comp (holed roof decisions 4 to 8)', () => {
   it('lists the outer loop\'s walls in loop order, then the hole\'s, each wall naming its loop and edge', () => {
@@ -162,13 +159,20 @@ describe('the layouts the holed solve refuses (holed roof decisions 41 to 43; fl
   it.each(HOLED_REFUSALS.map(r => [r.fixture.name, r] as const))('%s is a hard error naming the island, its cause and its kind', (name, r) => {
     const holes = 2;
     let message = '';
+    let thrown: unknown;
     try {
       planStorey(r.fixture, 0);
     } catch (e) {
+      thrown = e;
       message = (e as Error).message;
     }
     expect(message).toMatch(refusalPattern(name, holes));
     expect(message).toContain(`${HOLED_CAUSES[r.kind]} (${r.kind}: `);
+    // R4 (BSA.D356): the refusal keeps its class and fields through the label.
+    expect(thrown).toBeInstanceOf(IslandRefusal);
+    expect(thrown).toMatchObject({island: 0, holes, kind: 'incomplete'});
+    expect((thrown as IslandRefusal).reason).toContain(`${HOLED_CAUSES[r.kind]} (${r.kind}: `);
+    expect(message).toContain(`cannot be roofed: ${(thrown as IslandRefusal).reason} [incomplete: ${(thrown as IslandRefusal).detail}]`);
   });
 });
 

@@ -7,9 +7,9 @@ import {Wasm} from './manifold.ts';
 import {UnionWall, storeyLoops, unionWallForms, wallSel} from './ring-forms.ts';
 import {CoveredRise, RisePiece, claimedWalls, risePieces} from './rise.ts';
 import {Piece, RoofParts, solveRoofParts} from './roof/algoB.ts';
-import {Building, Comp, Plane, Pt, Rect, Wall, buildFromRects, compLoops, planeAt, polyArea} from './roof/model.ts';
+import {Building, Comp, Plane, Pt, Rect, Wall, buildFromRects, ccwLoop, compLoops, planeAt} from './roof/model.ts';
 import {alongX, atAlong, bboxReach} from './roof/wall-line.ts';
-import {PlanRefusal, errorMessage} from './errors.ts';
+import {relabelled} from './errors.ts';
 import {LocalTag, PartlessTag, Plane3, ShellTags, Vec3, addFace, samePlane} from './tags.ts';
 import {TriIndices, TriSoup, WeldStats, triCross, weldAndSnap} from './weld.ts';
 import {add3, dot3, scale3, sub3} from './vec3.ts';
@@ -55,13 +55,16 @@ export interface PartContext {
 
 export const makePartContext = (wasm: Wasm, tags: ShellTags): PartContext => ({wasm, tags, parts: []});
 
-/** Solves one storey's roof. A skeleton refusal is a hard error naming the label and storey (journal decision 51). */
+/**
+ * Solves one storey's roof. A skeleton refusal is a hard error naming the label and storey (journal decision 51), an
+ * `IslandRefusal` still, with its fields.
+ */
 export function planBuilding(label: string, storey: number, floor: number, plate: number, building: Building): StoreyPlan {
   let roof: RoofParts;
   try {
     roof = solveRoofParts(building, {far: 'plane'});
   } catch (e) {
-    throw new Error(`${label} storey ${storey}: ${errorMessage(e)}`, {cause: e});
+    throw relabelled(`${label} storey ${storey}`, e);
   }
   return {label, storey, floor, plate, building, roof};
 }
@@ -125,8 +128,7 @@ export function planStorey(f: ShellFixture, n: number): StoreyPlan {
     forms = storeyForms(rings);
   } catch (e) {
     // A plan refusal keeps its class through the label (journal decision 146).
-    const message = `${f.name} storey ${n}: ${errorMessage(e)}`;
-    throw e instanceof PlanRefusal ? new PlanRefusal(message, {cause: e}) : new Error(message, {cause: e});
+    throw relabelled(`${f.name} storey ${n}`, e);
   }
   const plan = planChecked(f.name, n, n * f.storeyHeight, (n + 1) * f.storeyHeight, forms.building);
   // Gable rise decision 8: a storey with no rise carries none, so its plan is exactly what it was before rises.
@@ -135,8 +137,7 @@ export function planStorey(f: ShellFixture, n: number): StoreyPlan {
     plan.rises = risePieces(f, plan, forms.walls, forms.covered);
   } catch (e) {
     // A plan refusal keeps its class through the label (journal decisions 146 and 206).
-    const message = `${f.name} storey ${n}: ${errorMessage(e)}`;
-    throw e instanceof PlanRefusal ? new PlanRefusal(message, {cause: e}) : new Error(message, {cause: e});
+    throw relabelled(`${f.name} storey ${n}`, e);
   }
   return plan;
 }
@@ -164,15 +165,6 @@ export interface Deletable { delete(): void }
 
 const toVec2 = (p: Pt): Vec2 => [p.x, p.y];
 
-function ccw(poly: Pt[]): Pt[] {
-  return polyArea(poly) < 0 ? [...poly].reverse() : poly;
-}
-
-/** Triangulates a simple CCW polygon; returns index triples into it, CCW seen from +z. */
-function triangulate(wasm: Wasm, poly: Pt[]): TriIndices[] {
-  return wasm.triangulate([poly.map(toVec2)]);
-}
-
 function finishPart(ctx: PartContext, plan: StoreyPlan, kind: PartKind, name: string, raw: TriSoup): RawPart {
   const {soup, stats} = weldAndSnap(raw, SHELL_TOLERANCE_CM);
   const part: RawPart = {id: ctx.parts.length, name: `${plan.label} storey ${plan.storey} ${name}`, storey: plan.storey, kind, soup, weld: stats};
@@ -180,7 +172,10 @@ function finishPart(ctx: PartContext, plan: StoreyPlan, kind: PartKind, name: st
   return part;
 }
 
-/** Triangulates `loops` (an outer loop and its holes), returning index triples into their concatenation. */
+/**
+ * Triangulates `loops` (an outer loop and its holes, or one simple CCW polygon), returning index triples into their
+ * concatenation, CCW seen from +z.
+ */
 function triangulateLoops(wasm: Wasm, loops: Pt[][]): TriIndices[] {
   return wasm.triangulate(loops.map(l => l.map(toVec2)));
 }
@@ -248,11 +243,11 @@ function hipSolid(ctx: PartContext, plan: StoreyPlan, ci: number, comp: Comp): R
   for (const face of plan.roof.faces) {
     if (face.wall.comp !== ci) continue;
     const pl = b.planes[face.wall.plane];
-    const poly = ccw(face.poly);
+    const poly = ccwLoop(face.poly);
     const f = addFace(ctx.tags, {kind: 'Roof', storey: plan.storey, wall: -1, plane: pl.id, part: id}, roofPlane(pl, plan.plate));
     const start = positions.length / 3;
     for (const p of poly) positions.push(p.x, p.y, plan.plate + planeAt(pl, p));
-    for (const [a, bb, c] of triangulate(ctx.wasm, poly)) { tris.push(start + a, start + bb, start + c); faceIDs.push(f); }
+    for (const [a, bb, c] of triangulateLoops(ctx.wasm, [poly])) { tris.push(start + a, start + bb, start + c); faceIDs.push(f); }
   }
   return finishPart(ctx, plan, 'hip', `hip solid island ${ci}`, {positions, tris, faceIDs});
 }
@@ -421,7 +416,7 @@ function gablePiece(ctx: PartContext, plan: StoreyPlan, k: number, piece: Piece)
   const name = `gable piece ${k} (${piece.label})`;
   const empty = (why: string): Error => new Error(`${plan.label} storey ${plan.storey}: ${name} is empty: ${why}`);
   const far = Math.min(piece.farDist, bboxReach(b, w));
-  const rect = ccw([atAlong(w, piece.bandLo, 0), atAlong(w, piece.bandHi, 0), atAlong(w, piece.bandHi, far), atAlong(w, piece.bandLo, far)]);
+  const rect = ccwLoop([atAlong(w, piece.bandLo, 0), atAlong(w, piece.bandHi, 0), atAlong(w, piece.bandHi, far), atAlong(w, piece.bandLo, far)]);
   // The piece's top is the lowest of its planes; no plane reaches above its own highest corner.
   const H = Math.min(...piece.planes.map(id => Math.max(...rect.map(p => planeAt(b.planes[id], p)))));
   if (!(H > SHELL_TOLERANCE_CM)) throw empty(`its planes rise ${H} cm at most over its band`);
