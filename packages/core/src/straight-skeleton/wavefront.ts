@@ -156,6 +156,20 @@ function isToken(id: number): boolean {
     return id < NOT_LIVE;
 }
 
+/**
+ * THE ORBIT: the ids after `start` round its ring, each the `next` of the one before (`next` a clockwise or a
+ * widdershins reader). EVERY WALK OF THE LINKS IS ONE OF THESE, AND THIS IS ITS ONE GUARD: the orbit ends before an id
+ * it has already given, `start` included, so before `start` comes round again, and at {@link NOT_LIVE}. It gives each
+ * id once and ends on any links, sound or broken. A caller's own stop is a `break` of its own.
+ */
+export function* orbit(next: (id: number) => number, start: number): Generator<number> {
+    const seen = new Set<number>([start]);
+    for (let id = next(start); id !== NOT_LIVE && !seen.has(id); id = next(id)) {
+        seen.add(id);
+        yield id;
+    }
+}
+
 /** A bisector's clockwise neighbour as the context stores it: {@link NOT_LIVE} for anything that is not a bisector id. */
 function storedClockwiseOf(context: StraightSkeletonSolverContext, id: number): number {
     return id >= 0 ? context.wavefront.clockwiseNeighbour[id] ?? NOT_LIVE : NOT_LIVE;
@@ -264,23 +278,20 @@ export function droppableBirths(
         }
         // The run's first token: walk widdershins while the neighbour is a candidate too.
         let first = token;
-        for (let hops = 0; hops <= candidateOf.size; hops++) {
-            const previous = layer.widdershinsOf(first);
-            if (!candidateOf.has(previous) || previous === token) {
+        for (const previous of orbit(id => layer.widdershinsOf(id), token)) {
+            if (!candidateOf.has(previous)) {
                 break;
             }
             first = previous;
         }
         const run: number[] = [first];
-        let last = first;
-        for (let hops = 0; hops <= candidateOf.size; hops++) {
-            const next = layer.clockwiseOf(last);
-            if (!candidateOf.has(next) || next === first) {
+        for (const next of orbit(id => layer.clockwiseOf(id), first)) {
+            if (!candidateOf.has(next)) {
                 break;
             }
             run.push(next);
-            last = next;
         }
+        const last = run[run.length - 1];
         run.forEach(id => placed.add(id));
 
         const widdershins = parentsOf(layer, layer.widdershinsOf(first));
@@ -315,16 +326,16 @@ export function birthsClosedAtOneNode(layer: LayerLinks): Set<BisectionParams> {
             continue;
         }
         const ring: number[] = [token];
-        let current = layer.pending.get(token)!.clockwise;
-        let whole = true;
-        while (current !== token) {
-            if (!isToken(current) || !layer.pending.has(current) || ring.includes(current)) {
-                whole = false;
+        let onlyPending = true;
+        for (const id of orbit(member => layer.clockwiseOf(member), token)) {
+            if (!layer.pending.has(id)) {
+                onlyPending = false;
                 break;
             }
-            ring.push(current);
-            current = layer.pending.get(current)!.clockwise;
+            ring.push(id);
         }
+        // Whole: every member pending, and the orbit closed, back at the token rather than broken.
+        const whole = onlyPending && layer.clockwiseOf(ring[ring.length - 1]) === token;
         if (!whole) {
             placed.add(token);
             continue;
@@ -531,25 +542,17 @@ export function linkVertexToVertex(
 /**
  * The bisector now standing in a retired bisector's place on one side: the retired bisector itself if
  * nothing in this layer replaced it, else the pending bisector an earlier event recorded as its successor.
+ *
+ * ONE STEP, NEVER A WALK: every successor is a pending birth ({@link linkGap} and {@link cutSegment} record only
+ * tokens), and a pending birth is never retired within its layer, so a successor never has a successor of its own.
  */
 function successorOn(
     context: StraightSkeletonSolverContext,
     successors: Map<number, number>,
     id: number,
 ): number {
-    let current = id;
-    for (let hops = 0; hops < 8; hops++) {
-        const live = isToken(current) || !context.isAccepted(current);
-        if (live) {
-            return current;
-        }
-        const next = successors.get(current);
-        if (next === undefined) {
-            return current;
-        }
-        current = next;
-    }
-    return current;
+    const live = isToken(id) || !context.isAccepted(id);
+    return live ? id : successors.get(id) ?? id;
 }
 
 function alongEdge(context: StraightSkeletonSolverContext, edge: number, from: Vector2, to: Vector2): number {
@@ -562,14 +565,7 @@ function alongEdge(context: StraightSkeletonSolverContext, edge: number, from: V
  * layer's current state. An orbit that breaks is returned as far as it went.
  */
 function ringThrough(layer: LayerLinks, start: number): Set<number> {
-    const ring = new Set<number>([start]);
-    const limit = layer.context.wavefront.clockwiseNeighbour.length + layer.pending.size;
-    let current = layer.clockwiseOf(start);
-    while (current !== start && current !== NOT_LIVE && !ring.has(current) && ring.size <= limit) {
-        ring.add(current);
-        current = layer.clockwiseOf(current);
-    }
-    return ring;
+    return new Set([start, ...orbit(id => layer.clockwiseOf(id), start)]);
 }
 
 /** One piece of a struck segment that earlier splits of this layer have cut: `from` to `end`. */
@@ -579,6 +575,14 @@ interface Piece {
     /** The cut that closes this piece; absent on the last piece, which runs on to the segment's `to`. */
     cut?: Division;
 }
+
+/**
+ * THE BAR ON {@link struckPiece}'s WALK OF CUTS, which is no orbit: each hop passes from a cut's `before` to its `after`
+ * and on to that bisector's clockwise neighbour. A sound walk passes each of this layer's cuts in the segment once, in
+ * order along the edge, and ends at the segment's end long before the bar. Only a cycle of cuts, which broken links
+ * alone make, reaches it, and the walk then ends where it stands.
+ */
+const MAX_CUTS_WALKED = 64;
 
 /**
  * The piece of `segment` a strike at `position` takes, the segment read through this layer's records: its ends through
@@ -599,7 +603,7 @@ function struckPiece(
     const pieces: Piece[] = [];
     let pieceFrom = segmentFrom;
     let end = layer.clockwiseOf(pieceFrom);
-    for (let hops = 0; end !== to && hops < 64; hops++) {
+    for (let hops = 0; end !== to && hops < MAX_CUTS_WALKED; hops++) {
         const division = layer.divisions.get(end);
         if (division === undefined || division.edge !== segment.exteriorEdge) {
             break;
@@ -801,18 +805,15 @@ export function partitionArc(layer: LayerLinks, params: BisectionParams): number
     if (token === undefined || !layer.pending.has(token)) {
         return 0;
     }
-    const limit = context.wavefront.clockwiseNeighbour.length + layer.pending.size;
     let arc = 0;
     let parent = params.clockwiseExteriorEdgeIndex;
-    let current = layer.clockwiseOf(token);
-    for (let hops = 0; current !== token && hops <= limit; hops++) {
-        const next = parentsOf(layer, current);
+    for (const member of orbit(id => layer.clockwiseOf(id), token)) {
+        const next = parentsOf(layer, member);
         if (next === undefined) {
             break;
         }
         arc += exteriorGap(context.graph, parent, next.clockwise);
         parent = next.clockwise;
-        current = layer.clockwiseOf(current);
     }
     return arc;
 }
@@ -971,21 +972,23 @@ export function exteriorFaceIsClosed(context: StraightSkeletonSolverContext, ext
 export function ringsOfWavefront(context: StraightSkeletonSolverContext, interiorEdgeIds: readonly number[]): number[][] {
     const placed = new Set<number>();
     const rings: number[][] = [];
-    const limit = context.wavefront.clockwiseNeighbour.length;
+    // The stored links alone: a pending token, which only a layer can read, ends the orbit as NOT_LIVE does.
+    const next = (id: number) => {
+        const clockwise = storedClockwiseOf(context, id);
+        return clockwise < 0 ? NOT_LIVE : clockwise;
+    };
     for (const start of interiorEdgeIds) {
         if (placed.has(start)) {
             continue;
         }
-        const ring: number[] = [];
-        let current = start;
-        while (ring.length <= limit) {
-            ring.push(current);
-            placed.add(current);
-            const next = context.wavefront.clockwiseNeighbour[current] ?? NOT_LIVE;
-            if (next === start || next < 0 || placed.has(next)) {
+        const ring: number[] = [start];
+        placed.add(start);
+        for (const id of orbit(next, start)) {
+            if (placed.has(id)) {
                 break;
             }
-            current = next;
+            ring.push(id);
+            placed.add(id);
         }
         rings.push(ring);
     }
