@@ -7,7 +7,7 @@ import {Wasm} from './manifold.ts';
 import {UnionWall, storeyLoops, unionWallForms, wallSel} from './ring-forms.ts';
 import {CoveredRise, RisePiece, claimedWalls, risePieces} from './rise.ts';
 import {Piece, RoofParts, solveRoofParts} from './roof/algoB.ts';
-import {Building, Comp, Plane, Pt, Rect, Wall, buildFromRects, ccwLoop, compLoops, planeAt} from './roof/model.ts';
+import {Building, Comp, Plane, Pt, Wall, buildFromLoops, ccwLoop, compLoops, planeAt} from './roof/model.ts';
 import {alongX, atAlong, bboxReach} from './roof/wall-line.ts';
 import {relabelled} from './errors.ts';
 import {LocalTag, PartlessTag, Plane3, ShellTags, Vec3, addFace, samePlane} from './tags.ts';
@@ -78,8 +78,9 @@ export interface StoreyForms { building: Building; walls: UnionWall[]; covered: 
 /**
  * Spec decisions 2 and 3 as amended (journal decisions 115, 116, 132 and 135; holed roof decisions 7 and 30): one
  * storey's Building from its Rings, with the union walls it read. Every union wall takes its Rings' form and pitch as a
- * roof-gable `Sel`, and the plan goes through roof-gable's own `buildFromRects` with those `Sel`s, holes and all: an
- * island holds any number of holes, each wall of each loop at its own union wall's form and pitch. The walls are
+ * roof-gable `Sel`, and the plan's loops, traced once (`storeyLoops`), go through roof-gable's own `buildFromLoops` with
+ * those `Sel`s, holes and all: an island holds any number of holes, each wall of each loop at its own union wall's form
+ * and pitch. The walls are
  * derived per extent (`unionWallForms`), then gable rise decision 5 as amended by journal decisions 220 and 243 decides
  * which all-gable walls algorithm B keeps and which bands are covered rises (`claimedWalls`), which reads algorithm B's
  * span off the Building those walls give. Where a wall changes form the Building is built again.
@@ -88,19 +89,19 @@ export function storeyForms(rings: StoreyRing[]): StoreyForms {
   const rects = rings.map(r => r.ring.rect);
   const loops = storeyLoops(rects);
   const derived = unionWallForms(rings, loops);
-  const first = buildingOf(rings, rects, loops, derived);
+  const first = buildingOf(loops, derived);
   const {walls, changed, covered} = claimedWalls(rings, derived, first);
-  return {building: changed ? buildingOf(rings, rects, loops, walls) : first, walls, covered};
+  return {building: changed ? buildingOf(loops, walls) : first, walls, covered};
 }
 
 /**
- * A storey's Building from its union walls as given: always roof-gable's `buildFromRects`, which takes holes and reads
- * each loop's walls by its `Sel`s (holed roof decision 7); a traced wall lies on one union wall, so on one `Sel`.
- * `storeyForms` calls it with the per-extent walls and again, where journal decision 220 changes a wall, with the walls
- * it gives. `rings` and `loops` are not read: the walls carry what the Rings say, and `buildFromRects` traces the loops.
+ * A storey's Building from its traced union loops (`storeyLoops`) and its union walls as given: roof-gable's
+ * `buildFromLoops`, which takes holes and reads each loop's walls by its `Sel`s (holed roof decision 7); a traced wall
+ * lies on one union wall, so on one `Sel`. `storeyForms` calls it with the per-extent walls and again, where journal
+ * decision 220 changes a wall, with the walls it gives, on the loops it traced once.
  */
-export function buildingOf(_rings: StoreyRing[], rects: Rect[], _loops: Pt[][], walls: UnionWall[]): Building {
-  return buildFromRects(rects, walls.map(wallSel));
+export function buildingOf(loops: Pt[][], walls: UnionWall[]): Building {
+  return buildFromLoops(loops, walls.map(wallSel));
 }
 
 /**

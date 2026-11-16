@@ -146,8 +146,11 @@ export function wallLabel(w: Wall): string {
   return vertical ? `x=${w.a.x} y[${lo},${hi}]` : `y=${w.a.y} x[${lo},${hi}]`;
 }
 
+/** What a wall's producer sets on it (`applySelectors`, `buildCourtyard`, `transformBuilding`): its pitch, form and low corner. */
+export type WallAttrs = Partial<Pick<Wall, 'tan' | 'form' | 'low'>>;
+
 /** One island before it is finished: its loops, and `attrs[k][j]` for loop `k`'s edge `j`. */
-export interface RawComp { outer: Pt[]; holes: Pt[][]; attrs: Partial<Wall>[][] }
+export interface RawComp { outer: Pt[]; holes: Pt[][]; attrs: WallAttrs[][] }
 
 export function finishBuilding(rawComps: RawComp[]): Building {
   const walls: Wall[] = [];
@@ -233,8 +236,11 @@ function matches(sel: Sel, a: Pt, b: Pt, n: Pt): boolean {
   return true;
 }
 
-function applySelectors(ring: Pt[], sels: Sel[], defaultTan: number): Partial<Wall>[] {
-  const attrs: Partial<Wall>[] = ring.map(() => ({tan: defaultTan}));
+/** A loop's wall attributes by `sels`, last match winning, and how many walls each selector matched. */
+interface SelectedAttrs { attrs: WallAttrs[]; hits: number[] }
+
+function applySelectors(ring: Pt[], sels: Sel[], defaultTan: number): SelectedAttrs {
+  const attrs: WallAttrs[] = ring.map(() => ({tan: defaultTan}));
   const hits = sels.map(() => 0);
   ring.forEach((a, i) => {
     const b = ring[(i + 1) % ring.length];
@@ -249,18 +255,21 @@ function applySelectors(ring: Pt[], sels: Sel[], defaultTan: number): Partial<Wa
       if (s.tan !== undefined) attrs[i].tan = s.tan;
     });
   });
-  (attrs as unknown as {hits: number[]}).hits = hits;
-  return attrs;
+  return {attrs, hits};
+}
+
+/** `buildFromLoops` of the union of `rects`, traced by `unionLoops`. */
+export function buildFromRects(rects: Rect[], sels: Sel[], defaultTan = 1): Building {
+  return buildFromLoops(unionLoops(rects), sels, defaultTan);
 }
 
 /**
- * The union of `rects` as one Comp per outer loop, with its holes (holed roof decisions 7, 8 and 30): each hole joins
- * the outer loop of least area that contains its vertex 0, by `pointInPoly`, so an island inside another's courtyard
- * holds its own holes. Every loop's walls take their attributes from `sels`. A hole no outer loop contains is a hard
- * error.
+ * Traced loops (`unionLoops`' CCW outer loops and CW holes) as one Comp per outer loop, with its holes (holed roof
+ * decisions 7, 8 and 30): each hole joins the outer loop of least area that contains its vertex 0, by `pointInPoly`, so
+ * an island inside another's courtyard holds its own holes. Every loop's walls take their attributes from `sels`. A hole
+ * no outer loop contains, and a selector that matches no wall, are hard errors.
  */
-export function buildFromRects(rects: Rect[], sels: Sel[], defaultTan = 1): Building {
-  const loops = unionLoops(rects);
+export function buildFromLoops(loops: Pt[][], sels: Sel[], defaultTan = 1): Building {
   const outers = loops.filter(l => polyArea(l) > 0);
   const holes = loops.filter(l => polyArea(l) < 0);
   const owner = holes.map(h => {
@@ -274,8 +283,8 @@ export function buildFromRects(rects: Rect[], sels: Sel[], defaultTan = 1): Buil
     const own = holes.filter((_, k) => owner[k] === i);
     const attrs = [outer, ...own].map(loop => {
       const a = applySelectors(loop, sels, defaultTan);
-      (a as unknown as {hits: number[]}).hits.forEach((h, j) => { hits[j] += h; });
-      return a;
+      a.hits.forEach((h, j) => { hits[j] += h; });
+      return a.attrs;
     });
     return {outer, holes: own, attrs};
   });
@@ -290,7 +299,7 @@ export function buildFromRects(rects: Rect[], sels: Sel[], defaultTan = 1): Buil
 export function buildCourtyard(outerR: Rect, innerR: Rect, defaultTan = 1): Building {
   const outer = [pt(outerR[0], outerR[1]), pt(outerR[2], outerR[1]), pt(outerR[2], outerR[3]), pt(outerR[0], outerR[3])];
   const inner = [pt(innerR[0], innerR[1]), pt(innerR[0], innerR[3]), pt(innerR[2], innerR[3]), pt(innerR[2], innerR[1])];
-  const hips = (loop: Pt[]): Partial<Wall>[] => loop.map(() => ({tan: defaultTan, form: 'hip'}));
+  const hips = (loop: Pt[]): WallAttrs[] => loop.map(() => ({tan: defaultTan, form: 'hip'}));
   return finishBuilding([{outer, holes: [inner], attrs: [hips(outer), hips(inner)]}]);
 }
 
@@ -301,7 +310,7 @@ export function transformBuilding(src: Building, f: (p: Pt) => Pt): Building {
     const attrs = loops.map((loop, k) => {
       const own = loopWalls(c, k);
       const n = loop.length;
-      return loop.map((_, i): Partial<Wall> => {
+      return loop.map((_, i): WallAttrs => {
         // New edge i runs from old vertex n-1-i to old vertex n-2-i, which is old edge n-2-i reversed.
         const old = own[(n - 2 - i + n) % n];
         return {tan: old.tan, form: old.form, low: old.low ? f(old.low) : undefined};

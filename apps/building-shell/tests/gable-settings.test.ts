@@ -251,9 +251,9 @@ describe('decision 11: a line extent holding a stretch that stands apart is not 
   it('ApartWholeSide: the all-gable S wall enters the solve as a hip at its gable pitch, carrying two rises', () => {
     const f = setting('ApartWholeSide');
     const rings = storeyRings(f, 0);
-    const rects = rings.map(r => r.ring.rect), loops = storeyLoops(rects);
+    const loops = storeyLoops(rings.map(r => r.ring.rect));
     const derived = unionWallForms(rings, loops);
-    const {walls, changed} = claimedWalls(rings, derived, buildingOf(rings, rects, loops, derived));
+    const {walls, changed} = claimedWalls(rings, derived, buildingOf(loops, derived));
     expect(changed).toBe(true);
     const south = walls.find(w => w.axis === 'y' && w.at === 0);
     expect([south?.form, south?.deg, south?.rises?.map(r => [r.lo, r.hi, r.apart])]).toEqual(['hip', 45, [[0, 500, true], [500, 1000, true]]]);

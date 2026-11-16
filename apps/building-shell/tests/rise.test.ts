@@ -399,9 +399,9 @@ describe('journal decision 220: a gable belongs to the Ring side that asked for 
   it('SingleStoreyT: algorithm B keeps its gable end, and its shell is byte for byte the per-extent walls\' shell', async () => {
     const f = fixtureByName('SingleStoreyT');
     const rings = storeyRings(f, 0);
-    const rects = rings.map(r => r.ring.rect), loops = storeyLoops(rects);
+    const loops = storeyLoops(rings.map(r => r.ring.rect));
     const derived = unionWallForms(rings, loops);
-    const b0 = buildingOf(rings, rects, loops, derived);
+    const b0 = buildingOf(loops, derived);
     const east = derived.filter(w => w.axis === 'x' && w.at === 1000 && w.n === '-x');
     expect(east.map(w => [w.lo, w.hi, w.form])).toEqual([[0, 150, 'gable'], [350, 500, 'gable']]);
     for (const w of east) {
