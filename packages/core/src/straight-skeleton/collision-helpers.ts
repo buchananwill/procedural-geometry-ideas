@@ -109,9 +109,35 @@ export function timeOf(arrival: Arrival): number {
 export function pairSimultaneityWindow(a: Arrival, b: Arrival, cap: number): number {
     const left = a.distance * b.weight;
     const right = b.distance * a.weight;
-    const momentBar = ARRIVAL_MOMENT_ULPS * Number.EPSILON * Math.max(Math.abs(left), Math.abs(right));
     const conditioning = a.uncertainty * b.weight + b.uncertainty * a.weight;
-    return Math.min(cap * Math.min(a.weight, b.weight), Math.max(momentBar, conditioning));
+    return Math.min(cap * Math.min(a.weight, b.weight), Math.max(momentBar(left, right), conditioning));
+}
+
+/**
+ * THE MOMENT BAR (census S29, C8 spec T26) on two cross-multiplied readings `d₁·w₂` and `d₂·w₁`:
+ * {@link ARRIVAL_MOMENT_ULPS} ulps of the larger. A representation bar, not a geometric tolerance: two computed values
+ * within it are one instant of the arithmetic.
+ */
+function momentBar(left: number, right: number): number {
+    return ARRIVAL_MOMENT_ULPS * Number.EPSILON * Math.max(Math.abs(left), Math.abs(right));
+}
+
+/**
+ * W-spec W25: are these two arrivals ONE MOMENT of the arithmetic? `|d₁·w₂ − d₂·w₁|` against the moment bar
+ * ({@link momentBar}) — the exact restatement of the 64-ulp window on `d₁/w₁` versus `d₂/w₂`, with no division. `≤`,
+ * so an exactly equal pair is one moment. At unit weights both products are by `1.0`.
+ *
+ * WHY SIXTY-FOUR: two arrivals that are equal in exact arithmetic are computed through different intersections and land
+ * a few ulps apart, and the two reciprocal reports of one arrival (`createCollisions` reports every pair from both
+ * directions) agree to within an ulp. Anything wider would be a claim about geometry. On `OFF_EDGE_JITTER_L_SEED_55433`'s
+ * collapsing 4-ring the four candidate pairings arrive 2.52e-11 to 7.07e-11 apart on offsets of 2.93e-1, between 3.9e5
+ * and 1.1e6 ulps, four orders above the bar; the rounding noise it absorbs sits at one to a few ulps. Both populations
+ * are asserted as ratios in `arrival-ordering.test.ts`.
+ */
+export function arrivalsShareMoment(first: Arrival, second: Arrival): boolean {
+    const left = first.distance * second.weight;
+    const right = second.distance * first.weight;
+    return Math.abs(left - right) <= momentBar(left, right);
 }
 
 /**
@@ -146,6 +172,14 @@ export function compareArrivals(a: Arrival, b: Arrival, window: number): -1 | 0 
         return 0;
     }
     return difference < 0 ? -1 : 1;
+}
+
+/**
+ * The sort comparator of events by arrival: {@link compareArrivals} at window `0`, an exact order with an exact tie
+ * reported as `0`, so a stable sort leaves tied events in their given order (W-spec W24, W27; S31).
+ */
+export function byArrival(first: Pick<CollisionEvent, 'arrival'>, second: Pick<CollisionEvent, 'arrival'>): -1 | 0 | 1 {
+    return compareArrivals(first.arrival, second.arrival, 0);
 }
 
 /** Do these two arrivals name one moment of the wavefront clock, within `window`? (W-spec W22, C8 T13.) */
@@ -322,9 +356,8 @@ export function rayIntersectionUncertainty(
  * Falls back to the earliest collision of any type if none qualify.
  */
 export function bestNonPhantomCollision(events: CollisionEvent[]): CollisionEvent | undefined {
-    // W-spec W27. At unit weights `compareArrivals(a, b, 0)` is the sign of `a.distance - b.distance`
-    // with a tie reported as `0`, which is what `a.offsetDistance - b.offsetDistance` gave.
-    const byArrival = (a: CollisionEvent, b: CollisionEvent) => compareArrivals(a.arrival, b.arrival, 0);
+    // W-spec W27. At unit weights `byArrival` is the sign of `a.distance - b.distance` with a tie
+    // reported as `0`, which is what `a.offsetDistance - b.offsetDistance` gave.
     return events
             .filter(e => e.eventType !== 'phantomDivergentOffset' && e.eventType !== 'outOfBounds')
             .sort(byArrival)[0]

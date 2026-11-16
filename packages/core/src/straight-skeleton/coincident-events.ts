@@ -16,6 +16,8 @@ import {
     vectorsAreEqual,
 } from "./core-functions";
 import {ARITHMETIC_SAME_POINT_BOX} from "./constants";
+import {byArrival} from "./collision-helpers";
+import {byEdgeIds} from "./event-order";
 import {linkMergeGap, linkMergeGapOnWall} from "./wavefront";
 
 /**
@@ -244,16 +246,13 @@ export function coincidentEventPositions(events: CollisionEvent[], floor: number
  * polygon's own vertex order, so the tie-breaks carry no arithmetic and no placement can move them.
  */
 function canonicalEventOrder(first: CollisionEvent, second: CollisionEvent): number {
-    const difference = first.arrival.distance * second.arrival.weight - second.arrival.distance * first.arrival.weight;
-    if (difference !== 0) {
-        return difference < 0 ? -1 : 1;
+    const byTime = byArrival(first, second);
+    if (byTime !== 0) {
+        return byTime;
     }
-    const edges = first.collidingEdges;
-    const others = second.collidingEdges;
-    for (let index = 0; index < 2; index++) {
-        if (edges[index] !== others[index]) {
-            return edges[index] - others[index];
-        }
+    const byEdges = byEdgeIds(first, second);
+    if (byEdges !== 0) {
+        return byEdges;
     }
     if (first.position.x !== second.position.x) {
         return first.position.x < second.position.x ? -1 : 1;

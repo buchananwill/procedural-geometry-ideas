@@ -3,7 +3,7 @@
  * BSA.D338).
  *
  * Of two simultaneous events on one bisector, the pairwise fallback resolves the nearer along the bisector's ray first
- * (`nearerAlongSharedBisector` in `algorithm-complex-cases.ts`). Two of its choices had no test that a change to them
+ * (`nearerAlongSharedBisector` in `event-order.ts`). Two of its choices had no test that a change to them
  * would turn red (BSA.F109); each describe below is one, on a cell of the sweep harness's along-edge grid with the
  * boundary stage off (`{noiseFloor: 0}`), so that the jittered samples reach the solver:
  *

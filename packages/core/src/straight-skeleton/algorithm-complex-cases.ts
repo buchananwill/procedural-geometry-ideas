@@ -1,10 +1,19 @@
 import {
     AlgorithmStepInput,
-    Arrival, BisectionParams, CollisionEvent, CollisionTypePriority, ResolvableEvent, SplitEvent,
+    Arrival, BisectionParams, CollisionEvent, ResolvableEvent, SplitEvent,
     StraightSkeletonSolverContext, Vector2, WavefrontSegment
 } from "./types";
-import {compareArrivals, findOrComputeCollision, priceHeadOnPair, timeOf} from "./collision-helpers";
-import {ARRIVAL_MOMENT_ULPS, HELD_SIMULTANEITY_WINDOW, mergeDisplacementUncertainty} from "./constants";
+import {byArrival, compareArrivals, findOrComputeCollision, priceHeadOnPair, timeOf} from "./collision-helpers";
+import {HELD_SIMULTANEITY_WINDOW, mergeDisplacementUncertainty} from "./constants";
+import {
+    byEdgeIds,
+    compareEdgeIdLists,
+    comparePriority,
+    earliestArrivalMoment,
+    inArrivalOrder,
+    inPlaceOrder,
+    nearerAlongSharedBisector,
+} from "./event-order";
 import {rotateCw90} from "./core-functions";
 import {applyDegenerateClosure, climbTerminalLadder} from "./algorithm-termination-cases";
 import handleCollisionEvent from "./collision-handling";
@@ -38,303 +47,6 @@ import {
     ringsOfWavefront,
     settleLayerLinks
 } from "./wavefront";
-
-/**
- * Lexicographic over two events' `[instigator, target]` edge ids.
- *
- * The canonical tie-break for events that a floating-point offset cannot separate. `collidingEdges`
- * identifies an event by the edges taking part in it, which is a property of the polygon's own
- * topology, so two distinct events at one offset are ordered by something no placement can move.
- */
-function compareEdgeIdLists(first: readonly [number, number], second: readonly [number, number]): number {
-    for (let index = 0; index < 2; index++) {
-        if (first[index] !== second[index]) {
-            return first[index] - second[index];
-        }
-    }
-    return 0;
-}
-
-/*
- * THE MOMENT BAR — {@link ARRIVAL_MOMENT_ULPS}, ulps of the larger offset within which two arrivals are
- * ONE moment of the arithmetic (census S29). It lived here as `SIMULTANEOUS_ARRIVAL_ULPS` and moved to
- * `constants.ts` under C8 spec T26, value unchanged, because the offset projection's simultaneous-set
- * partition (S30) asks the same question and now spends the same bar.
- *
- * A REPRESENTATION BAR, NOT A GEOMETRIC TOLERANCE. Its only job is to stop the arithmetic's own
- * rounding from being read as causal order: two arrivals that are equal in exact arithmetic are
- * computed through different intersections and land a few ulps apart, and the two reciprocal reports
- * of ONE arrival ({@link createCollisions} reports every pair from both directions) agree to within
- * an ulp. Anything wider would be a claim about geometry, and every such claim in this package
- * belongs to a constant with a measurement behind it.
- *
- * SIXTY-FOUR, with the corpus's two live populations on either side of it. On
- * `OFF_EDGE_JITTER_L_SEED_55433`'s collapsing 4-ring the four candidate pairings arrive 2.52e-11 to
- * 7.07e-11 apart on offsets of 2.93e-1 — between 3.9e5 and 1.1e6 ulps, four orders above this bar.
- * The rounding noise it exists to absorb sits at one to a few ulps, six orders below it. Both
- * populations are asserted as ratios in `arrival-ordering.test.ts`.
- */
-
-/**
- * Order one layer's events by ARRIVAL, breaking exact simultaneity with `tieBreak`.
- *
- * STRICT LINEAR CAUSALITY IS THE SOLVER'S MODEL (journal decision 102): where two arrivals are
- * separated at all, the earlier one is resolved first, and the wavefront it terminates cannot be
- * consumed by an event that had not happened yet. The fallback below used to sort a whole layer by
- * priority and edge id alone, which threw the offsets away — and because each event here CONSUMES
- * its edges, that was a PAIRING rule, not a display order: on `(seed 55433)` a collapsing 4-ring
- * whose true pairing arrives 2.52e-11 ahead of its rival was paired by edge id instead, so the arm
- * tip closed on the wrong two of its four walls and left its surviving ridge between the wrong
- * parents. What that cost downstream is the fold population — 24 region-boundary folds across three
- * fixtures before this ordering, 4 on one fixture after it, with both reflex Ls leaving it outright
- * (`region-boundary-folds.test.ts`) — and six of the plus's ten failing near-floor jitter cells.
- *
- * IT DOES NOT CURE THE DUPLICATE RIDGE, and saying so is the point. Both pairings leave TWO
- * bisectors spanning that ridge, so I5's count on this fixture is unmoved; the two collapse nodes
- * are 3.9e-6 apart in unit space and should not both exist, which is journal decision 101's
- * tolerance defect and not this one. Pairing decides which walls the ridge belongs to; it cannot
- * decide whether the ridge should have been a point.
- *
- * EXPORTED FOR ITS OWN TEST, not for other callers — see `arrival-ordering.test.ts`.
- *
- * THE TIE-BREAK KEEPS ITS PROPER SCOPE. Decision 65's lexicographic ordering exists so that events
- * a floating-point offset CANNOT separate are still resolved in an order no placement can move —
- * node identity must not turn on an ulp. That argument is about genuine simultaneity, so it applies
- * within {@link ARRIVAL_MOMENT_ULPS} and nowhere else.
- *
- * MOMENTS BY SINGLE LINKAGE, over an already offset-ascending list, so the result is a total order
- * rather than a sort under a non-transitive "close enough" predicate. (The coincidence clustering in
- * `coincident-events.ts` used the same single linkage until journal decision 155 made it anchored;
- * this partition is at the 64-ulp representation bar, S29, which C8 spec T26 keeps as it is.)
- *
- * AND WITHIN A MOMENT, WHAT `mustPrecede` ORDERS COMES BEFORE THE TIE-BREAK (BSA.D335). Where it is given, no event of a
- * moment is placed before one of the same moment that must precede it, and `tieBreak` decides only between events it
- * leaves unordered ({@link inPrecedenceOrder}). The pairwise fallback hands it {@link nearerAlongSharedBisector}.
- */
-export function inArrivalOrder<T extends CollisionEvent>(
-    events: T[],
-    tieBreak: (first: T, second: T) => number,
-    mustPrecede?: (first: T, second: T) => boolean,
-): T[] {
-    // W-spec W24, W25: ordered by ARRIVAL, division-free. At unit weights `compareArrivals(a, b, 0)`
-    // is the sign of `a.offsetDistance - b.offsetDistance` with ties reported as zero, so the stable
-    // sort delivers exactly today's order.
-    const byOffset = events.toSorted((e1, e2) => compareArrivals(e1.arrival, e2.arrival, 0));
-
-    const moments: number[] = [];
-    let moment = 0;
-    for (let index = 0; index < byOffset.length; index++) {
-        if (index > 0 && !areSimultaneousArrivals(byOffset[index - 1].arrival, byOffset[index].arrival)) {
-            moment++;
-        }
-        moments.push(moment);
-    }
-
-    const ordered = byOffset
-        .map((event, index) => ({event, moment: moments[index]}))
-        .toSorted((a, b) => a.moment !== b.moment ? a.moment - b.moment : tieBreak(a.event, b.event));
-    if (mustPrecede === undefined) {
-        return ordered.map(entry => entry.event);
-    }
-
-    // `mustPrecede` reorders within a moment and never across one: separated arrivals keep their order (decision 102).
-    const result: T[] = [];
-    let start = 0;
-    for (let end = 1; end <= ordered.length; end++) {
-        if (end === ordered.length || ordered[end].moment !== ordered[start].moment) {
-            result.push(...inPrecedenceOrder(ordered.slice(start, end).map(entry => entry.event), mustPrecede));
-            start = end;
-        }
-    }
-    return result;
-}
-
-/**
- * `events` in their given order, except that no event is placed before one that `mustPrecede` it: at each place, the
- * first event of the given order that no event still unplaced must precede (a stable topological order). The given order
- * therefore decides only between events the relation leaves unordered.
- *
- * Should every unplaced event have one that must precede it, the relation has a cycle and cannot be honoured; the first
- * unplaced event of the given order is placed and the rest go on as before, so the order is always total and always a
- * function of the given order and the relation.
- */
-function inPrecedenceOrder<T extends CollisionEvent>(
-    events: T[],
-    mustPrecede: (first: T, second: T) => boolean,
-): T[] {
-    const blockedBy = events.map(() => 0);
-    const blocks = events.map((): number[] => []);
-    events.forEach((first, i) => events.forEach((second, j) => {
-        if (i !== j && mustPrecede(first, second)) {
-            blocks[i].push(j);
-            blockedBy[j]++;
-        }
-    }));
-
-    const placed = events.map(() => false);
-    const ordered: T[] = [];
-    while (ordered.length < events.length) {
-        let next = blockedBy.findIndex((count, index) => !placed[index] && count === 0);
-        if (next < 0) {
-            next = placed.indexOf(false);
-        }
-        placed[next] = true;
-        ordered.push(events[next]);
-        blocks[next].forEach(index => blockedBy[index]--);
-    }
-    return ordered;
-}
-
-/**
- * The bisectors an event's meeting point lies on: both of an interior pair's, and a split's instigator (its other
- * colliding edge is the exterior wall it strikes).
- */
-function bisectorsMeeting(event: CollisionEvent, context: StraightSkeletonSolverContext): number[] {
-    return event.collidingEdges.filter(edgeId => edgeId >= context.graph.numExteriorNodes);
-}
-
-/** How far `point` lies along bisector `edgeId`'s ray from its source: its projection on the ray's direction. */
-function distanceAlongRay(point: Vector2, edgeId: number, context: StraightSkeletonSolverContext): number {
-    const ray = context.projectRayInterior(context.getInteriorWithId(edgeId));
-    const basis = ray.basisVector;
-    return (basis.x * (point.x - ray.sourceVector.x) + basis.y * (point.y - ray.sourceVector.y)) / Math.hypot(basis.x, basis.y);
-}
-
-/**
- * OF TWO SIMULTANEOUS EVENTS THAT SHARE A BISECTOR, THE ONE NEARER ALONG THAT BISECTOR'S RAY IS RESOLVED FIRST (BSA.D335,
- * BSA.F107): the relation `inArrivalOrder` honours within a moment, over `events`.
- *
- * A bisector carries ONE wavefront vertex from its source outward, so of two meetings on its ray the nearer is the one
- * that vertex reaches, and it ends the bisector there. Time says the same thing wherever time moves along the ray, and
- * there two meetings at two points of one ray are not one moment. It stops saying it on a LEVEL bisector, the ridge two
- * walls that face each other bear: every point of it has one time, so every other bisector with one of those two walls
- * as a parent meets it at the same instant, wherever it meets it. Two such meetings are one moment at two points, and
- * the edge-id tie-break used to pick between them. On the user's layout files 4, 7 and 9 it took the far one, ran the
- * ridge past the near one and left a node inside another wall's face, with the solve complete and undiagnosed
- * (`level-ridge-tie.test.ts` is the smallest outline found). So the order goes back to position.
- *
- * EVERY KIND OF EVENT, NOT ONLY PAIRS: a split lies on its instigator's ray, and is ordered against a pair on that ray
- * the same way, ahead of priority. Measured over the wide mixed-pitch fuzz (5,000 draws), 33 fallback layers held such a
- * cross-kind order, and restricting the relation to events of one priority changed no skeleton of its 8,878 islands.
- *
- * MORE THAN THE PERCEPTUAL FLOOR APART ALONG THE RAY, or the two are one point (the floor is the solver's bar for one
- * point, as `clusterCoincidentMerges` spends it), and the relation leaves them to the tie-break: the reciprocal reports
- * of one meeting must not be ordered by an ulp (journal decision 65). The distances are read once per event.
- *
- * ONLY IN THE PAIRWISE FALLBACK. The whole-event path's splits (`splitEvents` below) are not ordered by it: that order
- * sites splits that land on one point, it is taken over the held window rather than one moment, and two splits of one
- * instigator more than the floor apart were found in no layer of `FULL_CORPUS`, `HOLED_TEST_POLYGONS`,
- * `WEIGHTED_TEST_POLYGONS` or either mixed-pitch fuzz, so the rule would change nothing there that a test could convict.
- */
-function nearerAlongSharedBisector(
-    events: CollisionEvent[],
-    context: StraightSkeletonSolverContext,
-): (first: CollisionEvent, second: CollisionEvent) => boolean {
-    const along = new Map(events.map(event => [event, new Map(bisectorsMeeting(event, context)
-        .map(edgeId => [edgeId, distanceAlongRay(event.position, edgeId, context)] as const))] as const));
-    return (first, second) => {
-        const secondAlong = along.get(second)!;
-        for (const [edgeId, firstDistance] of along.get(first)!) {
-            const secondDistance = secondAlong.get(edgeId);
-            if (secondDistance !== undefined && secondDistance - firstDistance > context.perceptualFloor) {
-                return true;
-            }
-        }
-        return false;
-    };
-}
-
-/**
- * The runs of `items`, in ascending `key`, into which single linkage at `floor` cuts them: a new run starts wherever a key
- * lies more than `floor` above the one before it. The runs are a function of the set of keys, so of the items handed,
- * not of their order.
- */
-function linkedRuns<T>(items: T[], key: (item: T) => number, floor: number): T[][] {
-    const sorted = items.toSorted((first, second) => key(first) - key(second));
-    const runs: T[][] = [];
-    sorted.forEach((item, index) => {
-        if (index === 0 || key(item) - key(sorted[index - 1]) > floor) {
-            runs.push([]);
-        }
-        runs[runs.length - 1].push(item);
-    });
-    return runs;
-}
-
-/**
- * THE ORDER BY PLACE (BSA.D335 stage 2): a comparator over `events` that orders them by where they meet, in unit space,
- * and reports zero for two that meet at one point.
- *
- * The events are cut into COLUMNS by single linkage on x at `floor`, and each column into CELLS by single linkage on y at
- * `floor`; a cell further left, then lower, comes first. Two events of one cell are one point at the floor and are left
- * equal, for the caller's next key. The cut is single linkage over a sorted list, as `inArrivalOrder`'s moments are, so
- * the result is a total order of the cells and not a sort under a non-transitive "close enough" predicate; its accepted
- * cost is the same chaining.
- *
- * WHAT IT ORDERS IN THE PAIRWISE FALLBACK: the events `nearerAlongSharedBisector` leaves unordered, which share no
- * bisector or meet at one point. Two events that share no bisector consume no common edge, so their order decides no
- * pairing. Measured before it was built: reversing the edge-id order there changed no skeleton of `FULL_CORPUS`,
- * `HOLED_TEST_POLYGONS` or `WEIGHTED_TEST_POLYGONS` at any sampled starting vertex, none of the 11,878 islands of the two
- * mixed-pitch fuzzes, and no sweep-harness record but 135 along-edge digests, by node and edge numbering alone, every
- * node position bit-identical; this order, against the edge-id order, measured the same with 138. So it decides the
- * numbering, and the numbering now follows the geometry rather than the order the caller listed the vertices in; within
- * one point, where nothing geometric tells two events apart, the edge ids still decide.
- *
- * THE COST, STATED: a place is a coordinate, and the edge ids it replaces carry no arithmetic (journal decision 65). Two
- * events whose x or y lie a floor apart can change cells under a placement that moves them by an ulp, and their nodes
- * swap ids. The floor keeps that to gaps at the floor's own scale, where the edge-id order had none.
- *
- * EXPORTED FOR ITS OWN TEST, not for other callers — see `arrival-ordering.test.ts`.
- */
-export function inPlaceOrder(events: CollisionEvent[], floor: number): (first: CollisionEvent, second: CollisionEvent) => number {
-    const cellOf = new Map<CollisionEvent, {column: number; row: number}>();
-    linkedRuns(events, event => event.position.x, floor).forEach((column, columnIndex) =>
-        linkedRuns(column, event => event.position.y, floor).forEach((cell, rowIndex) =>
-            cell.forEach(event => cellOf.set(event, {column: columnIndex, row: rowIndex}))));
-    return (first, second) => {
-        const a = cellOf.get(first)!;
-        const b = cellOf.get(second)!;
-        return a.column !== b.column ? a.column - b.column : a.row - b.row;
-    };
-}
-
-/**
- * W-spec W25: the 64-ulp bar, cross-multiplied. `|d₁·w₂ − d₂·w₁|` against the bar times the larger
- * of the two products — the exact restatement of the same window on `d₁/w₁` versus `d₂/w₂`, with no
- * division. At unit weights both products are by `1.0` and the verdict is today's.
- */
-function areSimultaneousArrivals(first: Arrival, second: Arrival): boolean {
-    const left = first.distance * second.weight;
-    const right = second.distance * first.weight;
-    const magnitude = Math.max(Math.abs(left), Math.abs(right));
-    return Math.abs(left - right) <= ARRIVAL_MOMENT_ULPS * Number.EPSILON * magnitude;
-}
-
-/**
- * The events of the EARLIEST arrival moment in `events` — the first single-linkage run of
- * {@link ARRIVAL_MOMENT_ULPS} over the offset-ascending list, and nothing after it.
- *
- * THE MOMENT, NOT THE LAYER. `collisionsToHandle` is an `fp_compare` window on the best offset: an
- * ABSOLUTE 1e-8 on offsets of order 1e-1, so roughly 1e8 ulps wide. Everything inside it is resolved
- * in one step, and each interior event CONSUMES its edges — so a window that wide is a claim that
- * arrivals up to eight orders apart in the wavefront clock happened together. Journal decision 102
- * says the opposite: the pairing winner is the lower offset, always, and an event cannot consume a
- * wavefront that had not arrived yet. This narrows the window to the moment the ulp bar can actually
- * defend, and only where the whole-event resolution has already refused the layer.
- *
- * It is the same bar, the same single linkage and the same accepted chaining cost as
- * {@link inArrivalOrder}'s moment partition — this is that partition's first class, taken alone.
- */
-function earliestArrivalMoment<T extends CollisionEvent>(events: T[]): T[] {
-    const byOffset = events.toSorted((e1, e2) => compareArrivals(e1.arrival, e2.arrival, 0));
-
-    for (let index = 1; index < byOffset.length; index++) {
-        if (!areSimultaneousArrivals(byOffset[index - 1].arrival, byOffset[index].arrival)) {
-            return byOffset.slice(0, index);
-        }
-    }
-    return byOffset;
-}
 
 /** The inward perpendicular distance of `point` from wall `wallId`'s supporting line, through its stored source. */
 function distanceFromWallLine(point: Vector2, wallId: number, context: StraightSkeletonSolverContext): number {
@@ -574,7 +286,7 @@ function meetsThirdFront(split: CollisionEvent, merge: CoincidentMerge): split i
 
 /**
  * A THIRD-FRONT MEETING OF A LAYER RESOLVED WHOLE (skeleton flat-ring and third-front spec, decision 30): merge
- * `mergeIndex` of the resolution and its splits `S(M)`, by `byEventPriority`. Its resolution is the gaps of its runs,
+ * `mergeIndex` of the resolution and its splits `S(M)`, by edge ids (`byEdgeIds`). Its resolution is the gaps of its runs,
  * the one that faces the struck wall, and the struck segment, of the first split (decisions 32 to 36); or, where it
  * cannot be resolved, the reason (decision 44).
  */
@@ -594,10 +306,9 @@ function thirdFrontsOf(
     context: StraightSkeletonSolverContext,
     resolution: WholeEvents,
     events: CollisionEvent[],
-    byEventPriority: (first: CollisionEvent, second: CollisionEvent) => number,
 ): ThirdFront[] {
     return resolution.merges.flatMap((merge, mergeIndex) => {
-        const splits = events.filter((event): event is SplitEvent => meetsThirdFront(event, merge)).toSorted(byEventPriority);
+        const splits = events.filter((event): event is SplitEvent => meetsThirdFront(event, merge)).toSorted(byEdgeIds);
         if (splits.length === 0) {
             return [];
         }
@@ -696,8 +407,7 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     // left 164 × 237 (2.8e-12 later still, budget 1.1e-11), and its strips came out 1.1% short.
     const collisionsToHandle: ResolvableEvent[] = [];
     let bestArrival: Arrival | undefined;
-    const flattenedCollisions = collisions
-        .toSorted((e1, e2) => compareArrivals(e1.arrival, e2.arrival, 0))
+    const flattenedCollisions = collisions.toSorted(byArrival);
 
     for (const flattenedCollision of flattenedCollisions) {
         if (bestArrival === undefined || compareArrivals(flattenedCollision.arrival, bestArrival, 0) < 0) {
@@ -757,28 +467,6 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         } else {
             collapseEvents.push(...bisectionList)
         }
-    };
-
-    // THE TIE-BREAK FOR SIMULTANEOUS ARRIVALS, and only for those: priority, then the colliding edge
-    // ids, so events an offset cannot separate are still resolved in an order that is a function of
-    // the events themselves. `toSorted` is stable, so priority alone left equal-priority events in
-    // the order the offset sort delivered them — and offsets that are equal in exact arithmetic
-    // differ by an ulp once the input is placed elsewhere in the plane. Each event handled here
-    // CREATES A NODE, so that made node identity turn on an ulp: `Golf Cart`'s two simultaneous
-    // splits of its top edge (journal F12) swapped ids under a translation of 1e3, the same defect
-    // decision 65 records for the ellipses' mirror pair. Edge ids are integers taken from the
-    // polygon's own vertex order and carry no arithmetic at all.
-    //
-    // It is NOT a layer ordering, and it now orders only the whole-event path's splits below, which it
-    // sites at one point. The pairwise fallback orders a moment by the nearer meeting on a shared
-    // bisector, then priority, then place, and reaches the edge ids only for events at one point
-    // (BSA.D335).
-    const byEventPriority = (e1: CollisionEvent, e2: CollisionEvent) => {
-        const priority = CollisionTypePriority[e1.eventType] - CollisionTypePriority[e2.eventType];
-        if (priority !== 0) {
-            return priority;
-        }
-        return compareEdgeIdLists(e1.collidingEdges, e2.collidingEdges);
     };
 
     // Every interior-to-interior collision at this offset that shares a collision point is one
@@ -862,7 +550,7 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     // whole reads its third-front meetings here, so a meeting that stays refused is refused before anything changes
     // (flat-ring and third-front spec, decisions 30 and 43).
     const thirdFronts = multiRing && resolution !== null
-        ? thirdFrontsOf(context, resolution, eventsToResolve, byEventPriority)
+        ? thirdFrontsOf(context, resolution, eventsToResolve)
         : null;
     if (multiRing) {
         // On a step of several rings, `thirdFronts` is read exactly when the layer is resolved whole.
@@ -886,7 +574,7 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     if (resolution === null) {
         const byPlace = inPlaceOrder(eventsToResolve, context.perceptualFloor);
         const byPriorityThenPlace = (e1: CollisionEvent, e2: CollisionEvent) => {
-            const priority = CollisionTypePriority[e1.eventType] - CollisionTypePriority[e2.eventType];
+            const priority = comparePriority(e1, e2);
             if (priority !== 0) {
                 return priority;
             }
@@ -960,9 +648,16 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         // simultaneous splits a fraction of the render floor apart used to build two nodes joined by
         // a degenerate pair of bisectors. Only the POSITION is resolved here; each split still emits
         // its own bisections, and `findOrAddNode` does the joining.
+        //
+        // THE SPLITS ARE SITED IN EDGE-ID ORDER, so events an offset cannot separate are still resolved in an order
+        // that is a function of the events themselves. Each one CREATES A NODE, so an order the offsets decide makes
+        // node identity turn on an ulp: `Golf Cart`'s two simultaneous splits of its top edge (journal F12) swapped ids
+        // under a translation of 1e3, the defect decision 65 records for the ellipses' mirror pair. Edge ids are
+        // integers from the polygon's own vertex order and carry no arithmetic. Every event here is a split, of one
+        // priority, so priority decides nothing among them.
         const splitEvents = eventsToResolve
             .filter(event => event.eventType === 'interiorAgainstExterior')
-            .toSorted(byEventPriority);
+            .toSorted(byEdgeIds);
         const splitPositions = coincidentEventPositions(splitEvents, context.perceptualFloor);
 
         // A RE-POINTED SPLIT PAYS FOR THE MOVE, AS A MERGE DOES (journal-5 decision 171(c)). Its node is
