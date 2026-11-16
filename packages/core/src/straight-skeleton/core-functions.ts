@@ -6,10 +6,10 @@ import {
 } from "./constants";
 
 /*
- * NO DEFAULT BAR ON ANY EQUALITY PREDICATE (C8 spec T4). `areEqual`, `vectorsAreEqual` and
- * `fp_compare` used to default to the scratch `FLOATING_POINT_EPSILON`, which is deleted (T1). A default
- * here would be a tolerance chosen one hop away from every caller — the pattern spec A15 removed from
- * `sineIsBelow` — so every caller states its bar, and an exact comparison is written with a literal 0.
+ * NO DEFAULT BAR ON ANY EQUALITY PREDICATE (C8 spec T4). A default on `areEqual`, `vectorsAreEqual` or
+ * `fp_compare` would be a tolerance chosen one hop away from every caller — the pattern spec A15 rules
+ * out for `sineIsBelow` — so every caller states its bar, and an exact comparison is written with a
+ * literal 0.
  */
 
 export function areEqual(a: number, b: number, epsilon: number): boolean {
@@ -17,9 +17,9 @@ export function areEqual(a: number, b: number, epsilon: number): boolean {
 }
 
 /**
- * The COMPONENT-WISE BOX: both coordinates within `epsilon`. Kept, with its bar stated by the caller,
- * only where C8 did not re-derive the site: the arithmetic same-point bar (spec T8) stays the box while
- * its O1 ruling is STOPPED (see `solver-context.ts` `findOrAddNode`).
+ * The COMPONENT-WISE BOX: both coordinates within `epsilon`, the bar stated by the caller. Its users are
+ * the arithmetic same-point sites (C8 spec T8), held as the box at `ARITHMETIC_SAME_POINT_BOX` by a
+ * measured STOP (O1; see `solver-context.ts` `findOrAddNode`).
  */
 export function vectorsAreEqual(a: Vector2, b: Vector2, epsilon: number): boolean {
     return areEqual(a.x, b.x, epsilon) && areEqual(a.y, b.y, epsilon);
@@ -90,7 +90,7 @@ export function makeBisectedBasis(iBasis: Vector2, jBasis: Vector2): Vector2 {
     const added = addVectors(iBasis, jBasis);
     const [bisection, size] = normalize(added);
     // A DIVISION GUARD (C8 spec T19, S37): the sum of two unit bases has no direction the arithmetic
-    // can vouch for inside its own rounding bound, `2k·u` — was `areEqual(size, 0)` at the scratch 1e-8.
+    // can vouch for inside its own rounding bound, `2k·u`.
     if (size <= basisSumRoundingBound(1, 1)) {
         // noinspection JSSuspiciousNameCombination Matrix rotation
         return rotateCw90(iBasis)
@@ -109,13 +109,13 @@ export function makeBisectedBasis(iBasis: Vector2, jBasis: Vector2): Vector2 {
  *
  * AT UNIT WEIGHTS IT IS BIT-IDENTICAL TO {@link makeBisectedBasis} BY CONSTRUCTION. `x * 1.0` is `x`
  * for every finite double, so the two scalings are the identity on their operands and the addition,
- * the normalisation and the zero-length fallback are the ones the unweighted solver performed, in
- * the order it performed them. That is what arc decision 112(d)'s bit-identity bar rests on, and it
- * is why the Cramer spelling — divide by the determinant, then normalise — is NOT used: it is 0–3
- * ulps off today's bits.
+ * the normalisation and the zero-length fallback are the ones {@link makeBisectedBasis} performs, in
+ * its order. That is what arc decision 112(d)'s bit-identity bar rests on, and it is why the Cramer
+ * spelling — divide by the determinant, then normalise — is NOT used: it is 0–3 ulps off the
+ * unweighted bits.
  *
- * The zero-length fallback is today's, unchanged: where the scaled difference cancels there is no
- * direction to normalise and the inward perpendicular of the clockwise parent stands in.
+ * The zero-length fallback is {@link makeBisectedBasis}'s: where the scaled difference cancels there is
+ * no direction to normalise and the inward perpendicular of the clockwise parent stands in.
  */
 export function makeWeightedBisectedBasis(
     iBasis: Vector2,
@@ -159,19 +159,17 @@ export function dotProduct(a: Vector2, b: Vector2): number {
  * THE ANGULAR PREDICATES — ONE BASIS FOR EVERY "SAME DIRECTION" QUESTION
  * ----------------------------------------------------------------------------
  *
- * Journal decision 105. Before these existed the solver asked "are these two directions the same?"
- * in three different spellings — a component-wise box on two unit vectors, an `areEqual` on their
- * dot product, and a box at a bare `1e-4` — which answered at ≈1e-8, 1.41e-4 and ≈1.41e-4 radians
- * respectively. The value under test could therefore be judged parallel by one caller and
- * non-parallel by the next, decided by nothing but which spelling that caller reached for.
+ * Journal decision 105: every "are these two directions the same?" question goes through these two
+ * functions. Spelled several ways — a component-wise box on two unit vectors, an `areEqual` on their
+ * dot product, a box at a bare `1e-4` — the question answers at ≈1e-8, 1.41e-4 and ≈1.41e-4 radians
+ * respectively, so one value is judged parallel by one caller and non-parallel by the next, decided by
+ * nothing but which spelling that caller reached for.
  *
- * These two functions are the whole of the replacement. Both work on RAW vectors: the operand
- * magnitudes appear on the right-hand side instead of being divided out on the left, so a caller
- * with a raw separation vector no longer has to normalise before asking, and the amplification that
- * normalising a near-zero separation causes never happens.
+ * Both work on RAW vectors: the operand magnitudes appear on the right-hand side instead of being
+ * divided out on the left, so a caller with a raw separation vector need not normalise before asking,
+ * and the amplification that normalising a near-zero separation causes never happens.
  *
- * NO DEFAULT BAR (spec A15, journal decision 146). Both used to default to the retired
- * `DIRECTION_SINE_BAR`, a module constant; the bar is now the solve's own `angularResolution`, a
+ * NO DEFAULT BAR (spec A15, journal decision 146). The bar is the solve's own `angularResolution`, a
  * function of the client's floor carried on the solver context, and a default here would freeze it
  * at one value one hop away from every caller. Every caller states its bar.
  */
@@ -196,7 +194,8 @@ export function sineIsBelow(a: Vector2, b: Vector2, bar: number): boolean {
  * the tolerance belongs to the angle and a pair inside the sine bar with a negative dot is
  * anti-parallel rather than nearly-same — a full half-turn away, which is not a near miss.
  *
- * This is also the point-on-ray predicate. "Does `point` lie ahead on the ray `(source, basis)`?"
+ * This is also the snap's point-on-ray predicate (`pointLiesOnRay`; the closure's is the coaxial
+ * `anchorLiesOnRay`). "Does `point` lie ahead on the ray `(source, basis)`?"
  * is `directionsAreSame(subtractVectors(point, source), basis)`, with no normalisation of the
  * separation anywhere in it.
  */
@@ -217,7 +216,7 @@ export function projectToPerpendicular(iBasis: Vector2, jBasis: Vector2, length:
 export function projectFromPerpendicular(iBasis: Vector2, jBasis: Vector2, perpendicular: number): number {
     const cross = crossProduct(iBasis, jBasis);
     // A DIVISION GUARD (C8 spec T19, S38): a cross product of unit vectors inside its own rounding
-    // bound `k·u` has no sign to divide by — was `areEqual(cross, 0)` at the scratch 1e-8.
+    // bound `k·u` has no sign to divide by.
     return Math.abs(cross) <= UNIT_CROSS_PRODUCT_ROUNDING_BOUND ? 0 : perpendicular / cross;
 }
 
@@ -231,17 +230,16 @@ export function projectFromPerpendicular(iBasis: Vector2, jBasis: Vector2, perpe
  * {@link OFFSET_RATE_FORWARD_ROUNDING_BOUND}, argued at `FORWARD_CROSS_PRODUCT_ROUNDING_UNITS` in
  * constants.ts. Inside it the rate has no sign the arithmetic can vouch for; outside it the sign and the
  * magnitude are an ANSWER the solver has already computed. (`k·u`, the backward bound of the evaluation
- * alone, was landed here first and is too narrow for a forward question — decision 164.)
+ * alone, is too narrow for a forward question — decision 164.)
  *
  * A SUBSTITUTION BAR, NOT A QUESTION. `makeOffsetDistance` substitutes `0` for the computed rate when this
  * holds (S20), so under T2 the bar is the arithmetic's own, and never the angular resolution or the
  * perceptual floor: decision 157's floor releases the solver from questions it cannot decide, and never
  * overrides an answer it has given. `≤`, as every rounding-bound guard in this package compares.
  *
- * `addBisectionEdge`'s zero rate (S19) asks the same expression of the same operand and decision 164
- * wired it here, but it is NOT a caller: measured in C8 dispatch 3, this bar there leaves `Golf Cart`'s
- * root unmoved but prices its level-1 regions' 5u–24u corridor rates by sign, and a region's strips come
- * out 3.2% short. The site stays held at its sine literal (see there).
+ * `addBisectionEdge`'s zero rate (S19) asks the same expression of the same operand but is NOT a caller:
+ * this bar there leaves `Golf Cart`'s root unmoved but prices its level-1 regions' 5u–24u corridor rates
+ * by sign, and a region's strips come out 3.2% short. That site is held at its sine literal (see there).
  */
 export function offsetRateIsArithmeticZero(rate: number): boolean {
     return Math.abs(rate) <= OFFSET_RATE_FORWARD_ROUNDING_BOUND;

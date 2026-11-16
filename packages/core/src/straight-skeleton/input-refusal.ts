@@ -9,10 +9,10 @@ export interface InputRefusalPlace {
 }
 
 /**
- * AN INPUT THE SOLVER REFUSES OUTRIGHT, thrown before any solve runs, with the rule it breaks as `kind`. The message is
- * the refusal's text, word for word as the plain `Error` it replaced carried it, so `instanceof Error` and `.message`
- * read as before; `name` is left as `Error` for the same reason. A hole's refusal carries its `Hole k: ` prefix in the
- * message and its kind unchanged.
+ * AN INPUT THE SOLVER REFUSES OUTRIGHT, thrown before any solve runs, with the rule it breaks as `kind`. It is an
+ * `Error` whose `.message` is the refusal's text, so a reader that matches `instanceof Error` and `.message` needs no
+ * knowledge of the class; `name` is left as `Error` for the same reason. A hole's refusal carries its `Hole k: ` prefix
+ * in the message and its kind unchanged.
  */
 export class SkeletonInputRefusal extends Error {
     readonly kind: SkeletonInputRefusalKind;

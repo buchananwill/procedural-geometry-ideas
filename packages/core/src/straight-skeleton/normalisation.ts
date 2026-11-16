@@ -8,24 +8,25 @@ import {
 /**
  * The boundary transform every solver entry point applies to its input and undoes on its output.
  *
- * WHY THIS EXISTS. `FLOATING_POINT_EPSILON` is an ABSOLUTE `1e-8`, compared directly against raw
- * coordinates, so the degeneracy test gets *stricter* as the polygon grows: against a 500-unit span
- * it is a relative tolerance of 2e-11, and against a 30 000-unit span it is 3.3e-13 — at exactly the
+ * WHY THIS EXISTS. The solver's tolerances are ABSOLUTE numbers — the perceptual floor and the bars
+ * derived from it, and the held `1e-8` bars of constants.ts — so compared directly against raw
+ * coordinates a degeneracy test gets *stricter* as the polygon grows: against a 500-unit span a `1e-8`
+ * bar is a relative tolerance of 2e-11, and against a 30 000-unit span it is 3.3e-13 — at exactly the
  * scale a consumer working in world-space centimetres is most likely to hand it. Normalising the
- * polygon to unit extent once on the way in and denormalising on the way out leaves the constant at
- * `1e-8` and makes it relative BY CONSTRUCTION, because the solver never again sees a magnitude it
- * was not designed for.
+ * polygon to unit extent once on the way in and denormalising on the way out leaves each bar's value
+ * as it is and makes it relative BY CONSTRUCTION, because the solver never sees a magnitude it was not
+ * designed for.
  *
- * The C++ port of this same solver measured the change: damage fell from 24 of 44 fixtures to 0 of
- * 44, wrong-but-complete cells 33 to none, and `BROKEN_POLYGON@1e8` returned to its correct native
+ * Measured on the C++ port of this same solver, normalising takes damage from 24 of 44 fixtures to 0
+ * of 44, wrong-but-complete cells from 33 to none, and `BROKEN_POLYGON@1e8` to its correct native
  * maximum offset of 126.6302 from a corrupt 308.9784.
  *
  * REJECTED ALTERNATIVES.
  *   - A per-comparison relative epsilon (`|a-b| <= eps * max(1, |a|, |b|)`) is correct, but it puts
  *     extra arithmetic at EVERY comparison site inside an O(n^3) algorithm. Normalisation is O(n),
  *     once, at the boundary. That cost argument is decisive.
- *   - Swapping `1e-8` for some other absolute constant is not a fix, it is a different absolute
- *     constant. And moving the epsilon moves the corpus's pass/fail boundary, which is the gate the
+ *   - Swapping one absolute constant for another is not a fix, it is a different absolute
+ *     constant. And moving a bar moves the corpus's pass/fail boundary, which is the gate the
  *     whole solver rests on.
  *
  * THE MEASURE IS THE LONGEST BOUNDING-BOX SIDE, NOT THE DIAGONAL. The two differ for elongated
@@ -82,9 +83,8 @@ import {
  * This matters because the recursive subdivision arc crosses this seam once per level per
  * sub-region and asserts a tiling identity at every level against that level's own input, so a
  * round-trip error invisible in a single solve is injected at every level boundary and compounds
- * through the tree. The skeleton suites are invariant based at a `1e-6` tolerance and carry no
- * bit-exact goldens, so nothing is pinned to the old bits — but any FUTURE golden must be recorded
- * on denormalised output.
+ * through the tree. A golden or digest of solver output is recorded on denormalised output, the
+ * graph the caller receives.
  *
  * WHAT SCALES AND WHAT DOES NOT. This is the whole risk of the change, so every length-dimensioned
  * quantity the solver stores is enumerated here rather than left to be rediscovered:

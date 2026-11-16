@@ -198,8 +198,9 @@ function validatedLoops(loops: readonly SkeletonLoop[], nodeCount: number): Skel
  *
  * `loops` is the loop table (skeleton loops-input spec, decisions 6 and 10): the outline first, clockwise, then
  * each hole, counter-clockwise, each a contiguous run of the nodes. OMITTED MEANS ONE LOOP OF ALL THE NODES, so
- * every direct caller builds today's graph; a table that does not tile the nodes, or holds a count below 3, is
- * thrown. The default table is not checked, so a direct caller's ring of any size behaves as it did.
+ * a direct caller builds a single-loop graph; a table that does not tile the nodes, or holds a count below 3, is
+ * thrown. The default table is not checked, so a direct caller's ring of any size, fewer than three included, is
+ * built as given.
  * */
 export function initBoundingPolygon(
     nodes: Vector2[],

@@ -15,7 +15,7 @@ import {clockwiseParentsOf, datingWallOf, distanceToWallLine} from './wall-time'
  *
  * A weight is a per-exterior-edge speed, so the wavefront of edge `e` stands at perpendicular
  * distance `w_e · t` from its supporting line at time `t`. The two quantities are the same number
- * only when every weight is one, which is why the names here still read "offset": at unit weights a
+ * only when every weight is one, which is why the names here read "offset": at unit weights a
  * time and a distance ARE the same double, and every product and quotient with a weight below is by
  * exactly `1.0` and therefore the identity. Under weights they come apart, and the answer this
  * module owes its callers is the equi-time front — every wall advanced for the same duration at its
@@ -71,9 +71,8 @@ import {clockwiseParentsOf, datingWallOf, distanceToWallLine} from './wall-time'
  *
  * ## Where one instant is several numbers, and how the table is made to say so
  *
- * Everything above is about a hand-over *at one node*, and it is correct as written. There is a
- * second case it does not cover, measured on the near-regular fixtures and recorded in
- * `near-regular-ring-loss-diagnosis.test.ts`.
+ * Everything above is about a hand-over *at one node*. A second case, measured on the near-regular
+ * fixtures and recorded in `near-regular-ring-loss-diagnosis.test.ts`, needs the table itself to agree.
  *
  * A symmetric polygon produces *simultaneous mirror events*: two or more events at genuinely
  * different places in the plane that happen at the same offset. Each node's offset is re-derived
@@ -81,23 +80,23 @@ import {clockwiseParentsOf, datingWallOf, distanceToWallLine} from './wall-time'
  * edges, so one instant comes back as several offsets 7e-15 to 3.5e-13 apart. There is no single
  * table entry to read them both from.
  *
- * Querying at the lowest of such a set left the bisectors meeting at the others alive by the
- * table while they had already met in the plane. Their span along the exterior edge they share
- * then had length zero or slightly negative, {@link segmentsAlongExteriorEdge} dropped both of its
- * endpoints, the chain lost its successor, and the ring was reported as an {@link UnclosedChain}.
- * So the claim below that two live bisectors bounding a zero-length span cannot occur holds for a
- * single node and failed across a simultaneous pair.
+ * Left that way, a query at the lowest of such a set finds the bisectors meeting at the others alive
+ * by the table while they have already met in the plane. Their span along the exterior edge they
+ * share has length zero or slightly negative, {@link segmentsAlongExteriorEdge} drops both of its
+ * endpoints, the chain loses its successor, and the ring is reported as an {@link UnclosedChain}.
+ * The claim below, that two live bisectors bounding a zero-length span cannot occur, holds for a
+ * single node and needs the table's agreement to hold across a simultaneous pair.
  *
  * ### The resolution: canonicalise the table, never the comparison
  *
- * {@link computeNodeOffsets} now collapses each simultaneous set of re-derived offsets to one
- * identical value before it returns, so mirror nodes agree bit-for-bit by construction rather than
- * by luck, and the argument above holds across a mirror set exactly as it holds at one node.
+ * {@link computeNodeOffsets} collapses each simultaneous set of re-derived offsets to one identical
+ * value before it returns, so mirror nodes agree bit-for-bit by construction rather than by luck,
+ * and the argument above holds across a mirror set exactly as it holds at one node.
  *
- * **No slack was added to any comparison, and none is admissible.** Widening the half-open
- * lifetime makes a bisector alive at both ends of an event and duplicates a vertex; shifting it
- * reintroduces the dropout. What changed is the *table those comparisons read*. Every lifetime
- * comparison downstream is still bit-exact.
+ * **No slack is added to any comparison, and none is admissible.** Widening the half-open lifetime
+ * makes a bisector alive at both ends of an event and duplicates a vertex; shifting it reintroduces
+ * the dropout. What is canonicalised is the *table those comparisons read*. Every lifetime
+ * comparison downstream is bit-exact.
  *
  * The proximity tolerance is relative to the skeleton's own maximum offset — offsets are
  * caller-space lengths, so an absolute one would mean different things at different magnitudes —
@@ -299,10 +298,10 @@ export function requireSingleLoopResult(result: SkeletonSolveResult, caller: str
  * How far apart two re-derived TIMES of one simultaneous event may lie, as a fraction of the
  * skeleton's own maximum time.
  *
- * UNCHANGED UNDER WEIGHTS, AND BEING RELATIVE IS WHY (W-spec W40). The quantity it partitions is
- * now a time rather than a distance, and both it and the scale it is taken against moved by the
- * same division, so the fraction means what it always did. An absolute bar here would have had to
- * be re-derived per weight.
+ * THE SAME AT EVERY WEIGHT, AND BEING RELATIVE IS WHY (W-spec W40). The quantity it partitions is
+ * a time, and the scale it is taken against is the largest time of the same table, so a weight
+ * divides both alike and the fraction means one thing at every weight. An absolute bar here would
+ * have to be re-derived per weight.
  *
  * RELATIVE, NEVER ABSOLUTE. Node offsets are caller-space lengths, so an absolute tolerance would
  * mean a different thing on a polygon spanning 1e-3 and one spanning 1e8 — the precise defect
@@ -317,8 +316,8 @@ export function requireSingleLoopResult(result: SkeletonSolveResult, caller: str
  * - the narrowest gap to a genuinely distinct event is **1.23e-4** (Duck Octagon (fails): 9.42e-3
  *   absolute against a maximum offset of 76.89).
  *
- * THE MOMENT BAR, NOT A FREE NUMBER (C8 spec T26, census S30). It was `1e-12`, a value picked inside
- * the gap; it is now `ARRIVAL_MOMENT_ULPS · ε` — the same 64-ulp representation bar the solver's layer
+ * THE MOMENT BAR, NOT A FREE NUMBER (C8 spec T26, census S30). It is `ARRIVAL_MOMENT_ULPS · ε`, not
+ * a value picked inside the gap — the same 64-ulp representation bar the solver's layer
  * tie-break reads (S29), because both ask one question: are these two computed values one instant of
  * the arithmetic? That is `1.42e-14` relative, and it sits inside the measured gap with an order to
  * spare on the near side: within-instant spread 1.42e-15 < 1.42e-14 < nearest real gap 1.23e-4 (the
@@ -348,8 +347,8 @@ interface SimultaneousOffsetSet {
  * Exterior nodes lie on the original boundary and are mapped to zero. Every other node is mapped to
  * the perpendicular distance from its position to the supporting line of one of the original polygon
  * edges that defines it — found via the `clockwiseExteriorEdgeIndex` of an incident interior edge —
- * DIVIDED BY THAT EDGE'S WEIGHT. At unit weights the divisor is exactly `1.0`, so this is the same
- * table the unweighted solver has always produced, to the bit.
+ * DIVIDED BY THAT EDGE'S WEIGHT. At unit weights the divisor is exactly `1.0`, so the table is the
+ * unweighted distance table, to the bit.
  *
  * Nodes that belong to one simultaneous event receive one identical value: the re-derived distances
  * are partitioned into simultaneous sets and each set is collapsed onto one of its own members. Two
@@ -387,8 +386,8 @@ export function computeNodeOffsets(result: SkeletonSolveResult): Map<number, num
  * answer the same number from any wall the node touches (the equi-time property, W-spec W39(i)).
  *
  * AT UNIT WEIGHTS THE DIVISOR IS EXACTLY `1.0` AND THE QUOTIENT IS THE DIVIDEND, bit for bit, for
- * every finite double. So the table this returns, everything downstream reads from it, and the
- * whole 59-fixture corpus are untouched by weights they do not use.
+ * every finite double. So on a solve whose weights are all one, the table this returns and
+ * everything downstream that reads it is the unweighted answer, bit for bit.
  *
  * Exterior nodes are excluded and stay out of the partition entirely. Their time is zero by
  * construction rather than by re-derivation, so it carries none of the last-bit disagreement the
@@ -460,16 +459,16 @@ function canonicaliseSimultaneousOffsets(interiorOffsets: Map<number, number>): 
  *
  * CONNECTED COMPONENTS, NOT FIRST MATCH. Proximity under a fixed tolerance is not transitive, so
  * joining each offset to the first set already within tolerance of it makes the partition depend on
- * the order the nodes are visited. `clusterCoincidentMerges` was bitten by exactly that and is the
- * direct precedent for this function; the fix is the same one. In one dimension the components are
+ * the order the nodes are visited. In one dimension the components are
  * the runs of the *sorted* distinct values separated by a gap wider than the tolerance, which is
  * the transitive closure computed exactly rather than approximated — and, being a function of the
  * value set alone, is independent of visitation order by construction.
  *
- * SINGLE-LINKAGE CHAINING IS AN ACCEPTED COST, as it is there: a run of offsets each within
- * tolerance of the next becomes one set however far its extremes lie apart. Measured on this corpus
- * the widest set spans 1.42e-15 relative against a tolerance of 1e-12, so no observed set is
- * anywhere near chaining into its neighbour.
+ * SINGLE-LINKAGE CHAINING IS AN ACCEPTED COST: a run of offsets each within tolerance of the next
+ * becomes one set however far its extremes lie apart. Measured on this corpus the widest set spans
+ * 1.42e-15 relative against a tolerance of 1.42e-14 ({@link SIMULTANEITY_RELATIVE_TOLERANCE}), and
+ * the nearest distinct event lies 1.23e-4 away, so no observed set is anywhere near chaining into
+ * its neighbour.
  */
 function simultaneousOffsetSets(interiorOffsets: Map<number, number>, tolerance: number): SimultaneousOffsetSet[] {
     const nodeIdsByOffset = new Map<number, number[]>();
@@ -533,7 +532,7 @@ function representativeOffset(offsets: number[]): number {
  * A TIME, NOT A DISTANCE (W-spec W5, W40). Under weights the fastest wall has covered
  * `w_max · computeMaxOffset(result)` by then and the slowest `1 · computeMaxOffset(result)`, so a
  * caller reading this as "how far the wavefront travelled" is reading the slowest wall's distance
- * and no other's. At unit weights the two readings coincide and every existing caller is unaffected.
+ * and no other's. At unit weights the two readings coincide.
  *
  * @throws if the solve is incomplete or has no solver context.
  */
@@ -601,8 +600,8 @@ export function collectAliveBisectors(
  * clockwise parent's wavefront has covered in it, `localTime · w_cw` — that is what a weight IS —
  * and that perpendicular distance becomes travel along the bisector's own ray by the cross product
  * of the two bases, which is the inverse of the projection the solver uses when it dates a
- * collision. Multiplying by exactly `1.0` at unit weights leaves the operand and therefore every
- * ring vertex of the corpus untouched.
+ * collision. Multiplying by exactly `1.0` at unit weights leaves the operand unchanged, so every
+ * unit-weight ring vertex is the unweighted one, bit for bit.
  *
  * THE RING THIS PLACES IS THE EQUI-TIME FRONT, NOT AN EQUIDISTANT ONE. Each vertex is priced
  * against its own clockwise parent, so at time `t` the wavefront of edge `e` sits at `w_e · t` from
@@ -639,11 +638,10 @@ function bisectorPositionAtOffset(result: SkeletonSolveResult, interiorEdge: Int
  * bisectors bounding a genuinely zero-length span cannot occur and so is not a case to preserve:
  * a span of zero length means its two bisectors have met, and bisectors that have met are dead.
  *
- * That last sentence was true of one node and false across a simultaneous mirror pair, where the
- * two bisectors had met while the table still dated their death a few femtometres later. It is now
- * true of a mirror set too, because {@link computeNodeOffsets} gives every node of one instant the
- * same offset and the two bisectors are dead together. See the module header's section on one
- * instant being several numbers.
+ * That last sentence holds across a simultaneous mirror set too, because {@link computeNodeOffsets}
+ * gives every node of one instant the same offset and the two bisectors are dead together; with
+ * re-derived offsets left as they are, the table would date their death a few femtometres after
+ * they meet. See the module header's section on one instant being several numbers.
  */
 function segmentsAlongExteriorEdge(
     result: SkeletonSolveResult,
@@ -699,11 +697,11 @@ function makeEndpoint(bisector: AliveBisector, edgeSource: Vector2, edgeBasis: V
 }
 
 /**
- * Does this segment have any length at all? Census S5: the arithmetic same-point bar, held with S1 at its
- * historical box (C8 spec T8; see `ARITHMETIC_SAME_POINT_BOX`). It runs in CALLER space and is not yet
- * scaled by the projection's own scale, which is T8's second half.
+ * Does this segment have any length at all? Census S5: the arithmetic same-point bar, held with S1 at the
+ * component box {@link ARITHMETIC_SAME_POINT_BOX} (tolerance-derivation spec, T8). It runs in CALLER space,
+ * unscaled by the projection's own scale (T8's second half, not applied).
  *
- * IT CANNOT BE EXACT, MEASURED (register C12, journal-5 decision 167): a zero-length segment's two ends are
+ * IT CANNOT BE EXACT, MEASURED (register C12, RSA.D167): a zero-length segment's two ends are
  * two DIFFERENT bisectors' positions at the offset, computed apart, and they differ by ulps; read as
  * coordinate equality, the segment is kept and its ring repeats a vertex — 35 rings across 17 fixtures in
  * `offset-event-boundary-regression.test.ts` ("never returns a ring with a repeated vertex"), and the
@@ -895,7 +893,7 @@ export function projectOffsetWavefront(result: SkeletonSolveResult, offset: numb
  *
  * The ring is the equi-time front: the offset of exterior edge `e` on it lies at perpendicular
  * distance `w_e · offset` from `e`, so differently-weighted edges are set back by different amounts
- * at one call. At unit weights every setback is `offset` and this is the contour it always was.
+ * at one call. At unit weights every setback is `offset`.
  *
  * Returns zero or more closed rings, a flat list, each an ordered vertex list with no duplicated
  * closing vertex. An outer ring is wound as the outline is — clockwise, negative signed area. On a
@@ -907,7 +905,8 @@ export function projectOffsetWavefront(result: SkeletonSolveResult, offset: numb
  *
  * Boundary behaviour:
  * - `offset === 0` returns one ring per loop, in loop order: ring `k` is exactly the positions of
- *   loop `k`'s exterior nodes, the outline clockwise and each hole counter-clockwise (decision 8). On
+ *   loop `k`'s exterior nodes, the outline clockwise and each hole counter-clockwise (skeleton
+ *   loop-consumers spec, decision 8). On
  *   a solve of one loop that is exactly one ring, the original polygon.
  * - `offset >= computeMaxOffset(result)` returns `[]` — the wavefront has been fully consumed.
  * - A bisector whose lifetime ends exactly at `offset` does not contribute; lifetimes are half-open.

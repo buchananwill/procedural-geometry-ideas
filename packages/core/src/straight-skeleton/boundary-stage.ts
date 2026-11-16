@@ -41,10 +41,9 @@ import {
  *
  * THIS EXISTS FOR CALLERS THAT LABEL THE SOLVED GRAPH AGAINST THEIR OWN INPUT. A removed vertex
  * renumbers every exterior node and every exterior edge after it, so an overlay drawing input
- * indices beside solver indices is showing two index spaces in one picture and reads as a
- * corrupted solve: the bisector of exterior node 5 appears at the caller's vertex 6, carrying the
- * parents [5,4] that belong to it. That is what a dashboard inspection reported on 2026-08-28, and
- * the graph was right every time. `indexRemap[i]` is the exterior node the caller's vertex `i`
+ * indices beside solver indices is showing two index spaces in one picture and makes a correct
+ * graph read as a corrupted solve: the bisector of exterior node 5 appears at the caller's vertex 6,
+ * carrying the parents [5,4] that belong to it. `indexRemap[i]` is the exterior node the caller's vertex `i`
  * became, or {@link REMOVED_VERTEX_INDEX} where it was removed as invisible.
  *
  * THE SOLVE'S CANONICALISATION, ASKED ALONE: the polygon carried to unit extent by the same transform, then
@@ -55,7 +54,8 @@ import {
  * check the survivor count against the graph's `numExteriorNodes` before trusting the mapping.
  *
  * NOT FOLDED INTO {@link prepareBoundary} (BSA.D356): it checks no vertex count and no finiteness, and
- * passes the weight door only when the caller gives weights, so it refuses nothing it did not refuse before.
+ * passes the weight door only when the caller gives weights, so the only input it refuses is weighted input the
+ * weight door refuses.
  */
 export function canonicaliseForSolve(
     vertices: Vector2[],
@@ -63,7 +63,7 @@ export function canonicaliseForSolve(
 ): CanonicalPolygon {
     // W-spec W44: a weighted caller's remap must describe the same boundary the weighted solve saw,
     // and under weights that boundary keeps every weight-change vertex. Unweighted callers pass
-    // nothing and pin nothing, exactly as before.
+    // nothing and pin nothing.
     const normalisation = makeSkeletonNormalisation(vertices);
     const unitVertices = normalisePolygon(vertices, normalisation);
     const pinned = weightsAreOmitted(options?.weights)
@@ -107,8 +107,9 @@ export interface InputComplaint {
 }
 
 /**
- * Decision 16: the complaint about a loop's vertex count, else about its first non-finite vertex, or `undefined`
- * when the loop can be solved. Unprefixed; a refusal of a hole adds the hole's name.
+ * The complaint about a loop's vertex count, else about its first non-finite vertex, or `undefined` when the loop
+ * can be solved: a loop needs at least three vertices, every one finite (skeleton loops-input spec, decision 16).
+ * Unprefixed; a refusal of a hole adds the hole's name.
  */
 export function loopSolvabilityComplaint(vertices: readonly Vector2[]): InputComplaint | undefined {
     if (vertices.length < 3) {
@@ -123,8 +124,8 @@ export function loopSolvabilityComplaint(vertices: readonly Vector2[]): InputCom
  * ============================================================================
  *
  * A weight is a per-exterior-edge, strictly positive SPEED: `weights[i]` is the speed of the edge
- * from input vertex `i` to input vertex `(i + 1) % n` (arc journal decision 112(a)). Everything the
- * solver used to call an offset is that edge's arrival TIME, `distance / weight`.
+ * from input vertex `i` to input vertex `(i + 1) % n` (arc journal decision 112(a)). Every offset the
+ * solver reads off an edge is that edge's arrival TIME, `distance / weight`.
  *
  * EVERY REFUSAL HERE IS A THROW, NOT A DIAGNOSTIC, and every one of them names the offender. The
  * reason is the one {@link nonFiniteVertexComplaint} already states: `diagnostics` reports a solve that ran
@@ -166,12 +167,12 @@ function assertWeightsAreFinitePositive(weights: readonly number[]): void {
  *
  * THE BOUND IS `maxWeightRatio(δ) = δ / (64·√2·u)` (C8 spec T22, journal decision 156), about 9.95e7
  * at the library floor — the ratio beyond which the narrowest per-pair simultaneity window would fall
- * inside the arithmetic moment bar. It replaced `MAX_WEIGHT_RATIO = 100`, whose only derivation was
- * `1e-6 / 1e-8` and whose hazard the per-pair window dissolves.
+ * inside the arithmetic moment bar. No tighter product ceiling applies: two arrivals fused on the
+ * fastest edge are not a hazard, because the per-pair window is stated on the faster participant (T13).
  *
  * GLOBAL ACROSS LOOPS (skeleton loops-input spec, decision 19): `weights` is every edge of every loop, and
  * `edgeName` names an index of it in the refusal, with its loop when the input has holes. With one loop it is
- * `edge i`, today's text.
+ * `edge i`.
  */
 function assertWeightRatioIsInContract(
     weights: readonly number[],
@@ -207,8 +208,7 @@ function assertWeightRatioIsInContract(
  * A vertex whose two incident edges carry different weights and whose turn sine `|c × b|` is below
  * `minWeightTurnSine(δ, Δw)` is refused, PER VERTEX, with `Δw` that vertex's weight difference on the
  * normalised weights (minimum 1, W-spec W4) — the kernel's own error budget against the floor (C8 spec
- * T21, argued at `minWeightTurnSine` in constants.ts). It replaced the frozen `MIN_WEIGHT_TURN_SINE`
- * (1.4142e-4, the scratch epsilon's `√(ε(2 − ε))`). The kernel there is either inconsistent (an exactly
+ * T21, argued at `minWeightTurnSine` in constants.ts). Below that bar the kernel is either inconsistent (an exactly
  * collinear weight change has NO vertex velocity: the two offset lines are parallel at different
  * distances for every `t > 0` and the wavefront has a step of height `|w₁ − w₂| · t`) or so badly
  * conditioned that the solver's own time window becomes a spatial slack of a fraction of the whole
@@ -265,9 +265,8 @@ export function assertWeightsChangeOnlyAtVisibleCorners(
  * The skeleton is invariant under a common scaling of all weights (every time scales by the
  * reciprocal), so one convention fixes the time unit. Minimum `1` is the one that keeps every time
  * at most the distance it came from — `t = d / w ≤ d` — so every ABSOLUTE tolerance on a time is at
- * least as wide in distance terms as it is at unit weight. (W-spec W48 derived the retired ratio bound
- * from that band; the per-pair window, stated on the faster participant, supersedes it — C8 spec T13,
- * T22.)
+ * least as wide in distance terms as it is at unit weight. (The weight-ratio bound is not drawn from
+ * that band: the per-pair window is stated on the faster participant — C8 spec T13, T22.)
  *
  * ALL-ONES DIVIDES BY `1.0`, WHICH IS EXACT, so the unit-weight path is untouched bit for bit.
  *
@@ -304,8 +303,7 @@ function weightsAtTheDoor(
  * so a hole's last edge meets its own first edge and not the next loop's; a hole's refusal is prefixed with its
  * name. GLOBAL: the ratio, because the bound protects the narrowest simultaneity window and edges of different
  * loops meet in events, and the division, because the solve has one time unit (W-spec W4); the visible-corner
- * test reads `Δw` against that one smallest weight. With one loop every global quantity is that loop's, and this
- * is the door as it always ran, check for check.
+ * test reads `Δw` against that one smallest weight. With one loop every global quantity is that loop's own.
  */
 function weightsAtTheDoorForLoops(
     unitLoops: readonly (readonly Vector2[])[],
@@ -347,7 +345,7 @@ function weightsAtTheDoorForLoops(
  * turn does, and the turn is bounded from below.
  *
  * UNIT WEIGHTS PIN NOTHING: with every weight equal this returns an empty list, canonicalisation
- * behaves exactly as it did before pins existed, and the digest cannot move.
+ * removes vertices by the chord rule alone, and the digest cannot move.
  */
 function weightChangeVertexIndices(weights: readonly number[]): number[] {
     const pinned: number[] = [];
@@ -423,9 +421,10 @@ interface SolvedLoop {
 }
 
 /**
- * Run a check of one loop, prefixing its refusal with {@link loopRefusalPrefix} (decision 16). The outline's prefix is
- * empty, so its message is today's word for word. A {@link SkeletonInputRefusal} keeps its kind and index and gains
- * the loop; any other throw is passed through as before, the outline's untouched and a hole's prefixed.
+ * Run a check of one loop, prefixing its refusal with {@link loopRefusalPrefix}: a hole's refusal names the hole
+ * (decision 16). The outline's prefix is empty, so its message is the check's own word for word. A
+ * {@link SkeletonInputRefusal} keeps its kind and index and gains the loop; any other throw is passed through, the
+ * outline's untouched and a hole's re-thrown as an `Error` with the prefix.
  */
 function refuseInLoop<T>(loop: number, check: () => T): T {
     const prefix = loopRefusalPrefix(loop);
@@ -442,7 +441,7 @@ function refuseInLoop<T>(loop: number, check: () => T): T {
     }
 }
 
-/** Decision 16: a loop's vertex count and finiteness, before normalisation, by a throw. */
+/** A loop's vertex count and finiteness, checked before normalisation and refused by a throw (decision 16). */
 function assertLoopIsSolvable(loop: CallerLoop): void {
     const complaint = loopSolvabilityComplaint(loop.vertices);
     if (complaint !== undefined) {
@@ -452,7 +451,7 @@ function assertLoopIsSolvable(loop: CallerLoop): void {
 }
 
 /**
- * Decision 24: loop `k`'s caller map onto the solved graph, from canonicalisation's `indexRemap` and then the
+ * Loop `k`'s caller map onto the solved graph (decision 24), from canonicalisation's `indexRemap` and then the
  * reversal. A surviving vertex maps to its exterior node. A caller edge maps to the solved edge that carries it:
  * the edge leaving its start vertex or, where that vertex was removed, the merged edge leaving the nearest
  * surviving vertex before it. Reversal sends local vertex `c` of an `m`-loop to `m - 1 - c` and local edge `c` to
@@ -516,8 +515,8 @@ export interface PreparedBoundary {
  *
  * ONE BOUNDARY PIPELINE, AND A SINGLE LOOP IS ITS ONE-LOOP CASE (skeleton loops-input spec, decision 39). The legacy
  * entries ask it for one loop, no holes, their caller's winding and the perceptual floor as the noise floor, and
- * discard its diagnostics: with one loop and `normaliseWinding: false` the winding test decides nothing, so that is
- * the sequence they always ran.
+ * discard its diagnostics: with one loop and `normaliseWinding: false` the winding test decides nothing, so they run
+ * the vertex checks, the weight door and canonicalisation, and nothing else.
  */
 export function prepareBoundary(request: BoundaryRequest, diagnostics: SkeletonDiagnostic[]): PreparedBoundary {
     const {holes, perceptualFloor, noiseFloor, normaliseWinding} = request;
@@ -527,7 +526,7 @@ export function prepareBoundary(request: BoundaryRequest, diagnostics: SkeletonD
     ];
     // THROWN, NOT DIAGNOSED, PER LOOP, BEFORE NORMALISATION (decision 16). `diagnostics` reports a solve that
     // ran and came back degraded; too few vertices or a non-finite one is input this entry point cannot solve
-    // at all. The outline's messages are today's word for word; a hole's carry its name.
+    // at all. The outline's messages carry no prefix; a hole's carry its name.
     callerLoops.forEach(assertLoopIsSolvable);
 
     // NORMALISED ONCE, HERE, BEFORE ANYTHING ELSE LOOKS AT THE POLYGON. See `normalisation.ts`. The
@@ -591,12 +590,12 @@ export function prepareBoundary(request: BoundaryRequest, diagnostics: SkeletonD
                 // DECISION 50: A SLIVER HOLE IS DEGENERATE BEFORE IT IS MIS-WOUND. Its signed area has no sign
                 // the solver can trust (decision 28), so that sign may not refuse it; it is refused as what it is.
                 // Under `normaliseWinding: true` the sign only reverses it, and the loop relations below refuse it
-                // in decision 27's order.
+                // as a degenerate hole, in `findLoopConflict`'s order (decision 27).
                 if (k > 0 && isDegenerateHole(workingVertices, perceptualFloor)) {
                     throw new SkeletonInputRefusal('loop-conflict', describeDegenerateHole(k), {loop: k});
                 }
                 // DECISION 22: the option says the caller's winding is already right, and a holed solve has no
-                // meaning on the wrong side of a wall. A single loop is left to solve as it always did.
+                // meaning on the wrong side of a wall. A single loop is solved with the winding it was given.
                 throw new SkeletonInputRefusal('mis-wound-loop', k === 0
                     ? `The outline is wound counter-clockwise, and with normaliseWinding: false a holed input must `
                         + `give its outline clockwise and its holes counter-clockwise.`
@@ -609,7 +608,7 @@ export function prepareBoundary(request: BoundaryRequest, diagnostics: SkeletonD
     });
 
     // THE LOOP TABLE (decisions 6 and 7): the outline's exterior ids first, then each hole's in the order given,
-    // each loop in its solved vertex order. The outline's ids are therefore exactly the ids it always had.
+    // each loop in its solved vertex order. The outline's ids are therefore the ids a single-loop solve gives it.
     const loops: SkeletonLoop[] = [];
     solvedLoops.forEach(loop => {
         const start = loops.length === 0 ? 0 : loops[loops.length - 1].start + loops[loops.length - 1].count;
@@ -660,7 +659,7 @@ export function prepareLegacyBoundary(
 }
 
 /**
- * Decision 4: THE LEGACY ENTRIES TAKE NO HOLES. Their options type does not carry the field, but an options
+ * THE LEGACY ENTRIES TAKE NO HOLES (skeleton loops-input spec, decision 4). Their options type does not carry the field, but an options
  * object that carries a non-empty `holes` anyway is refused, naming `solveSkeleton`: neither entry has a
  * diagnostics channel, so a holed run would come back silently incomplete, and ignoring the field would silently
  * solve the outline alone. Returns the refusal, or `undefined` when there are no holes.

@@ -213,8 +213,8 @@ function nodePairKey(left: number, right: number): string {
  * length.
  *
  * The sort is what makes the result a pure function of the tree rather than of the order a strategy
- * happened to visit edges in, which is decision 15 applied at the one place every strategy passes
- * through.
+ * happened to visit edges in: the same tree and strategy give the same spine, node for node (spine
+ * extraction spec, decision 15), enforced at the one place every strategy passes through.
  */
 function spineOf(edges: SkeletonTreeEdge[]): Spine {
     const retained = [...edges].sort((left, right) => (left.a - right.a) || (left.b - right.b));
@@ -238,8 +238,8 @@ function spineOf(edges: SkeletonTreeEdge[]): Spine {
 /**
  * A spine from a strategy that is connected by construction, checked rather than trusted.
  *
- * An EMPTY spine has no components and passes: retaining nothing is decision 5's legitimate answer
- * to a threshold above everything, and it is not a disconnection — there is nothing to disconnect.
+ * An EMPTY spine has no components and passes: retaining nothing is the legitimate answer to a
+ * threshold above everything (spine extraction spec, decision 5), and it is not a disconnection — there is nothing to disconnect.
  * What cannot happen is a spine in two pieces, and that is what this refuses to return.
  *
  * A tree that is not one is left alone: `isTree === false` is a defect in the solve the substrate

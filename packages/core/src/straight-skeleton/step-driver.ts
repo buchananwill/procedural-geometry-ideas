@@ -74,9 +74,9 @@ export function stepAlgorithm(context: StraightSkeletonSolverContext, inputs: Al
                 // (journal-5 decision 167(c), F74). One live bisector bounds no sub-polygon: it cannot
                 // meet anything, so the ring that produced it was resolved into an inconsistent state —
                 // F74's orphan, left when a later layer's merge re-joined onto the orphan's own source.
-                // This filter used to drop such a child without a word, and the edge surfaced only as
-                // an unresolved edge at the end. It is reported here as a `step-failure` naming the
-                // edge and the ring it came from. A child with NO edges is a finished region, and goes.
+                // Dropped without a word, the edge would surface only as an unresolved edge at the end,
+                // so it is reported here as a `step-failure` naming the edge and the ring it came from.
+                // A child with NO edges is a finished region, and goes.
                 if (child.interiorEdges.length === 1) {
                     errors.push(`Sub-polygon [${input.interiorEdges.join(', ')}] left a child with one live `
                         + `interior edge, e${child.interiorEdges[0]}, which bounds no sub-polygon and can meet `
@@ -144,11 +144,11 @@ export interface SimplePolygonRun {
  * `loops` is the loop table (skeleton loops-input spec, decision 10); omitted means one loop of all the nodes.
  * A HOLED RUN STEPS LIKE ANY OTHER (skeleton join-and-divide spec, decisions 24 and 34): a strike within a ring
  * divides it and a strike across rings joins them, by the one split rewrite, and the run ends, as a single loop's
- * does, when no step input remains. The stop after initialisation that stood here until node 4 is retired.
+ * does, when no step input remains.
  *
  * `observer` is {@link solveSkeletonStepped}'s (dashboard holed-fixtures spec, decision 19): called after
- * `initInteriorEdges` and after each `tryToAcceptExteriorEdge` pass. It only reads. Omitted, the run is the one it
- * always was, so `solveSkeleton` is byte-identical.
+ * `initInteriorEdges` and after each `tryToAcceptExteriorEdge` pass. It only reads, so a run with an observer and a
+ * run without one (`solveSkeleton`'s) give byte-identical answers.
  */
 export function runSimplePolygon(
     nodes: Vector2[],
@@ -161,7 +161,8 @@ export function runSimplePolygon(
     initInteriorEdges(context);
 
     // THE STEP BOUNDARIES (skeleton wavefront-order spec, decision 6), where the observer reads and then the
-    // standing gate's probe checks the links (decision 23), and the end of the solve, where the probe counts it.
+    // standing gate's probe checks the links (`checkWavefront` is the standing gate on link writing, decision 23),
+    // and the end of the solve, where the probe counts it.
     // `null` in a normal solve.
     const probe = context.probe;
     const errors = driveSteps(context, (inputs, stepErrors) => {

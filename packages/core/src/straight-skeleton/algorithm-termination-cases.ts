@@ -53,32 +53,15 @@ function stringifyFinalData(context: StraightSkeletonSolverContext, input: Algor
  * predicate ({@link tryAttachEdgeToNode}, census S10), on the raw separation, with no division by its
  * length, as a sine at the held {@link POINT_ON_RAY_SINE_BAR}.
  *
- * It was the predicate of BOTH point-on-ray sites until C8 dispatch 3, when the closure's (S11) moved to
- * the coaxial form ({@link anchorLiesOnRay}); the snap's did not (see {@link POINT_ON_RAY_SINE_BAR}).
- *
- * HISTORY — IT STAYED AT THE SCRATCH EPSILON, AS A SINE — A MEASURED STOP, NOT AN OMISSION (spec A15's
- * point-on-ray row, A25 STOP 4; journal decision 146). The spec moves it into the floor's category:
- * forward by the exact sign and LATERAL within the coaxiality floor, the form `sourceLiesAhead` uses,
- * so a node the coincidence merge displaced by a sub-floor distance is recognised on the ray it sits
- * on. That form was written and measured on 2026-09-23, each site alone and all other sites at their
- * old bars, over `FULL_CORPUS`, Circle 48 and Rosette5 40 at the forty-six fine translations
- * 1e8..1e13, and `NEAR_REGULAR_CIRCLE_32` jittered at 1..100 epsilons over eight seeds:
- *
- *   - the corpus is untouched at both sites;
- *   - at the SNAP ({@link tryAttachEdgeToNode}) 16 cells grow a causality count — Circle 48 at
- *     5e9..8e9 gains an offset and a clearance violation, at 2e10..1e11 an offset violation — and
- *     the jittered circle at 3 epsilons, seed 6, goes from a signalled failure to `complete: true`
- *     with empty diagnostics while carrying 3 offset and 1 direction violations;
- *   - at the CLOSURE ({@link solveDegenerateClosure}) four cells go from a signalled failure to
- *     complete with empty diagnostics: Circle 48 at 2e9 — leaving the pinned failing list of
- *     `large-coordinate-known-failures.test.ts` while still carrying its clearance violation — and
- *     three jittered circles, one of which gains an offset violation it did not have. One of the
- *     four (30 epsilons, seed 7) comes out clean.
- *
- * A defect that stops announcing itself is a defect that got worse (journal decisions 72 and
- * 134(c)): the same failure mode decision 138(a) measured at `intersectRays`' identical-source exit.
- * Both sites therefore keep the arithmetic bar they had, `directionsAreSame` at the epsilon, until
- * the tolerance package (register C8) moves the half-merge windows these displaced nodes come from.
+ * The closure's point-on-ray test (S11) takes the coaxial form instead ({@link anchorLiesOnRay}): forward by the
+ * exact sign and LATERAL within the coaxiality floor. The snap keeps the sine bar because its move to that form is a
+ * measured STOP (spec A15's point-on-ray row, A25 STOP 4; journal decision 146; tolerance-derivation spec T32, T37
+ * STOP 3): at the lane, snaps attach displaced nodes that grow causality counts, and cells go from a signalled
+ * failure to `complete: true` with empty diagnostics while carrying violations. A defect that stops announcing itself
+ * is a defect that got worse (journal decisions 72 and 134(c)), the failure mode decision 138(a) found at
+ * `intersectRays`' identical-source exit. The bar is held until the half-merge windows these displaced nodes come
+ * from are moved (see {@link POINT_ON_RAY_SINE_BAR}).
+ * Measured: tolerance-derivation-decisions.md, "Measurement record", "pointLiesOnRay: the snap's measurements".
  */
 function pointLiesOnRay(separation: Vector2, basis: Vector2): boolean {
     return directionsAreSame(separation, basis, POINT_ON_RAY_SINE_BAR);
@@ -94,11 +77,10 @@ function pointLiesOnRay(separation: Vector2, basis: Vector2): boolean {
  * wavefront next arrives, and taking any further node instead runs the edge backwards
  * through skeleton the solver has already resolved.
  *
- * CAUSALITY. This snap pass is an *early* part of the algorithm, written to close the
- * terminal scenario when the skeleton fully solves, and reached only from
- * `handleInteriorEdgePair`, the two-edge base case. It predates the tighter runtime checks
- * added later, and because it assigns `target` directly — computing no offset and building
- * no `CollisionEvent` — none of them can see it: not `validateSplitReachesEdge`'s
+ * CAUSALITY. This snap pass closes the terminal scenario when the skeleton fully solves, and
+ * is reached only from `handleInteriorEdgePair`, the two-edge base case. Because it assigns
+ * `target` directly — computing no offset and building no `CollisionEvent` — none of the
+ * collision path's runtime checks can see it: not `validateSplitReachesEdge`'s
  * `notYetBorn` guard, not the `phantomDivergentOffset` classification in
  * `collideInteriorEdges`, not the `outOfBounds` check against `maxOffset`. Its own
  * `distance > 0` test is only a proxy for causality, and holds only while the bisector points
@@ -124,11 +106,10 @@ function tryAttachEdgeToNode(context: StraightSkeletonSolverContext, edgeId: num
         const candidate = context.graph.nodes[i];
         const separation = subtractVectors(candidate.position, source.position);
         const distance = sizeOfVector(separation);
-        // POINT-ON-RAY, ASKED OF THE RAW SEPARATION (journal decision 105). This was
-        // `vectorsAreEqual(normalize(separation), basis)` — a component box on a normalised vector,
-        // which is the form the ruling removes: the division by `distance` is unbounded as the
-        // candidate approaches the source, so the nearest nodes — exactly the ones this loop is
-        // looking for — were judged on the noisiest reading of their own direction.
+        // POINT-ON-RAY, ASKED OF THE RAW SEPARATION (journal decision 105), never as a component box
+        // on the normalised separation: the division by `distance` is unbounded as the candidate
+        // approaches the source, so the nearest nodes — exactly the ones this loop is looking for —
+        // would be judged on the noisiest reading of their own direction.
         // Its bar is argued, and its move to the coaxiality floor measured and refused, at
         // {@link pointLiesOnRay}.
         if (!(distance > 0 && distance < nearestDistance
@@ -156,8 +137,8 @@ function tryAttachEdgeToNode(context: StraightSkeletonSolverContext, edgeId: num
         // A snap mutates two things — `target` here and `inEdges` on the node — but only
         // `target` is ever rewritten downstream, so a snap that is later superseded leaves the
         // node permanently claiming an in-edge that no longer points at it. On the peanut the
-        // birth check alone still let e67 and e68 snap outward before a later pass corrected
-        // their targets, leaving nodes 31 and 35 holding exactly such phantom in-edges.
+        // birth check alone lets e67 and e68 snap outward before a later pass corrects their
+        // targets, leaving nodes 31 and 35 holding exactly such phantom in-edges.
         // S24 (C8 spec T14): the snap's equal-time check; its window is held with the other six at
         // `HELD_SIMULTANEITY_WINDOW` (T37 STOP; register C12, see constants.ts).
         const candidateArrival = nodeBirthArrival(context, candidate);
@@ -226,16 +207,15 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
     const interior1 = context.getInteriorWithId(id1);
     const interior2 = context.getInteriorWithId(id2);
 
-    // ANTI-PARALLEL IS NOT HEAD-ON. This used to test `dot(basis1, basis2) === -1` and cross-wire
-    // on the strength of it, which is wrong: two bisectors pointing directly *away* from each
-    // other are equally anti-parallel. Cross-wiring those makes each terminate at the other's
-    // source, so both edges run backwards along their own basis — a 2-cycle in which the
-    // wavefront vertex is drawn travelling the opposite way to the direction it actually moves.
+    // ANTI-PARALLEL IS NOT HEAD-ON. A test of `dot(basis1, basis2) === -1` cannot decide a
+    // cross-wiring: two bisectors pointing directly *away* from each other are equally
+    // anti-parallel. Cross-wiring those makes each terminate at the other's source, so both edges
+    // run backwards along their own basis — a 2-cycle in which the wavefront vertex is drawn
+    // travelling the opposite way to the direction it actually moves.
     //
-    // `intersectRays` already draws the distinction the dot product cannot. Its anti-parallel
-    // branch returns 'head-on' only when the other ray's source lies *ahead* along this ray, and
-    // 'parallel' when it lies behind. No new geometric rule is needed here; the existing one just
-    // has to be consulted rather than re-derived badly.
+    // `intersectRays` draws the distinction the dot product cannot. Its anti-parallel branch
+    // returns 'head-on' only when the other ray's source lies *ahead* along this ray, and
+    // 'parallel' when it lies behind, so its verdict is consulted here rather than re-derived.
     const [, , pairIntersection] = intersectRays(
         context.projectRayInterior(interior1),
         context.projectRayInterior(interior2),
@@ -250,10 +230,9 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
         // A SHARED SOURCE IS A TERMINAL STATE, NOT A FAILURE. Rays leaving one point in different
         // directions do not intersect, and there is nothing left for them to propagate into: the
         // wavefront has finished. `intersectRays` classifies coincident sources first, before every
-        // other test, and that verdict is already computed above for the head-on check — it was
-        // then discarded by `NO_COLLISION_RESULTS` as "no collision" so that the collision branch
-        // below threw two lines later. No new predicate and no new tolerance is introduced here; an
-        // existing decision simply stops being thrown away.
+        // other test, and that verdict, already computed above for the head-on check, is acted on
+        // here: read as "no collision", it would send the pair to the collision branch below, which
+        // throws. No predicate or tolerance of its own is involved.
         // The shared source is an existing node: it keeps its own budget (journal-5 decision 167).
         context.terminateEdgesAtPoint([id1, id2], context.sourcePosition(id1), 0);
     } else {
@@ -324,46 +303,26 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
         // source leads, and the raw separation answers it with no tolerance. NO NODE MOVES — the
         // leading source is an existing node and only the other edge's target is assigned.
         //
-        // MEASURED: at native placement this branch is reached exactly twice across the 59-fixture
-        // corpus, both on `OFF_EDGE_JITTER_PLUS_SEED_7919`, and both were I5 crossed-pairing pins
-        // carrying a direction violation apiece. It is reached again on the large-coordinate cells
-        // journal decisions 66/81 accept, where it retires a bisector that used to be wired back to
-        // an EXTERIOR node; those cells still fail as pinned and their hub in-degrees moved with it
-        // (`large-coordinate-known-failures.test.ts`). Taking `id1` instead of the leading source is
-        // convicted by seven tests across five suites.
+        // REACHED on `OFF_EDGE_JITTER_PLUS_SEED_7919` at native placement, and on the large-coordinate
+        // cells journal decisions 66/81 accept, where it retires a bisector that cross-wiring would
+        // wire back to an EXTERIOR node. Taking `id1` instead of the leading source fails seven tests
+        // across five suites.
+        // Measured: solver-coincidence-and-terminal-cases-decisions.md, "Measurement record", "handleInteriorEdgePair: the co-linear closure's reach".
         const intersectionType = best.intersectionData[2];
         if (intersectionType === 'co-linear-from-1') {
             const separation = subtractVectors(context.sourcePosition(id2), context.sourcePosition(id1));
             const leadingId = dotProduct(separation, context.getEdgeWithId(id1).basisVector) > 0 ? id2 : id1;
             /*
-             * W-SPEC W33 IS NOT IMPLEMENTED HERE, AND THAT IS A MEASURED NEGATIVE RESULT RATHER
-             * THAN AN OMISSION — see the weighted-offsets delegate's report.
-             *
-             * W33 asks this closure to gain an equi-time check: the trailer reaches the leading
-             * source at `arrivalOf(T, …, separation)` while the leader was born there at its own
-             * birth arrival, and under weights the two need not agree. The check was written and
-             * run over the whole corpus AT UNIT WEIGHTS, where W33 predicted it might move the
-             * digest. It does not move the digest — every one of the 59 native-placement pins
-             * survives it — but it fires elsewhere, because the configurations that reach this
-             * branch are the near-anti-parallel corridors whose two mid-lines carry CONSTANT and
-             * slightly DIFFERENT times:
-             *
-             *   - with W33's own stated consequence (fall through to the throw at the end of the
-             *     collision branch): ten pinned assertions across six suites move, and one of them
-             *     is the recursion census reporting the plus seed at 16 failed regions where 15 is
-             *     pinned — a DEFECT GROWING, which the corpus doctrine treats as a regression and
-             *     not as a re-pin;
-             *   - with the softest consequence available (fall through to the ordinary
-             *     `terminateEdgesAtPoint` on the collision): four assertions move, including
-             *     `NEAR_REGULAR_ROSETTE5_40` at 1e11 leaving one unresolved edge where two are
-             *     pinned (an unattributed CURE) and the 48-way cluster at 2e10 shattering into 12
-             *     nodes where 11 are pinned.
-             *
-             * Both outcomes rewrite the corpus's failure register, which is the lead's call and not
-             * a delegate's, and no §4 weighted fixture reaches this branch, so nothing is currently
-             * measuring what the check would buy. The closure therefore stands on the raw
-             * separation exactly as it did before weights, and the gap is reported rather than
-             * papered over.
+             * THE CLOSURE STANDS ON THE RAW SEPARATION, WITH NO EQUI-TIME CHECK (W-spec W33 is not
+             * implemented, a measured negative result). W33 asks for one: the trailer reaches the
+             * leading source at `arrivalOf(T, …, separation)` while the leader was born there at its
+             * own birth arrival, and under weights the two need not agree. The check fires even at
+             * unit weights, because the configurations that reach this branch are near-anti-parallel
+             * corridors whose two mid-lines carry CONSTANT and slightly DIFFERENT times, and either
+             * consequence of it firing rewrites the corpus's failure register (a defect grows under
+             * the throw; an unattributed cure and a shattered cluster under the plain termination).
+             * No weighted fixture reaches this branch, so nothing measures what the check would buy.
+             * Measured: weighted-offsets-decisions.md, "Measurement record", "handleInteriorEdgePair: W33's equi-time check".
              */
             applyDegenerateClosure(context, input.interiorEdges, context.sourcePosition(leadingId));
             return [];
@@ -461,13 +420,12 @@ function solveTerminalPoint(
     });
 
     // W-spec W28: each line contributes `n · P − w · t = n · A`. At unit weights the third column is
-    // the double `-1`, which is the row this always had, so position and time are bit-identical by
-    // construction.
+    // the double `-1`, so the unweighted solve's position and time are reproduced bit for bit.
     //
-    // W-spec W29: a triangle over two SAME-FACING PARALLEL parents is singular today and REGULAR
-    // under unequal weights — with `n₁ = n₃` the determinant is `(w₃ − w₁) · (n₁ × n₂)` — and the
-    // solve then returns the point where the faster wall overtakes the slower. No new branch: the
-    // singular fall-through below simply stops being taken.
+    // W-spec W29: a triangle over two SAME-FACING PARALLEL parents is singular at equal weights and
+    // REGULAR under unequal weights — with `n₁ = n₃` the determinant is `(w₃ − w₁) · (n₁ × n₂)` — and
+    // the solve then returns the point where the faster wall overtakes the slower. No branch is
+    // needed: a regular determinant does not take the singular fall-through below.
     const rows = lines.map<Row3>(line => [line.normal.x, line.normal.y, -line.weight]);
     const rhs = lines.map(line => line.offsetFromOrigin);
 
@@ -475,9 +433,9 @@ function solveTerminalPoint(
     // A DIVISION GUARD (C8 spec T19, census S35): the determinant is singular when it lies inside its
     // own first-order rounding bound, `c₃·u·Σ|triple products|` with `c₃` = 5 argued at
     // `DETERMINANT3_ROUNDING_UNITS` (constants.ts). The bound is trilinear in the rows like the
-    // determinant, so a weight scales both alike (W-spec W26, W28) without a separate factor. It was
-    // `FLOATING_POINT_EPSILON · max(weights)`, about eight orders wider; across 785 measured terminals
-    // the determinant never fell below 0.106, so no verdict moves.
+    // determinant, so a weight scales both alike (W-spec W26, W28) without a separate factor. Across
+    // 785 measured terminals the determinant never falls below 0.106, so the guard fires only on a
+    // system that is singular in fact.
     const determinantBound = determinant3RoundingBound(determinant3TripleSum(rows[0], rows[1], rows[2]));
     if (Math.abs(determinant) <= determinantBound) {
         return undefined;
@@ -556,8 +514,7 @@ function solveTerminalTriangle(
     //
     // A SIGN DETECTOR, NOT A DIVISION GUARD (C8 spec T20, census S36): "negative beyond noise" is
     // negative beyond `t`'s own first-order rounding bound, argued at `cramerQuotientRoundingBound`
-    // (constants.ts). It was `!areEqual(offset, 0)` at the scratch 1e-8. A true orientation error gives
-    // `t` of order −1, so the verdict cannot move.
+    // (constants.ts). A true orientation error gives `t` of order −1, far outside that bound.
     if (solution.offset < 0 && -solution.offset > solution.offsetRoundingBound) {
         stepLog.debug(
             `Terminal triangle [${interiorEdgeIds.join(', ')}] solved to a negative offset `

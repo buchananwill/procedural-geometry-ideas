@@ -41,16 +41,17 @@ import {resolvePerceptualFloor} from "./canonicalisation";
 /**
  * Carry the solve's own informational reports onto the caller's diagnostics list (spec A19).
  *
- * `errors` already carries what a step THREW; this carries what a step DECIDED and had no other way
- * to say — today, only the coaxial completion. Written once because the self-intersecting path runs
- * one context per sub-polygon and every one of them has to be heard.
+ * `errors` already carries what a step THREW; this carries what a step recorded on the context and had
+ * no other way to say — the coaxial completion, and the named refusal of a step (`refuseStep`, whose
+ * text is also thrown). Written once because the self-intersecting path runs one context per
+ * sub-polygon and every one of them has to be heard.
  */
 function pushSolveDiagnostics(diagnostics: SkeletonDiagnostic[], run: SimplePolygonRun): void {
     diagnostics.push(...run.context.diagnostics);
 }
 
 /**
- * Legacy entry point, preserved verbatim for existing callers.
+ * Legacy entry point, kept for existing callers.
  *
  * It reports nothing about how well the solve went, and retains four silent-failure modes:
  * 1. Counter-clockwise input does not throw — it yields a graph with only the boundary and no
@@ -140,7 +141,7 @@ function pushStepFailures(diagnostics: SkeletonDiagnostic[], errors: string[]): 
  *
  * HOLES ARRIVE ON `options.holes` (skeleton loops-input spec). Every loop goes through the one boundary
  * pipeline, `prepareBoundary`, of which a single loop is the one-loop case (decision 39), so a single-loop input solves to
- * the graph it always solved to. A holed solve steps like any other (skeleton join-and-divide spec, decision 34).
+ * the graph the single-loop solve gives it. A holed solve steps like any other (skeleton join-and-divide spec, decision 34).
  *
  * Throws when the input cannot be solved at all: a loop with fewer than three vertices or a non-finite one, a
  * refusal at the weight door, a mis-wound loop of a holed input under `normaliseWinding: false`, and loops that
@@ -232,8 +233,8 @@ interface PostSolveFindings {
 
 /**
  * THE POST-SOLVE CHECKS, EACH IN THE SPACE IT RUNS IN, and between them the one crossing of the seam back to the
- * caller's coordinates. Every check only reads the graph. The three spaces differ and are kept as they are (BSA.D356):
- * unifying them would move verdicts at large translations, which the holed guard's header measured.
+ * caller's coordinates. Every check only reads the graph. The three spaces differ, and each is the one its check is held
+ * to (BSA.D356): unifying them moves verdicts at large translations (see `holed-guard.ts`).
  *
  *  1. UNIT SPACE, PER SUB-POLYGON: the causality check of the self-intersecting path (journal-5 decision 148), on each
  *     sub-graph, which the merge copies and does not change. The merged graph interleaves every sub-graph's exterior
@@ -332,7 +333,7 @@ function summarise(
     // otherwise be complete is checked for its topology, its nodes' equal time, its edges' time order and its arcs'
     // planarity (read in unit space, at the solve's perceptual floor), and each violation is a BLOCKING
     // diagnostic. An un-culled self-loop is reported and blocks nothing. It changes nothing in the graph. A single-loop
-    // result never reaches it, so it is unchanged.
+    // result never reaches it.
     if (!blocked() && graph.interiorEdges.length > 0) {
         diagnostics.push(...findings.holed);
     }
@@ -408,14 +409,14 @@ export function runAlgorithmV5Stepped(
     nodes: Vector2[],
     options?: PerceptualFloorOptions & WeightOptions,
 ): SteppedAlgorithmResult {
-    // Decision 4: refused on `error`, with no snapshots, as this entry answers every rejected input. It has no
-    // diagnostics channel, so it keeps refusing holes, and names the stepped entry that takes them (dashboard
-    // holed-fixtures spec, decision 18).
+    // THE LEGACY ENTRIES TAKE NO HOLES (skeleton loops-input spec, decision 4): refused on `error`, with no
+    // snapshots, as this entry answers every rejected input. It has no diagnostics channel, so it refuses holes,
+    // and names the stepped entry that takes them (dashboard holed-fixtures spec, decision 18).
     const holesComplaint = legacyHolesComplaint('runAlgorithmV5Stepped', options);
     if (holesComplaint !== undefined) {
         return {snapshots: [], error: `${holesComplaint} For snapshots of a holed solve, call solveSkeletonStepped.`};
     }
-    // REPORTED ON `error`, not thrown: this entry point already answers a rejected polygon that way. The boundary
+    // REPORTED ON `error`, not thrown: this entry point answers every rejected polygon that way. The boundary
     // stage below asks the same two questions again and they pass; every later refusal of it is thrown.
     const complaint = loopSolvabilityComplaint(nodes);
     if (complaint !== undefined) {

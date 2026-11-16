@@ -25,16 +25,15 @@ import {signedArea} from './planar-geometry';
  *
  * ## `depth` is a TIME (W-spec W5, W41)
  *
- * The clip is unchanged in form and every number in it moved together: the face-point "offsets" are
- * the times {@link computeNodeOffsets} now returns, `offset <= depth` compares two times, and the
- * crossing interpolation stays linear because a wavefront vertex moves along its bisector at a
- * constant velocity, so its time is an affine function of the distance travelled.
+ * Every number in the clip is a time: the face-point "offsets" are the times {@link computeNodeOffsets}
+ * returns, `offset <= depth` compares two times, and the crossing interpolation is linear because a
+ * wavefront vertex moves along its bisector at a constant velocity, so its time is an affine function
+ * of the distance travelled.
  *
  * WHAT THE CALLER MUST READ DIFFERENTLY UNDER WEIGHTS: the physical setback the strip cuts on edge
  * `e` is `w_e · depth`, not `depth`. A four-metre road on a unit-weight edge is
  * `normaliseLength(normalisation, 4) / 1`; the same `depth` on an edge at speed 3 cuts twelve
- * metres. That is what asking for weights asks for. At unit weights the two readings are one number
- * and no existing caller changes.
+ * metres. That is what asking for weights asks for. At unit weights the two readings are one number.
  *
  * ## Policy is injected, never inferred
  *
@@ -52,12 +51,12 @@ import {signedArea} from './planar-geometry';
  * THE STRIP LAYER'S TOLERANCES — ONE PER ROLE, NOT ONE NUMBER FOR FOUR SPACES
  * ----------------------------------------------------------------------------
  *
- * These were a single `EPSILON = 1e-9` documented as "slack for comparing an offset against the
- * clip depth" and applied, additionally, to a scale-relative length, to a parametric fraction and
- * to a cross product. Four quantities in four spaces sharing one name is exactly the confusion
- * journal decision 105 rules out: the number could not be moved for one role without silently
- * moving three others, and the comment described only the first. Split under decision 104, VALUES
- * UNCHANGED — the split is of the name, not of the bar.
+ * Four bars, one per quantity and space: a time, a scale-relative length, a parametric fraction and a
+ * cross product. They share the value `1e-9` and nothing else. Each has its own name because one name
+ * read in four spaces is the confusion RSA.D105 rules out (one predicate basis: a value never gets two
+ * verdicts by the path that reached it): a shared number could not move for one role without silently
+ * moving the other three. Every inline tolerance is a named constant with its claim stated where it
+ * lives (RSA.D104).
  *
  * {@link SEGMENT_CROSS_SINE_EPSILON} is the form the ruling asks the rest of the solver to reach:
  * a polynomial sign test scaled by its operands' magnitudes, so no normalisation and no division
@@ -74,7 +73,7 @@ import {signedArea} from './planar-geometry';
  * relative. Claim: a face point within this of the clip depth is ON the clip contour, and admitting
  * it is what stops the clip manufacturing a zero-length edge out of rounding residue.
  *
- * UNDER WEIGHTS IT IS AT LEAST AS WIDE IN DISTANCE AS IT WAS (W-spec W4, W41). Weights are
+ * UNDER WEIGHTS IT IS AT LEAST AS WIDE IN DISTANCE AS IN TIME (W-spec W4, W41). Weights are
  * normalised to minimum one, so a time is at most the distance it came from and this window covers
  * at least `CLIP_DEPTH_EPSILON` of caller-space distance on every edge — on the fastest edge, up to
  * the weight ratio times more (at most `maxWeightRatio(δ)`, C8 spec T22). It is a degeneracy admission,
@@ -106,7 +105,7 @@ const CUT_FRACTION_EPSILON = 1e-9;
  * Slack on the CROSS PRODUCT of two segments, applied as `ε × |a| × |b|` — a sine bar written
  * without a division.
  *
- * THE EXEMPLAR OF THE RULED FORM (journal decision 105). Scaling the polynomial by both operands'
+ * THE EXEMPLAR OF THE RULED FORM (RSA.D105: division-free relative form). Scaling the polynomial by both operands'
  * magnitudes, instead of normalising the operands and comparing, makes the one number mean one
  * angle at every segment length, and it does so without the division that amplifies float noise
  * without bound as either operand tends to zero. See {@link segmentsProperlyCross} for the measured
@@ -126,8 +125,8 @@ export interface Strip {
      * `sliceStrip` is given — it carries no graph and no solve — and the parcel march has to solve
      * `v · n = w` per face to follow the same seams the skeleton drew. Without it the slicer would
      * march an unweighted skeleton across a weighted strip and put its cuts on arcs that are not
-     * there. All ones for an unweighted solve, which is every solve the recursion driver makes
-     * (arc decision 118).
+     * there. All ones for an unweighted solve, which is every solve the recursion driver makes:
+     * weights apply to the root solve only, and sub-region solves run at unit weight (RSA.D118).
      */
     supportingEdgeWeights: number[];
     /**
@@ -256,7 +255,7 @@ export interface StripOptions {
      * Reflex junctions also exceed the tolerance but are never reshaped: the seam bisects the
      * corner wedge, so at a reflex junction it leaves the vertex more than 90° from either edge
      * and the seam apex projects behind the vertex — no valid perpendicular cut exists. The
-     * reflex arm is parked with that finding (decision 16; see the reflex-arm characterisation
+     * reflex arm is parked with that finding (parcel-quality brief, decision 16; see the reflex-arm characterisation
      * tests).
      *
      * Ignored when {@link classifyCorner} is supplied: an explicit policy is the expert override.
@@ -331,7 +330,7 @@ interface Neighbour {
  * between the same pair of nodes is kept once, since the second copy would only add a zero-area
  * sliver and would break the angular ordering the face walk depends on.
  *
- * ONLY THE FALLBACK USES THIS NOW — see {@link traceFace}.
+ * Only the fallback face walk uses this — see {@link traceFace}.
  */
 function buildAdjacency(graph: StraightSkeletonGraph): Map<number, Neighbour[]> {
     const adjacency = new Map<number, Neighbour[]>();
@@ -385,7 +384,8 @@ function buildAdjacency(graph: StraightSkeletonGraph): Map<number, Neighbour[]> 
  * polygon is stored clockwise, so seeding with an exterior edge in boundary order yields that edge's
  * skeleton face, traced clockwise.
  *
- * THE FALLBACK, NOT THE RULE — see {@link traceFace} for what replaced it and why.
+ * THE FALLBACK, NOT THE RULE — see {@link traceFace} for the rule, and for why an angular walk cannot
+ * be trusted to choose a face.
  */
 function traceFaceByGeometry(
     adjacency: Map<number, Neighbour[]>, start: number, second: number, limit: number,
@@ -501,39 +501,32 @@ function nextByAngle(
 /**
  * The face of exterior edge `edgeId`, as the node ids around it starting from the edge's own source.
  *
- * ORDERED BY PARENTAGE FIRST, GEOMETRY ONLY WHERE PARENTAGE TIES (journal decision 77, 2026-08-28).
- * This used to walk the whole skeleton as a planar graph, taking the sharpest clockwise turn
- * available at every node, and that is a question the arithmetic cannot always answer: on
- * `OFF_EDGE_JITTER_L_SEED_15838` a corridor whose two walls are each split by a near-floor jittered
- * vertex produces a `[2,7]` bisector leaving node 24 **5.2e-6 radians** from the `[1,7]` spine
- * leaving the same node — a three-ten-thousandths-of-a-degree wedge whose side is decided at the
- * eleventh decimal place. The walk took the wrong branch, the faces of the two opposing walls fused
- * into one ring, that ring was reported once for each of them, and the strips overlapped the polygon
- * by 60% of its own area while every existing invariant held. Restricting each step to the edges
- * that name this face's exterior edge as a parent removes the question: at that node exactly one of
- * the two branches bounds this face, and which one is a fact about the parent pairs rather than
- * about an angle.
+ * ORDERED BY PARENTAGE FIRST, GEOMETRY ONLY WHERE PARENTAGE TIES (RSA.D77). A walk of the whole
+ * skeleton as a planar graph, taking the sharpest clockwise turn at every node, asks a question the
+ * arithmetic cannot always answer: on `OFF_EDGE_JITTER_L_SEED_15838` a corridor whose two walls are
+ * each split by a near-floor jittered vertex produces a `[2,7]` bisector leaving node 24
+ * **5.2e-6 radians** from the `[1,7]` spine leaving the same node — a three-ten-thousandths-of-a-degree
+ * wedge whose side is decided at the eleventh decimal place. An angular walk takes the wrong branch
+ * there: the faces of the two opposing walls fuse into one ring, that ring is reported once for each
+ * of them, and the strips overlap the polygon by 60% of its own area while every other invariant
+ * holds. Restricting each step to the edges that name this face's exterior edge as a parent removes
+ * the question: at that node exactly one of the two branches bounds this face, and which one is a
+ * fact about the parent pairs rather than about an angle.
  *
  * A NODE WITH NO ONWARD FACE EDGE IS A BRIDGE END, not a failure: the walk turns back down the edge
- * it arrived on, which is what a face traversal of a graph with a bridge does, and what the angular
- * walk did here too.
+ * it arrived on, which is what a face traversal of a graph with a bridge does.
  *
  * WHEN PARENTAGE DOES NOT DESCRIBE A CLOSED FACE, THE SKELETON IS WRONG THERE, and the walk falls
  * back to {@link traceFaceByGeometry} rather than throwing — turning a known wrong answer into an
  * exception thrown at every consumer of it helps nobody. What makes such a face visible is the
- * corpus-wide tiling identity in `strip-tiling.test.ts`, and now also I4 in
- * `graph-index-invariants.test.ts`, which asks the same question of the graph directly: can the two
- * ends of this exterior edge be joined by a walk across its own bisectors?
+ * corpus-wide tiling identity in `strip-tiling.test.ts`, and I4 in `graph-index-invariants.test.ts`,
+ * which asks the same question of the graph directly: can the two ends of this exterior edge be
+ * joined by a walk across its own bisectors?
  *
- * RE-SPECIMENED 2026-08-28 (journal decision 90). `COLLINEAR_DUMBBELL` was the specimen — its
- * shared supporting lines left the face of edge 3 bounded by two disjoint chains, one ending at the
- * far LEFT of the shape and one at the far RIGHT, because the bar had no midline for either chain to
- * reach. That is fixed and the dumbbell no longer reaches this branch. THE BRANCH IS STILL LIVE, and
- * measured rather than assumed: replacing it with a throw fails three tests across
+ * THE FALLBACK IS LIVE: replacing it with a throw fails three tests across
  * `recursive-subdivision.test.ts` and `silhouette-invariance.test.ts`, on SUB-REGIONS cut from the
  * near-floor off-edge jitter fixtures — seed 15838 at merge group 4, seed 55433 at merge group 3,
- * and the k=4 seed at two depths. Those are the live defect of journal decision 67, and they are
- * this branch's specimen now.
+ * and the k=4 seed at two depths, the open near-floor jitter defect (RSA.D67).
  */
 function traceFace(
     graph: StraightSkeletonGraph,
@@ -576,10 +569,10 @@ function traceFace(
 /**
  * The point at skeleton TIME `depth` on the arc between two face vertices.
  *
- * LINEAR IN TIME, WHICH IS WHY THE INTERPOLATION IS UNCHANGED (W-spec W41). The arc between two
- * face vertices is one bisector, and a wavefront vertex travels along its bisector at a constant
- * velocity, so its position is an affine function of the clock. Fractions of a time span therefore
- * land exactly where fractions of a distance span used to, and at unit weights they are the same
+ * LINEAR IN TIME, SO THE INTERPOLATION IS LINEAR (W-spec W41). The arc between two face vertices is
+ * one bisector, and a wavefront vertex travels along its bisector at a constant velocity, so its
+ * position is an affine function of the clock. A fraction of a time span therefore lands exactly
+ * where the same fraction of the distance span lands, and at unit weights the two are the same
  * fractions of the same numbers.
  *
  * Cached per node pair, in a canonical order, so that the two faces either side of an arc are handed
@@ -785,13 +778,14 @@ function sharpestClockwiseTurn(
  * graph's loop table is grouped on its own, with the wrap taken inside the loop: `sameLogicalStreet(e, next)` is
  * called once per exterior edge, `next` being `adjacentExteriorEdge(graph, e, Clockwise)`, so a hole's last edge is
  * asked about its own first edge and never about the next loop's. The runs are concatenated in loop order. On one
- * loop that is today's calls, in today's order, and today's runs.
+ * loop the calls are `(i, i + 1)` in boundary order with the wrap from the last edge to the first, as
+ * {@link StripOptions.sameLogicalStreet} documents.
  */
 function groupIntoRuns(graph: StraightSkeletonGraph, sameLogicalStreet: (a: number, b: number) => boolean): number[][] {
     return graph.loops.flatMap(loop => groupLoopIntoRuns(graph, loop, sameLogicalStreet));
 }
 
-/** One loop's runs: today's rule on exterior ids `start .. start + count − 1`, wrapping within the loop. */
+/** One loop's runs: the single-loop rule on exterior ids `start .. start + count − 1`, wrapping within the loop. */
 function groupLoopIntoRuns(
     graph: StraightSkeletonGraph,
     {start, count}: SkeletonLoop,
@@ -889,15 +883,14 @@ function exteriorEdgeLength(graph: StraightSkeletonGraph, edgeId: number): numbe
  * envelope edge by decision 13 of the parcel-quality brief.
  *
  * Straightness is measured as `|angle − π|`, which is invariant under conjugating the angle to
- * `2π − θ` — this pass therefore never depended on the orientation of `interiorAngleAt`, and the
- * 2026-08-09 orientation fix to that function provably changed nothing here.
+ * `2π − θ`, so this pass does not depend on the orientation of `interiorAngleAt`.
  *
  * PER LOOP, WITH THE FLOOR OF TWO RUNS PER LOOP (skeleton loop-consumers spec, decision 12). No junction lies between
  * two loops, so a merge cannot cross one, and a loop's merges move nothing on another loop: running each loop's runs
  * through the merge on its own is the greedy order restricted to that loop. A single run on a hole loop would be the
  * band that closes round the hole, the `holes` strip `sliceStrip` will not cut, which is the floor's reason on the
  * outline too. `runs` is {@link groupIntoRuns}' output, every loop's runs contiguous and in loop order; on one loop
- * this is today's merge exactly.
+ * this is the greedy merge over the whole boundary.
  */
 function mergeShortRuns(graph: StraightSkeletonGraph, runs: number[][], minEdgeLength: number): number[][] {
     const runsOfLoop = graph.loops.map((): number[][] => []);
@@ -907,7 +900,7 @@ function mergeShortRuns(graph: StraightSkeletonGraph, runs: number[][], minEdgeL
     return runsOfLoop.flatMap(loopRuns => mergeShortRunsOfLoop(graph, loopRuns, minEdgeLength));
 }
 
-/** Today's merge, on the runs of one loop: they form that loop's cycle, so the wrap is inside the loop. */
+/** The greedy merge, on the runs of one loop: they form that loop's cycle, so the wrap is inside the loop. */
 function mergeShortRunsOfLoop(graph: StraightSkeletonGraph, runs: number[][], minEdgeLength: number): number[][] {
     const merged = runs.map(run => [...run]);
     const lengths = merged.map(
@@ -1013,8 +1006,8 @@ export function computeStrips(result: SkeletonSolveResult, options: StripOptions
     if (edgeCount === 0) {
         return [];
     }
-    // THE RUNS ARE GROUPED PER LOOP (decision 11), so a graph with no loop table would get no strips at all, and
-    // silently. No solve produces one: every result with a context carries one loop per ring, and a merged graph's
+    // THE RUNS ARE GROUPED PER LOOP (skeleton loop-consumers spec, decision 11), so a graph with no loop table
+    // would get no strips at all, and silently. No solve produces one: every result with a context carries one loop per ring, and a merged graph's
     // `loops: []` has no context and is refused above. So it is a hand-built result, and it is refused by name
     // (BSA.D316).
     if (graph.loops.length === 0) {
@@ -1075,7 +1068,8 @@ export function computeStrips(result: SkeletonSolveResult, options: StripOptions
  * of consecutive strips of a loop, wrapping inside the loop, so no corner joins two loops. A loop that is one strip
  * has no corner, as `strips.length < 2` gives on one loop. Visited in loop order, then strip order; the strip indices
  * keep indexing the whole array, and `vertexNode` is the incoming edge's own target. The strips are
- * {@link groupIntoRuns}' runs, each loop's contiguous and in loop order. On one loop these are today's corners.
+ * {@link groupIntoRuns}' runs, each loop's contiguous and in loop order. On one loop these are the corners between
+ * consecutive strips, the last strip's wrapping to the first.
  */
 function cornersBetweenStrips(graph: StraightSkeletonGraph, strips: Strip[]): Corner[] {
     const corners: Corner[] = [];
@@ -1124,9 +1118,9 @@ function interiorAngleAt(graph: StraightSkeletonGraph, incomingEdgeId: number, o
     const toBefore = Math.atan2(before.y - vertex.y, before.x - vertex.x);
     const toAfter = Math.atan2(after.y - vertex.y, after.x - vertex.x);
     // The clockwise sweep from the outgoing direction back to the reversed incoming one is
-    // `toAfter - toBefore` under this module's clockwise winding. The subtraction was inverted
-    // until 2026-08-09 and reported the conjugate `2π − θ`; the characterisation tests in
-    // strip-decomposition.test.ts now guard the corrected orientation.
+    // `toAfter - toBefore` under this module's clockwise winding. The reversed subtraction reports
+    // the conjugate `2π − θ`; the characterisation tests in strip-decomposition.test.ts guard the
+    // orientation.
     let angle = toAfter - toBefore;
     while (angle <= 0) {
         angle += Math.PI * 2;
@@ -1142,7 +1136,7 @@ function interiorAngleAt(graph: StraightSkeletonGraph, incomingEdgeId: number, o
  *
  * A corner qualifies when its deviation from straight, `|θ − π|`, exceeds the tolerance — the
  * seam's visible tilt is half that deviation, so this is a bound on how mitred a border may look —
- * and the junction is convex: the reflex arm is geometrically vacuous (decision 16, see the
+ * and the junction is convex: the reflex arm is geometrically vacuous (parcel-quality brief, decision 16, see the
  * reflex-arm characterisation tests), so the gate states outright what the transfer guards would
  * otherwise refuse case by case. The region goes to the strip with the longer frontage, Vanegas'
  * StreetLength rule: the corner lot fronts the main street, and the side street's strip stops
@@ -1169,7 +1163,7 @@ function applyCornerCorrection(result: SkeletonSolveResult, strips: Strip[], opt
     const {graph} = result;
     const frontageLengths = strips.map(strip => polylineLength(strip.frontage));
     const edgeLength = (edgeId: number): number => exteriorEdgeLength(graph, edgeId);
-    // Decision 12: no transfer may leave its donor's frontage below the strip-level minimum. When
+    // Parcel-quality brief, decision 12: no transfer may leave its donor's frontage below the strip-level minimum. When
     // no minimum is configured, a scale-relative epsilon still refuses the degenerate transfers
     // that would collapse a frontage to (numerically) nothing.
     const minFrontage = options.minEdgeLength !== undefined && options.minEdgeLength > 0
@@ -1273,8 +1267,8 @@ function cutPointOnEdge(anchor: Vector2, far: Vector2, apex: Vector2): Vector2 |
  * unit of a 2D cross product — because the corner-cut chord this guards *ends on* a boundary
  * segment by construction: the cut is `anchor + fraction · run`, which lands within a few ulps of
  * the frontage line, on a side chosen by rounding residue alone. Under exact-zero comparisons that
- * residue made `cutStaysInside` refuse or accept identical geometry at random — the Awkward
- * Heptagon's v0 corner kept its mitre for exactly this reason. A sine of 1e-9 is far below any
+ * residue makes `cutStaysInside` refuse or accept identical geometry at random — the Awkward
+ * Heptagon's v0 corner keeps its mitre that way. A sine of 1e-9 is far below any
  * real crossing and far above any rounding residue, so the tolerance separates the two cleanly.
  */
 function segmentsProperlyCross(a1: Vector2, a2: Vector2, b1: Vector2, b2: Vector2): boolean {
@@ -1423,7 +1417,7 @@ function transferCorner(
             : [...previous.frontage.slice(0, -(1 + transferred)), cut];
         if (polylineLength(survivingFrontage) < minFrontage) {
             // A shallower apex pulls the foot back toward the vertex, so retreating can still
-            // satisfy the decision-12 floor where this depth could not.
+            // satisfy the frontage floor (parcel-quality brief, decision 12) where this depth could not.
             continue;
         }
         chosen = {apexIndex, cut, transferred, survivingFrontage};

@@ -42,9 +42,9 @@ import type {WallReading} from './wall-time';
  * canonicalises and so could not see what it overwrote; the two share only the dating primitives of
  * `wall-time.ts`.
  *
- * EVERY COMPARISON IS OF TIMES, CROSS-MULTIPLIED (BSA.D309; W-spec W22, W26; `compareArrivals`). The check used
- * to compare a node's DISTANCE from one parent with its distance to the nearest wall, and so reported correct
- * weighted skeletons wherever the dating wall was faster than the nearest one (BSA.F101; the issue note
+ * EVERY COMPARISON IS OF TIMES, CROSS-MULTIPLIED (BSA.D309; W-spec W22, W26; `compareArrivals`). Comparing a
+ * node's DISTANCE from one parent with its distance to the nearest wall reports correct weighted skeletons wherever
+ * the dating wall is faster than the nearest one (BSA.F101; the issue note
  * `ISSUE-skeleton-causality-check-ignores-weights.md`). Two arrivals `(d₁, w₁)` and `(d₂, w₂)` are compared as
  * `d₁ · w₂` against `d₂ · w₁`, and the tolerance, a length, is stated on the FASTER of the two walls,
  * `δ · min(w₁, w₂)`, as `compareArrivals` states its window (C8 spec T13): a gap is a violation when the faster
@@ -61,13 +61,13 @@ import type {WallReading} from './wall-time';
  * random weighted solves that pass the equal-time and time-order checks, that reading reported 1,164 of 1,331;
  * this one reports none (the issue note `ISSUE-skeleton-causality-check-ignores-weights.md`).
  *
- * AT UNIT WEIGHTS EVERY ONE OF THESE IS TODAY'S ARITHMETIC, OPERATION FOR OPERATION: every product and quotient
- * by a weight is by `1.0`, which is exact, `w_min` is `1`, and clearance is still against the nearest wall. There
- * is no branch on unit weights.
+ * AT UNIT WEIGHTS EVERY ONE OF THESE IS THE UNWEIGHTED ARITHMETIC, OPERATION FOR OPERATION: every product and
+ * quotient by a weight is by `1.0`, which is exact, `w_min` is `1`, and clearance is against the nearest wall.
+ * There is no branch on unit weights.
  * A weight the graph's table does not hold (a graph whose ids it does not index, such as the merged path's, which
- * `solveSkeleton` never hands this check) is read as `1`, so such a graph reads as it did, not as a silent NaN.
+ * `solveSkeleton` never hands this check) is read as `1`, so such a graph reads as unweighted, not as a silent NaN.
  *
- * THE TOLERANCE IS DERIVED, NOT LITERAL (decision 144): it is the solve's PERCEPTUAL FLOOR, a
+ * THE TOLERANCE IS DERIVED, NOT LITERAL (journal-5 decision 144): it is the solve's PERCEPTUAL FLOOR, a
  * unit-space length — "visibly the same" is the question each oracle asks of the difference it
  * measures. Every length is carried into unit space before it is compared, by the power-of-two
  * `toUnitScale`, which is exact. The test oracles use a literal `1e-6` in CALLER units; the two agree
@@ -118,7 +118,7 @@ export function checkWavefrontCausality(
     perceptualFloor: number,
     toUnitScale: number,
 ): CausalityViolationDiagnostic[] {
-    // THE DERIVED TOLERANCE (decision 144): the perceptual floor, a unit-space length. Every
+    // THE DERIVED TOLERANCE (journal-5 decision 144): the perceptual floor, a unit-space length. Every
     // quantity below is multiplied into unit space by `toUnitScale` before it meets this bar.
     const tolerance = perceptualFloor;
     const arrivalOf = deriveArrivals(graph);
@@ -164,7 +164,8 @@ export function checkWavefrontCausality(
     }
 
     const clearanceViolations: CausalityViolationDiagnostic[] = [];
-    // THE BOUNDARY IS EVERY EXTERIOR EDGE'S OWN SEGMENT (decision 32), so clearance is the distance to the nearest
+    // THE BOUNDARY IS EVERY EXTERIOR EDGE'S OWN SEGMENT (skeleton join-and-divide spec, decision 32), so clearance
+    // is the distance to the nearest
     // wall of any loop, as a holed region needs. On one loop these are the ring's segments, in the ring's order.
     const walls = graph.edges.slice(0, graph.numExteriorNodes)
         .map(edge => [graph.nodes[edge.source].position, graph.nodes[edge.target!].position] as const);
@@ -203,10 +204,11 @@ export function checkWavefrontCausality(
  * `cross(basis, clockwiseParent.basis)`, is NEGATIVE — every unit of travel along it moves the wavefront
  * clock backwards — AND its two parents are NOT anti-parallel at the angular resolution ρ(δ).
  *
- * THE EXACT COMPLEMENT OF T17'S PREDICATE, stated on the parents and not on the rate. `addBisectionEdge`
- * gives a bisector whose parents are anti-parallel at ρ — `directionsAreSame(cw, −ws, ρ)` — its
- * direction from the parent ordering, and there its rate may come out a few parts in 1e6 negative: that
- * is the resolution speaking, not a violation. A bar on the rate itself would be a different number (a
+ * THE EXACT COMPLEMENT OF T17'S PREDICATE, stated on the parents and not on the rate. A bisector whose
+ * parents are anti-parallel at ρ — `directionsAreSame(cw, −ws, ρ)` — may carry a rate a few parts in 1e6
+ * negative where its direction comes from the parent ordering: that is the resolution speaking, not a
+ * violation. (`addBisectionEdge` itself hands the direction to the ordering only where the rate reads zero
+ * at its held bar; T17 at ρ is a measured STOP there.) A bar on the rate itself would be a different number (a
  * rate is about sin φ / 2 of the parents' deviation φ), and a u-bar would count bisectors whose walls
  * spec A11's partition calls parallel — one question at two bars (decision 144).
  *

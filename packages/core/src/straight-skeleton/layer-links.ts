@@ -20,8 +20,8 @@ import {
 
 /*
  * WHY A LAYER NEEDS STATE OF ITS OWN. `handleInteriorNGon` resolves every event of a layer first and
- * creates the new bisectors afterwards, filtered and in an order of its own (partitions sorted by span,
- * then collapses), so an event cannot link its new bisector by id: the id does not exist yet, and one
+ * creates the new bisectors afterwards, filtered and in an order of its own (partitions sorted by
+ * {@link partitionArc}, then collapses), so an event cannot link its new bisector by id: the id does not exist yet, and one
  * event's new bisector is often the neighbour of another's. Each new bisector is therefore linked as a
  * PENDING BIRTH — a negative token, below `NOT_LIVE`, that stands in the arrays wherever the bisector will
  * stand — and the token is replaced by the real id at birth ({@link linkBirth}). A token whose bisector is
@@ -293,7 +293,8 @@ export function settleLayerLinks(layer: LayerLinks): void {
     layer.divisions.clear();
 }
 
-// ── The events' link writes (spec decision 9) ────────────────────────────────────────────────────
+// ── The events' link writes (skeleton wavefront-order spec, decision 9: every event that removes or creates a
+// bisector writes the links in the same act) ────────────────────────────────────────────────────
 
 /*
  * EVERY EVENT'S LINK WRITE IS ONE OF TWO REWRITES. A GAP: one new bisector closes the arc between the participant
@@ -492,17 +493,17 @@ function struckPiece(
     // THE PIECE RULE (skeleton simultaneous-rings spec, decision 17): when more than one piece stands on the
     // instigator's ring — which needs a join earlier in the layer, since on one loop rings only divide and each
     // ring holds at most one piece — the ring cannot choose, and the strike takes the first of those pieces that
-    // contains it. Measured before it was relied on (decision 43): 0 such strikes on every single-loop roster.
+    // contains it. No single-loop roster makes such a strike (simultaneous-rings spec, decision 43, measured).
     // Where none of them contains it, the piece that contains it by position along the edge is taken, as the
     // branch for no piece on the ring takes it (BSA.D314): the first piece on the ring would be a piece the
-    // strike is known not to lie on. Unreached on every roster, measured.
+    // strike is known not to lie on. No roster reaches this case.
     return onRing.length > 1
         ? onRing.find(holdsStrike) ?? pieces.find(holdsStrike)!
         : onRing[0] ?? pieces.find(holdsStrike)!;
 }
 
 /**
- * The split (spec decisions 11 and 12): the instigator strikes `segment`, and four links are rewritten.
+ * The split (skeleton wavefront-order spec, decisions 11 and 12): the instigator strikes `segment`, and four links are rewritten.
  * `segment.from` goes to the new bisector whose widdershins parent is the struck edge (`towardsClockwise`,
  * the instigator's clockwise parent beside it), which goes on to the instigator's clockwise neighbour; the
  * instigator's widdershins neighbour goes to the new bisector whose clockwise parent is the struck edge
@@ -561,7 +562,7 @@ export function linkMergeGap(
  * recorded as a split's is.
  *
  * BOTH SUCCESSORS ARE RECORDED, one on each arrival, as {@link linkMergeGap} records them: a later strike of the layer
- * may read either arrival (a variant recording one failed 22 of 51 grid layouts, BSA.F111). The struck piece is chosen
+ * may read either arrival, and recording only one fails 22 of 51 grid layouts (BSA.F111). The struck piece is chosen
  * by {@link linkSplit}'s piece rule, the striker's ring being the union of the rings through the two arrivals.
  */
 export function linkMergeGapOnWall(
@@ -605,10 +606,10 @@ function exteriorGap(graph: StraightSkeletonGraph, from: number, to: number): nu
  *     partitionArc(b) = Σ_{k=0..m-1} gap(cp(e_k), cp(e_{k+1}))
  *       e_0 = b,  e_{k+1} = clockwise neighbour of e_k,  clockwise neighbour of e_m = b,  cp = clockwise parent
  *
- * ON ONE LOOP IT IS TODAY'S SPAN, `(ws − cw + n) mod n`, EXACTLY (decision 26): a ring cut from one loop has clockwise
+ * ON ONE LOOP IT IS THE ID SPAN, `(ws − cw + n) mod n`, EXACTLY (decision 26): a ring cut from one loop has clockwise
  * parents that rise cyclically through less than one turn from the bisector's `cw` to its `ws` (W2 makes the last
- * parent `ws`), so the gaps telescope. Ordering by ring size (BSA.F96) leaves out the closed edges inside the arc,
- * which is why it renumbered 16 digests; this counts them.
+ * parent `ws`), so the gaps telescope. Ordering by ring size leaves out the closed edges inside the arc and renumbers
+ * 16 digests (BSA.F96); this counts them.
  *
  * READ THROUGH THE LAYER'S LINK STATE (decision 27), because the order is taken before the births: the walk passes
  * pending births as their tokens. A bisector this layer has not linked, or a ring the links cannot close, gives

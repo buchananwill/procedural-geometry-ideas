@@ -23,7 +23,7 @@ function handleCollisionEvent(event: ResolvableEvent, context: StraightSkeletonS
 
     // A NEIGHBOUR COLLAPSE EXACTLY WHEN THE LINKS MAKE THE TWO NEIGHBOURS, ASKED NOW (skeleton join-and-divide
     // spec, decision 3): never answered from the type a cached event was priced with, because the links can change
-    // between pricing and resolution, and a shared parent no longer means adjacency once an edge bounds two
+    // between pricing and resolution, and a shared parent does not mean adjacency once an edge bounds two
     // segments of one ring.
     //
     // WHICH COLLIDER STANDS ON WHICH SIDE IS READ FROM THE LINKS (BSA.F97 finding 3, BSA.D293): the

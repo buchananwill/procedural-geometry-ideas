@@ -34,8 +34,7 @@ import type {Strip} from './strip-decomposition';
  * cells are the skeleton arcs interior to the strip, and `t_i = t_j` is precisely the WEIGHTED
  * bisector the skeleton emits at the vertex the two edges share — so the reconstruction is the
  * skeleton, not an approximation of it, for every arc the strip's own edges generate. At unit weights
- * every `w` is `1.0`, the equi-time cells are the equidistant ones, and this is the face model the
- * module has always had.
+ * every `w` is `1.0` and the equi-time cells are the equidistant ones.
  *
  * Two consequences are worth stating plainly:
  *
@@ -71,13 +70,13 @@ import type {Strip} from './strip-decomposition';
  * the caller chose; the solver's two constants live in root unit space and mean nothing here. Every
  * bar below is therefore either a FRACTION of a scale the strip itself produced (`arena.scale`, the
  * strip's bounding diagonal) or a bar on a genuinely dimensionless quantity — a ring parameter, a
- * unit-normal determinant, a dot product. That is the construction journal decision 105 asks for:
+ * unit-normal determinant, a dot product. That is the division-free relative form RSA.D105 rules:
  * one number means one thing because the quantity it judges has been divided by its own scale
  * first, at the site, in the open.
  *
- * They were nine anonymous inline literals until journal decision 104. The values are UNCHANGED —
- * naming them is not re-ruling them — and the two that carry no measurement are flagged as such
- * where they live rather than left to look considered.
+ * Every inline tolerance is a named constant with its claim stated where it lives (RSA.D104). Naming
+ * a value is not re-ruling it: the two that carry no measurement are flagged as such where they live
+ * rather than left to look considered.
  */
 
 /**
@@ -103,11 +102,10 @@ const COLLINEAR_EPSILON = 1e-9;
  * How close a boundary vertex must be to the frontage's first point to BE it, as a fraction of the
  * strip's bounding scale.
  *
- * UNEXPLAINED AND UNMEASURED, flagged rather than fixed under journal decision 104: at 1e-7 it is
- * two orders looser than every other bar in this file, and nothing in the record says why. It is a
- * lookup — "which index of the boundary is this frontage point?" — so its failure mode is a `null`
- * arena and a one-parcel strip rather than a wrong parcel, which is presumably how it survived
- * unexamined. TODO: measure the distribution of `distance(boundary[i], frontage[0])` over the
+ * UNEXPLAINED AND UNMEASURED, flagged rather than fixed (RSA.D104): at 1e-7 it is two orders looser
+ * than every other bar in this file, and nothing in the record says why. It is a lookup — "which
+ * index of the boundary is this frontage point?" — so its failure mode is a `null` arena and a
+ * one-parcel strip rather than a wrong parcel. TODO: measure the distribution of `distance(boundary[i], frontage[0])` over the
  * corpus and either tighten it onto {@link RELATIVE_EPSILON} or write down what needs the slack.
  */
 const FRONTAGE_VERTEX_FRACTION = 1e-7;
@@ -145,7 +143,7 @@ const OVERTAKE_DOT_EPSILON = 1e-9;
 /**
  * Slack on the determinant of a march direction against a ring EDGE VECTOR.
  *
- * THE ONE BAR IN THIS FILE THAT IS NOT SCALE-FREE, flagged under journal decision 104: the edge
+ * THE ONE BAR IN THIS FILE THAT IS NOT SCALE-FREE, flagged (RSA.D104): the edge
  * vector carries the strip's units, so this determinant is a length and 1e-15 means different
  * things on a strip of 1 and a strip of 1e6. It survives because it is a DEGENERACY guard — it only
  * decides whether to attempt the division below it — and the ray/segment pairs it rejects are the
@@ -455,7 +453,7 @@ function makeArena(strip: Strip): Arena | null {
             length: edgeLength,
             startDistance: frontageLength,
             // A strip built by hand, with no weights on it, reads as unit — which is what every
-            // strip was before W-spec W42 and what every unweighted solve still produces.
+            // unweighted solve produces (W-spec W42).
             weight: strip.supportingEdgeWeights?.[supportOfSegment[i]] ?? 1,
         });
         frontageLength += edgeLength;
@@ -510,11 +508,11 @@ function offsetWithinFace(edge: FaceEdge, point: Vector2): number {
  * `v . n_b = w_b` — the vertex-velocity kernel of W-spec W9, which is the arc the ray must follow
  * rather than cross.
  *
- * THE RESULT IS A VELOCITY, NOT A UNIT VECTOR, and it always was: at unit weights the two-face
- * solution already had magnitude `1 / cos(half-angle)`. So the ray parameter every caller measures
- * along it is a TIME, and the meeting and exit tests below are all in that one clock.
+ * THE RESULT IS A VELOCITY, NOT A UNIT VECTOR: even at unit weights the two-face solution has
+ * magnitude `1 / cos(half-angle)`. So the ray parameter every caller measures along it is a TIME,
+ * and the meeting and exit tests below are all in that one clock.
  *
- * AT UNIT WEIGHTS EVERY PRODUCT IS BY `1.0` and this is the expression it replaces, operand for
+ * AT UNIT WEIGHTS EVERY PRODUCT IS BY `1.0` and the expression is the unweighted seam, operand for
  * operand: `w_a · b.y − w_b · a.y` is `b.y − a.y`, and `a.x · w_b − b.x · w_a` is `a.x − b.x`.
  */
 function marchDirection(edges: FaceEdge[], active: number[]): Vector2 | null {
@@ -550,8 +548,8 @@ function marchDirection(edges: FaceEdge[], active: number[]): Vector2 | null {
  *
  * WEIGHTED, AND THE BAR MOVES WITH THE FACE (W-spec W42). A face left behind gains on the walk when
  * `dot(direction, n_i)` exceeds `w_i` — the rate its own wall advances — so the comparison is
- * against that face's speed and the slack is the same fraction of it. At `w_i = 1` this is the
- * `1 + OVERTAKE_DOT_EPSILON` it replaces.
+ * against that face's speed and the slack is the same fraction of it. At `w_i = 1` the bar is
+ * `1 + OVERTAKE_DOT_EPSILON`.
  */
 function nextActive(edges: FaceEdge[], active: number[], entrant: number): number[] {
     if (active.length === 1) {
@@ -621,10 +619,10 @@ function firstRingExit(
  * ever compared with each other, which is what keeps the walk in one clock. `epsilon` is the
  * exception and is stated rather than converted — it is a fraction of the strip's own diagonal, a
  * LENGTH, used as the degeneracy floor on those parameters. Weights are normalised to minimum one,
- * so a time is never longer than the distance it came from and this floor rejects at least as much
- * as it did unweighted; it admits nothing new. It has always been an approximation in this space —
- * at unit weights a two-face velocity is already `1 / cos(half-angle)` long — and this does not
- * make it a different kind of number.
+ * so a time is never longer than the distance it came from, and this floor rejects at least as much
+ * under weights as at unit weights; weights make it admit nothing more. It is an approximation in
+ * this space at every weight — even at unit weights a two-face velocity is `1 / cos(half-angle)`
+ * long.
  */
 function castRay(arena: Arena, origin: RingPosition): Cut | null {
     const epsilon = arena.scale * RELATIVE_EPSILON;
@@ -645,7 +643,7 @@ function castRay(arena: Arena, origin: RingPosition): Cut | null {
 
         // The walk's own clock: the distance it stands from the active face's line, divided by that
         // face's speed (W-spec W42). At unit weights `τ` IS `wavefront` and every line below is the
-        // unweighted one it replaces.
+        // unweighted march.
         const activeEdge = arena.edges[active[0]];
         const wavefront = offsetWithinFace(activeEdge, point);
         const tau = wavefront / activeEdge.weight;
@@ -670,7 +668,7 @@ function castRay(arena: Arena, origin: RingPosition): Cut | null {
                 continue;
             }
             // `(D_i − w_i · τ) / (w_i − dot(direction, n_i))`: the time at which this face's wall
-            // reaches the marching point. At unit weights `D_i − 1.0 · wavefront` is today's
+            // reaches the marching point. At unit weights `D_i − 1.0 · wavefront` is
             // `competitor − wavefront`.
             const meeting = (competitor - weight * tau) / closingRate;
             if (meeting > epsilon && meeting < nearest) {

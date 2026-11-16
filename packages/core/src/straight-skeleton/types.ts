@@ -36,7 +36,7 @@ export enum SkeletonDirection {
  * A wavefront arrival TIME, carried as the pair it was derived from (W-spec W7).
  *
  * `distance` is the perpendicular distance of the arrival point from the CLOCKWISE PARENT's
- * supporting line — exactly the number `makeOffsetDistance` has always computed — and `weight` is
+ * supporting line — the number `makeOffsetDistance` computes — and `weight` is
  * that parent's speed. The time is `distance / weight`, and {@link timeOf} performs that division
  * for reporting, sorting keys and denormalisation only.
  *
@@ -57,8 +57,8 @@ export interface Arrival {
      * products and sums — see `arrivalUncertainty` and the error-model section of constants.ts. Set
      * ONCE, where the arrival is priced; `0` only for a quantity with no arithmetic in it (a boundary
      * vertex's zero, a bound). `pairSimultaneityWindow` widens a pair's simultaneity window by the two
-     * budgets — landed and measured, but NOT spent: register C12's move of the seven window sites to it
-     * STOPPED (see `HELD_SIMULTANEITY_WINDOW`).
+     * budgets; no window site reads that form, because moving the seven window sites to it is a measured
+     * STOP (register C12; see `HELD_SIMULTANEITY_WINDOW`).
      */
     uncertainty: number;
 }
@@ -70,8 +70,7 @@ export interface InteriorEdge {
     length: number;
     /**
      * The latest TIME at which this bisector can still be carrying a wavefront vertex (W-spec W5,
-     * W16). At unit weights a time and a distance are the same double, which is why this field kept
-     * its name.
+     * W16). Named as an offset because at unit weights a time and a distance are the same double.
      */
     maxOffset?: number;
     /**
@@ -107,8 +106,8 @@ export interface StraightSkeletonGraph {
      * THE LOOP TABLE (skeleton loops-input spec, decisions 3, 6 and 7): loop 0 is the outline and loop `k` the
      * caller's hole `k - 1`, each a run of exterior ids `start .. start + count - 1` in its solved vertex order.
      * Loops are contiguous from 0, each `count` is at least 3, the counts sum to `numExteriorNodes`, and an
-     * exterior node's id equals its exterior edge's id. The outline's ids are therefore exactly what they were
-     * before holes existed, and a single-loop graph carries `[{start: 0, count: numExteriorNodes}]`.
+     * exterior node's id equals its exterior edge's id. The outline's ids are therefore the ids a single-loop
+     * solve of it gives, and a single-loop graph carries `[{start: 0, count: numExteriorNodes}]`.
      *
      * PLAIN DATA, ON THE GRAPH, because stepped snapshots clone the graph only (BSA.F93). The next or previous
      * exterior edge is read through `adjacentExteriorEdge` (graph-helpers.ts), never by arithmetic on ids.
@@ -267,9 +266,9 @@ export interface StraightSkeletonSolverContext extends GraphHelpers {
      * {@link perceptualFloor} by `simultaneityWindow` at context construction and carried here beside
      * {@link coaxialityFloor} and {@link angularResolution}, so every window site — the layer, the
      * phantom test, the snap's equal-time check, the closure's simultaneity and the three
-     * birth-causality tests — can spend one double. NOT YET SPENT: the sites hold
-     * `HELD_SIMULTANEITY_WINDOW` (1e-8) under the T37 STOPs of C8 dispatches 1 and 2 and of register
-     * C12; see constants.ts.
+     * birth-causality tests — can spend one double. CARRIED, UNSPENT: no production site reads it; every
+     * window site reads `HELD_SIMULTANEITY_WINDOW` (1e-8), held by measured T37 STOPs (register C12; see
+     * constants.ts).
      */
     simultaneityWindow: number;
     /**
@@ -344,7 +343,7 @@ export interface SplitOffsetResult {
 
 /** The fields every collision event carries, whatever its type. */
 interface CollisionEventFields {
-    /** A TIME — `timeOf(arrival)` (W-spec W5). At unit weights this is today's distance. */
+    /** A TIME — `timeOf(arrival)` (W-spec W5). At unit weights it equals the arrival's distance. */
     offsetDistance: number;
     /** The pair every predicate reads (W-spec W7, W22). */
     arrival: Arrival;
@@ -400,11 +399,9 @@ export type CollisionCache = Map<number, Map<number, CollisionCacheEntry>>;
 /**
  * A bisector to be born: which two exterior parents bound it, and which node it leaves from.
  *
- * NO DIRECTION HINT, AND THAT IS DELIBERATE. This carried an `approximateDirection` that
- * `addBisectionEdge` used to flip the parent-derived basis with. The basis is never in doubt — the
- * offset rate decides it, and where the rate is zero the parents are anti-parallel and their
- * ORDERING decides it — so the hint could only ever overrule a correct answer, and measurably did:
- * see `addBisectionEdge`.
+ * NO DIRECTION HINT, AND THAT IS DELIBERATE. The basis is never in doubt — the offset rate decides
+ * it, and where the rate is zero the parents are anti-parallel and their ORDERING decides it — so a
+ * hint could only ever overrule a correct answer: see `addBisectionEdge`.
  */
 export interface BisectionParams {
     clockwiseExteriorEdgeIndex: number;
@@ -488,8 +485,6 @@ export interface AlgorithmStepOutput {
  * - `holed-unculled-self-loop` — a solve with holes that would otherwise be complete has a zero-length self-loop the
  *   solver did not mark culled (BSA.D318). INFORMATIONAL: it does not make a result incomplete. Never pushed on a
  *   single-loop solve.
- *
- * `holes-not-solved`, which a holed solve stopped with before the join event, is retired (decision 34).
  */
 export type SkeletonDiagnosticKind =
     'winding-normalised'
@@ -611,8 +606,8 @@ export interface SkeletonSolveResult {
      * carried so that downstream consumers can scale their own LENGTH-DIMENSIONED INPUTS across the
      * same seam.
      *
-     * The solver's `1e-8` epsilon is absolute, so the polygon is normalised to unit extent before
-     * solving and denormalised afterwards; anything a caller feeds back in that is measured in the
+     * The solver's tolerances are absolute in unit space, so the polygon is normalised to unit extent
+     * before solving and denormalised afterwards; anything a caller feeds back in that is measured in the
      * caller's units has to make the same trip. Strip depth and `minWidth`/`maxWidth` go through
      * `normaliseLength`; `minArea`/`maxArea` go through `normaliseArea`, which squares. Dimensionless
      * quantities — fractions of the maximum offset, aspect-ratio bounds — cross the seam untouched.
@@ -643,13 +638,10 @@ export interface SkeletonSolveResult {
  * client will throw away in its renderer, so the value that decides "can this be seen?" belongs to
  * the client, not to this module. {@link SKELETON_NOISE_FLOOR} is the library DEFAULT — conservative,
  * for a headless consumer with no rendering limits to measure — and a client with a known zoom cap
- * derives its own and passes it here. Omitting the option is byte-identical to the behaviour before
- * the option existed.
+ * derives its own and passes it here. Omitting the option solves at {@link SKELETON_NOISE_FLOOR}.
  *
  * EVERY PERCEPTUAL QUESTION IN THE SOLVE READS THIS ONE FLOOR (C8 spec T2, T25; journal decisions 144
- * and 157). An earlier version of this comment said "exactly two production bars are floor-derived";
- * that stopped being true with the angular package and is false now. Under the tolerance-derivation
- * package's category rule, a comparison that decides a QUESTION the arithmetic cannot decide — about
+ * and 157). Under the tolerance-derivation spec's category rule, a comparison that decides a QUESTION the arithmetic cannot decide — about
  * input geometry, or about candidate events before any node exists — takes δ, and the solve derives
  * every such bar from this value once, at context construction:
  *
@@ -674,11 +666,11 @@ export interface SkeletonSolveResult {
  * than any floor on purpose (audit §7.1 decision 5).
  *
  * WHAT THE OPTION CHANGES IS WHERE A VALUE COMES FROM, NEVER WHAT IT MEANS. Each bar above keeps its
- * own space and its own predicate exactly as it had them; only the number substituted
- * for {@link SKELETON_NOISE_FLOOR} is the client's. In particular the recursion driver's root-floor
- * pass-down is untouched: the canonicalisation bar is still the ROOT's floor restated in the region's
- * units while the coincidence bar is still the raw floor in whatever unit space the region has. That
- * asymmetry is audit §7.2 decision 9, still OPEN, and this option does not settle it.
+ * own space and its own predicate; only the number substituted for {@link SKELETON_NOISE_FLOOR} is
+ * the client's. In particular the recursion driver's root-floor pass-down stands: the
+ * canonicalisation bar is the ROOT's floor restated in the region's units while the coincidence bar
+ * is the raw floor in whatever unit space the region has. That asymmetry is audit §7.2 decision 9,
+ * open, and this option does not settle it.
  */
 export interface PerceptualFloorOptions {
     /**
@@ -734,8 +726,7 @@ export interface SkeletonHole {
 }
 
 /**
- * The holes of an outline (decision 1). Omitted or empty means a single-loop solve, which is the solve as it
- * always ran.
+ * The holes of an outline (skeleton loops-input spec, decision 1). Omitted or empty means a single-loop solve.
  *
  * A HOLED SOLVE STEPS LIKE ANY OTHER (skeleton join-and-divide spec): in the generic case it solves, and so it does
  * where events of two rings coincide as a meeting of one run on each of two rings (skeleton simultaneous-rings spec,
@@ -759,7 +750,7 @@ export interface SolveSkeletonOptions extends PerceptualFloorOptions, WeightOpti
      * WITH HOLES, every loop is wound by this option: the outline clockwise and each hole counter-clockwise
      * (skeleton loops-input spec, decision 21). Off, it says the caller's winding is already right, and a holed
      * input with a mis-wound loop is REFUSED by a throw, because a holed solve has no meaning on the wrong side of
-     * a wall (decision 22, BSA.D282). A single loop is not refused, as before.
+     * a wall (decision 22, BSA.D282). A single mis-wound loop is not refused.
      */
     normaliseWinding?: boolean;
     /**
@@ -779,7 +770,7 @@ export interface SolveSkeletonOptions extends PerceptualFloorOptions, WeightOpti
      * `canonicalisation.ts`.
      *
      * THE FLOOR BELONGS TO THE ROOT REGION, which is why it is accepted here rather than derived from
-     * the polygon. For a direct call the two coincide. The recursion driver will pass a sub-region's
+     * the polygon. For a direct call the two coincide. The recursion driver passes a sub-region's
      * root floor down through this option, because normalising a thin sliver to its own extent would
      * scale it up enormously and leave it holding every degenerate vertex it has.
      *

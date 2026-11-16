@@ -30,11 +30,9 @@ import {HELD_SIMULTANEITY_WINDOW} from "./constants";
  * measure against and no winding sign to order the pair by. Acceptance wires edges to an EXISTING node and
  * moves nothing, so under T2 it answers a question — δ's class.
  *
- * It was {@link pointLiesOnRay}'s sine at `1e-8` — the sine form on a raw separation is a lateral bar that
- * grows with the separation (spec A9). MEASURED over dispatch 2's 580 cells, and again on landing: the
- * verdict flips 45 times on 26 cells (Circle 48 and Rosette5 40 at fine translations, one off-edge plus
- * cell, five Circle 32 ladder cells) and 0 cells move — node positions, edge targets and bases, verdict,
- * node count and all four oracles — and no full-graph digest pin moves.
+ * A LATERAL BAR, NOT A SINE: a sine bar on a raw separation is a lateral bar that grows with the separation
+ * (spec A9). The snap's point-on-ray ({@link pointLiesOnRay}, S10) is a different site and keeps the sine.
+ * Measured: tolerance-derivation-decisions.md, "Measurement record", "anchorLiesOnRay: the closure's point-on-ray at the lane".
  */
 function anchorLiesOnRay(separation: Vector2, basis: Vector2, coaxialityFloor: number): boolean {
     return dotProduct(separation, basis) > 0 && lateralOffset(separation, basis) < coaxialityFloor;
@@ -109,16 +107,15 @@ export function solveDegenerateClosure(context: StraightSkeletonSolverContext, i
             //
             // EXACT (C8 spec T9, census S12): every ray source is a STORED node position, so an edge
             // sourced at the anchor has a bit-identical source and a separation of exactly 0 — the u-bar's
-            // degenerate case for stored doubles. It was `areEqual(distance, 0)` at the scratch 1e-8;
-            // measured before it moved, no separation on the corpus, the fine translations or the jitter
-            // sweeps fell in the band (0, 1e-8).
+            // degenerate case for stored doubles. No separation on the corpus, the fine translations or the
+            // jitter sweeps falls in the band (0, 1e-8), so exactness admits no anchor a looser bar would.
             if (edgeId === anchorId || distance === 0) {
                 arrivals.push(birthArrival);
                 continue;
             }
 
             // Does the anchor lie on this edge's ray? The COAXIAL form, on the raw separation — see
-            // {@link anchorLiesOnRay} (S11, landed in C8 dispatch 3). The snap's point-on-ray is a
+            // {@link anchorLiesOnRay} (S11). The snap's point-on-ray is a
             // different site and stays held ({@link pointLiesOnRay}, S10).
             if (!anchorLiesOnRay(separation, ray.basisVector, context.coaxialityFloor)) {
                 valid = false;
@@ -174,30 +171,18 @@ export function solveDegenerateClosure(context: StraightSkeletonSolverContext, i
  * the ring to a slit whose two ends run side by side.
  *
  * ANTI-PARALLEL RAYS THAT ARE NOT HEAD-ON NEVER MEET EITHER (spec A16, journal decision 150), and
- * {@link antiParallelArmAdmits} is that arm: the bisector test is now parallelism alone, at the
- * resolution, and orientation is asked separately — a same-direction set is admitted as before, and
- * a set carrying opposed orientations is admitted only when `intersectRays` prices none of its
- * opposed pairs `'head-on'`. It used to be `directionsAreSame` pairwise, which excluded every
- * anti-parallel pair at any bar by design (written before that as `areEqual(dot, 1)`), so a corridor
- * whose mid-lines missed the coaxiality lane reached no closure at all — only the coaxial completion,
- * or with no pair pointing together, the throw.
+ * {@link antiParallelArmAdmits} is that arm: the bisector test is parallelism alone, at the
+ * resolution, and orientation is asked separately — a same-direction set is admitted, and a set
+ * carrying opposed orientations is admitted only when `intersectRays` prices none of its opposed
+ * pairs `'head-on'`. A pairwise `directionsAreSame` test would exclude every anti-parallel pair at
+ * any bar, so a corridor whose mid-lines miss the coaxiality lane would reach no closure at all —
+ * only the coaxial completion, or with no pair pointing together, the throw.
  *
- * ONE QUESTION, ONE BAR — journal decision 107(a), and now spec A11. This function used to ask
- * parallelism twice, four orders apart: the parent gate at 1e-8 and this bisector test at 1.4142e-4.
- * MEASURED 2026-08-29: loosening the PARENT gate to 1.4142e-4 was caught (the plus's pinned
- * 4-of-80 off-edge jitter cells moved), tightening the bisector test to 1e-8 was caught by nothing;
- * both then sat at the retired `DIRECTION_SINE_BAR`.
- *
- * BOTH NOW READ THE SOLVE'S ANGULAR RESOLUTION (spec A15, A20; journal decision 146). The bisector
- * test is a ray-direction question; the parent gate an input-geometry one, on the RAW wall
- * directions. The parent gate was OPEN DECISION O2 — follow the resolution, or keep the 1e-8 107(a)
- * measured load-bearing — and it was MEASURED BOTH WAYS on 2026-09-23 over all 320 cells of the
- * off-edge (plus and reflex L, 1e-3) and along-edge (stage off) jitter sweeps, every other site at
- * its new bar: the two gates differ in exactly ONE cell, the plus at k = 3, seed 47514, which the
- * resolution CURES — a step failure and unresolved edges become a complete solve with zero offset,
- * clearance and direction violations. Nothing worsens anywhere, so the gate follows the resolution.
- * The 2026-08-29 cells were moved by a bar 5.6× looser than this one (`1.4142e-4` against
- * `1.7721e-5`); at the derived value none of them moves but that one, and it moves the right way.
+ * ONE QUESTION, ONE BAR (journal decision 107(a), spec A11): the parent gate and the bisector test
+ * both ask parallelism, so both read the solve's angular resolution (spec A15, A20; journal decision
+ * 146). The bisector test is a ray-direction question; the parent gate an input-geometry one, on the
+ * RAW wall directions.
+ * Measured: angular-predicate-basis-decisions.md, "Measurement record", "solveParallelClosure: the parent gate and the bisector test".
  *
  * THE ANCHOR IS THE LEADING SOURCE, and it has to be: every other edge terminated there travels
  * forward along its own basis, while any earlier anchor wires an edge to a point behind its own
@@ -216,20 +201,12 @@ export function solveDegenerateClosure(context: StraightSkeletonSolverContext, i
  * one offset governs the whole sub-polygon and a leading source is the point the wavefront reached;
  * where the walls are not parallel, parallel bisectors are evidence of a solve already corrupted
  * upstream, and closing them would convert a signalled failure into a complete answer with the
- * corruption still in it. Measured: without the gate this closes every large-coordinate cell of
- * journal decisions 66 and 81 — whose graphs have shattered a 48-way hub into ten nodes and carry
- * backwards-running edges — and reports them complete.
- *
- * RE-MEASURED 2026-09-23 WITH THE ANTI-PARALLEL ARM IN PLACE (spec A17, journal decision 150), and
- * the measurement above no longer reproduces, for a stated reason. With `intersectRays`' collinearity
- * exits in the coaxial form (spec A15), those same cells never reach this closure: their stranded
- * same-way pairs are one line at the floor, and `handleInteriorEdgePair`'s collinear branch closes
- * them on the leading source first — the SAME 78 cells (77 of them completing), with identical node
- * counts and diagnostics, that removing this gate moved under the old exits, and every one reads clean on the solver's causality check, the test
- * oracle and the rate check, or carries only the clearance counts it carried while failing. Over 649
- * corpus, large-coordinate and jitter cells, removing the gate now moves nothing. What still convicts
- * it is the arm: without it, `terminal-cases.test.ts`'s approaching pair on a SQUARE — walls not
+ * corruption still in it. With `intersectRays`' collinearity exits in the coaxial form (spec A15), the
+ * large-coordinate cells of journal decisions 66 and 81 close at `handleInteriorEdgePair`'s collinear
+ * branch before they reach this closure; the gate is held by the anti-parallel arm (spec A17, journal
+ * decision 150): without it, `terminal-cases.test.ts`'s approaching pair on a SQUARE — walls not
  * parallel — is closed at its leading source instead of reaching the completion.
+ * Measured: angular-predicate-basis-decisions.md, "Measurement record", "solveParallelClosure: the parallel-walls gate".
  */
 function solveParallelClosure(
     context: StraightSkeletonSolverContext,
@@ -283,14 +260,13 @@ function solveParallelClosure(
  * SPEC A16 — THE ANTI-PARALLEL ARM of {@link solveParallelClosure}. Does a set whose bases are all
  * parallel to within the angular resolution admit a closure?
  *
- * A SAME-DIRECTION set always does — the arm that existed before this one: parallel rays pointing
- * the same way never meet.
+ * A SAME-DIRECTION set always does: parallel rays pointing the same way never meet.
  *
- * A set carrying OPPOSED orientations is a CORRIDOR, and its closure was the hole spec A13 names:
- * "identical direction" is orientation-sensitive, so an anti-parallel pair below the resolution is
- * neither priceable (cell (a)) nor identical (cell (b)), and before this arm no closure accepted it —
- * a pair outside the coaxiality lane reached only the coaxial completion or the throw. Each OPPOSED
- * pair is classified by `intersectRays`, the solver's own verdict:
+ * A set carrying OPPOSED orientations is a CORRIDOR, the case spec A13 names: "identical direction" is
+ * orientation-sensitive, so an anti-parallel pair below the resolution is neither priceable (cell (a))
+ * nor identical (cell (b)), and without this arm a pair outside the coaxiality lane would reach only
+ * the coaxial completion or the throw. Each OPPOSED pair is classified by `intersectRays`, the
+ * solver's own verdict:
  *
  *   - `'head-on'` — coaxial within the lane and approaching — is PRICED, not closed: the set is
  *     returned to the path that prices head-on verdicts (the pair handler's head-on branch, or
@@ -302,7 +278,7 @@ function solveParallelClosure(
  *     retreat never meet. The set is CLOSED at the leading source, as the same-direction arm closes.
  *
  * Ordering (ii) of spec A12, applied to the one sub-case that needs it (A13): one branch, not a band.
- * The parent gate above (spec A17) is unchanged and still guards it.
+ * The parent gate of {@link solveParallelClosure} (spec A17) guards it.
  */
 function antiParallelArmAdmits(
     context: StraightSkeletonSolverContext,
@@ -355,7 +331,7 @@ interface CoaxialCompletion {
  *
  * NARROW ONLY ON REFUSAL (F44's pattern, F27's restraint gate). The normal lane at the client's
  * floor decides everything the corpus needs; this runs only after that lane has refused, so no solve
- * that succeeds today pays for it, and a firing is a SECOND SPECIMEN to be reported rather than a
+ * the lane decides pays for it, and a firing is a SECOND SPECIMEN to be reported rather than a
  * tolerance to be widened. `coaxial-lane.test.ts` pins the corpus count at zero at two floors.
  *
  * Returns `undefined` when there is no candidate pair at all, and the throw then stands — removing
@@ -411,9 +387,8 @@ export type TerminalLadderRung =
  *
  * Reached by every per-arity handler — the pair, the triangle and the n-gon — at the one state they
  * share: a sub-polygon with live interior edges for which the collision generators produced no
- * event. An n-gon whose live edges meet at a point is a generalisation of the triangle, and the
- * solver refused it the same handling only because the terminal cases were first characterised too
- * simply; today every handler climbs the same rungs in the same order.
+ * event. An n-gon whose live edges meet at a point is a generalisation of the triangle, so every
+ * handler climbs the same rungs in the same order.
  *
  *   1. THE CLOSURES — statements about the whole live set, and TERMINAL solves.
  *      {@link solveDegenerateClosure} (every live edge closes on one source at one shared offset),
@@ -428,7 +403,7 @@ export type TerminalLadderRung =
  *   3. `undefined` — no rung applies and NO CANDIDATE PAIR EXISTS. The caller throws: removing that
  *      throw would convert a signalled failure into a silent one.
  *
- * Decision 78's many-way clustering is untouched: it handles arrivals that are found and coincide;
+ * Journal decision 78's many-way clustering is a different case: it handles arrivals that are found and coincide;
  * this ladder covers the state where no arrival is found at all.
  */
 export function climbTerminalLadder(

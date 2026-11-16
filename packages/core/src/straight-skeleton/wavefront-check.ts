@@ -2,7 +2,7 @@ import type {AlgorithmStepInput, InteriorEdge, StraightSkeletonSolverContext} fr
 import {isLiveBisector, NOT_LIVE, wavefrontSegmentsOf} from "./wavefront-links";
 
 /**
- * The violations of W1 to W4 (spec decisions 2 to 5), empty when the wavefront is sound. Stated at a step
+ * The violations of W1 to W4 (skeleton wavefront-order spec, decisions 2 to 5), empty when the wavefront is sound. Stated at a step
  * boundary, over the step inputs still to run (decision 6); not required to hold inside a layer.
  *
  * W3 is read as also requiring every live bisector to stand in some input: at a boundary the step inputs
@@ -92,7 +92,7 @@ export function checkWavefront(context: StraightSkeletonSolverContext, inputs: r
     return violations;
 }
 
-// ── The standing gate's hook (spec decision 23) ──────────────────────────────────────────────────
+// ── The standing gate's hook (wavefront-order spec, decision 23: `checkWavefront` stays in the suite) ──────────────────────────────────────────────────
 
 /**
  * The hook `checkWavefront`'s standing gate runs through, held on the context as `context.probe`. OFF IN A NORMAL

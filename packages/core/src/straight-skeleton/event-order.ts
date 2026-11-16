@@ -63,20 +63,19 @@ export function arrivalMoments<T extends CollisionEvent>(events: T[]): T[][] {
  *
  * STRICT LINEAR CAUSALITY IS THE SOLVER'S MODEL (journal decision 102): where two arrivals are
  * separated at all, the earlier one is resolved first, and the wavefront it terminates cannot be
- * consumed by an event that had not happened yet. The fallback below used to sort a whole layer by
- * priority and edge id alone, which threw the offsets away — and because each event here CONSUMES
- * its edges, that was a PAIRING rule, not a display order: on `(seed 55433)` a collapsing 4-ring
- * whose true pairing arrives 2.52e-11 ahead of its rival was paired by edge id instead, so the arm
- * tip closed on the wrong two of its four walls and left its surviving ridge between the wrong
- * parents. What that cost downstream is the fold population — 24 region-boundary folds across three
- * fixtures before this ordering, 4 on one fixture after it, with both reflex Ls leaving it outright
- * (`region-boundary-folds.test.ts`) — and six of the plus's ten failing near-floor jitter cells.
+ * consumed by an event that had not happened yet. Priority and edge id alone never order a layer:
+ * each event here CONSUMES its edges, so the order is a PAIRING rule, not a display order, and an
+ * order that throws the offsets away pairs a ring on the wrong walls. On `(seed 55433)` a collapsing
+ * 4-ring whose true pairing arrives 2.52e-11 ahead of its rival, paired by edge id, closes its arm tip
+ * on the wrong two of its four walls and leaves its surviving ridge between the wrong parents; the
+ * cost downstream is region-boundary folds (`region-boundary-folds.test.ts`) and failing near-floor
+ * jitter cells. Measured: solver-coincidence-and-terminal-cases-decisions.md, "Measurement record",
+ * "Arrival order in the pairwise fallback".
  *
- * IT DOES NOT CURE THE DUPLICATE RIDGE, and saying so is the point. Both pairings leave TWO
- * bisectors spanning that ridge, so I5's count on this fixture is unmoved; the two collapse nodes
- * are 3.9e-6 apart in unit space and should not both exist, which is journal decision 101's
- * tolerance defect and not this one. Pairing decides which walls the ridge belongs to; it cannot
- * decide whether the ridge should have been a point.
+ * ARRIVAL ORDER DOES NOT DECIDE WHETHER A RIDGE SHOULD HAVE BEEN A POINT. On that fixture both
+ * pairings leave TWO bisectors spanning the ridge, so I5's count is the same either way; the two
+ * collapse nodes are 3.9e-6 apart in unit space and should not both exist, which is journal decision
+ * 101's tolerance defect and not this order's. Pairing decides which walls the ridge belongs to.
  *
  * EXPORTED FOR ITS OWN TEST, not for other callers — see `arrival-ordering.test.ts`.
  *
@@ -87,8 +86,8 @@ export function arrivalMoments<T extends CollisionEvent>(events: T[]): T[][] {
  *
  * MOMENTS BY SINGLE LINKAGE ({@link arrivalMoments}), over an offset-ascending list, so the result is a total order
  * rather than a sort under a non-transitive "close enough" predicate. (The coincidence clustering in
- * `coincident-events.ts` used the same single linkage until journal decision 155 made it anchored;
- * this partition is at the 64-ulp representation bar, S29, which C8 spec T26 keeps as it is.)
+ * `coincident-events.ts` is anchored instead, journal decision 155; this partition is at the 64-ulp
+ * representation bar, S29, C8 spec T26.)
  *
  * AND WITHIN A MOMENT, WHAT `mustPrecede` ORDERS COMES BEFORE THE TIE-BREAK (BSA.D335). Where it is given, no event of a
  * moment is placed before one of the same moment that must precede it, and `tieBreak` decides only between events it
@@ -100,7 +99,7 @@ export function inArrivalOrder<T extends CollisionEvent>(
     mustPrecede?: (first: T, second: T) => boolean,
 ): T[] {
     // W-spec W24, W25: ordered by ARRIVAL, division-free. At unit weights `byArrival` is the sign of
-    // `a.offsetDistance - b.offsetDistance` with ties reported as zero, so the stable sort delivers exactly today's order.
+    // `a.offsetDistance - b.offsetDistance` with ties reported as zero, so the stable sort is plain offset order.
     const ordered = arrivalMoments(events)
         .flatMap((members, moment) => members.map(event => ({event, moment})))
         .toSorted((a, b) => a.moment !== b.moment ? a.moment - b.moment : tieBreak(a.event, b.event));
@@ -126,7 +125,7 @@ export function inArrivalOrder<T extends CollisionEvent>(
  * therefore decides only between events the relation leaves unordered.
  *
  * Should every unplaced event have one that must precede it, the relation has a cycle and cannot be honoured; the first
- * unplaced event of the given order is placed and the rest go on as before, so the order is always total and always a
+ * unplaced event of the given order is placed and placing continues, so the order is always total and always a
  * function of the given order and the relation.
  */
 function inPrecedenceOrder<T extends CollisionEvent>(
@@ -180,9 +179,9 @@ function distanceAlongRay(point: Vector2, edgeId: number, context: StraightSkele
  * there two meetings at two points of one ray are not one moment. It stops saying it on a LEVEL bisector, the ridge two
  * walls that face each other bear: every point of it has one time, so every other bisector with one of those two walls
  * as a parent meets it at the same instant, wherever it meets it. Two such meetings are one moment at two points, and
- * the edge-id tie-break used to pick between them. On the user's layout files 4, 7 and 9 it took the far one, ran the
- * ridge past the near one and left a node inside another wall's face, with the solve complete and undiagnosed
- * (`level-ridge-tie.test.ts` is the smallest outline found). So the order goes back to position.
+ * the edge-id tie-break cannot choose between them: on the user's layout files 4, 7 and 9 it takes the far one, runs
+ * the ridge past the near one and leaves a node inside another wall's face, with the solve complete and undiagnosed
+ * (`level-ridge-tie.test.ts` is the smallest outline found). So the order is by position along the ray.
  *
  * EVERY KIND OF EVENT, NOT ONLY PAIRS: a split lies on its instigator's ray, and is ordered against a pair on that ray
  * the same way, ahead of priority. Measured over the wide mixed-pitch fuzz (5,000 draws), 33 fallback layers held such a
@@ -192,7 +191,7 @@ function distanceAlongRay(point: Vector2, edgeId: number, context: StraightSkele
  * point, as `clusterCoincidentMerges` spends it), and the relation leaves them to the tie-break: the reciprocal reports
  * of one meeting must not be ordered by an ulp (journal decision 65). The distances are read once per event.
  *
- * ONLY IN THE PAIRWISE FALLBACK. The whole-event path's splits (`splitEvents` in `handleInteriorNGon`) are not ordered by
+ * ONLY IN THE PAIRWISE FALLBACK. The whole-event path's splits (`resolveSplits` in algorithm-complex-cases.ts) are not ordered by
  * it: that order sites splits that land on one point, it is taken over the held window rather than one moment, and two
  * splits of one instigator more than the floor apart were found in no layer of `FULL_CORPUS`, `HOLED_TEST_POLYGONS`,
  * `WEIGHTED_TEST_POLYGONS` or either mixed-pitch fuzz, so the rule would change nothing there that a test could convict.
@@ -237,16 +236,16 @@ function linkedRuns<T>(items: T[], key: (item: T) => number, floor: number): T[]
  *
  * WHAT IT ORDERS IN THE PAIRWISE FALLBACK: the events `nearerAlongSharedBisector` leaves unordered, which share no
  * bisector or meet at one point. Two events that share no bisector consume no common edge, so their order decides no
- * pairing. Measured before it was built: reversing the edge-id order there changed no skeleton of `FULL_CORPUS`,
+ * pairing, only the numbering: reversing the edge-id order there changes no skeleton of `FULL_CORPUS`,
  * `HOLED_TEST_POLYGONS` or `WEIGHTED_TEST_POLYGONS` at any sampled starting vertex, none of the 11,878 islands of the two
  * mixed-pitch fuzzes, and no sweep-harness record but 135 along-edge digests, by node and edge numbering alone, every
- * node position bit-identical; this order, against the edge-id order, measured the same with 138. So it decides the
- * numbering, and the numbering now follows the geometry rather than the order the caller listed the vertices in; within
- * one point, where nothing geometric tells two events apart, the edge ids still decide.
+ * node position bit-identical; this order, against the edge-id order, measures the same with 138 (BSA.D335). So the
+ * numbering follows the geometry rather than the order the caller listed the vertices in; within one point, where
+ * nothing geometric tells two events apart, the edge ids decide.
  *
- * THE COST, STATED: a place is a coordinate, and the edge ids it replaces carry no arithmetic (journal decision 65). Two
- * events whose x or y lie a floor apart can change cells under a placement that moves them by an ulp, and their nodes
- * swap ids. The floor keeps that to gaps at the floor's own scale, where the edge-id order had none.
+ * THE COST, STATED: a place is a coordinate, and edge ids carry no arithmetic (journal decision 65). Two events whose
+ * x or y lie a floor apart can change cells under a placement that moves them by an ulp, and their nodes swap ids. The
+ * floor keeps that to gaps at the floor's own scale, where an edge-id order has none.
  *
  * EXPORTED FOR ITS OWN TEST, not for other callers — see `arrival-ordering.test.ts`.
  */
@@ -265,7 +264,7 @@ export function inPlaceOrder(events: CollisionEvent[], floor: number): (first: C
 /**
  * The events of the EARLIEST arrival moment in `events` — the first of {@link arrivalMoments}, and nothing after it.
  *
- * THE MOMENT, NOT THE LAYER. `collisionsToHandle` is an `fp_compare` window on the best offset: an
+ * THE MOMENT, NOT THE LAYER. The layer (`layerWindow` in algorithm-complex-cases.ts) is an `fp_compare` window on the best offset: an
  * ABSOLUTE 1e-8 on offsets of order 1e-1, so roughly 1e8 ulps wide. Everything inside it is resolved
  * in one step, and each interior event CONSUMES its edges — so a window that wide is a claim that
  * arrivals up to eight orders apart in the wavefront clock happened together. Journal decision 102

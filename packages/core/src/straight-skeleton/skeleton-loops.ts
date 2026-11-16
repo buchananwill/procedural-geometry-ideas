@@ -59,8 +59,8 @@ export interface LoopGroup {
 
 /**
  * Decision 28's first half: a loop that crosses itself, by `findFirstCrossing` on each loop, which skips an
- * endpoint touch at δ (C8 spec T24). A collinear overlap of two non-adjacent edges of one loop stays unseen,
- * as it is today (the spec's deferred list).
+ * endpoint touch at δ (C8 spec T24). A collinear overlap of two non-adjacent edges of one loop is not seen
+ * (the spec's deferred list).
  */
 function findSelfCrossing(loops: readonly (readonly Vector2[])[], perceptualFloor: number): LoopConflict | null {
     for (let k = 0; k < loops.length; k++) {
@@ -75,7 +75,7 @@ function findSelfCrossing(loops: readonly (readonly Vector2[])[], perceptualFloo
 /**
  * Decision 28's second half: a hole whose area is under `degenerateAreaBar(δ, perimeter)`, because its signed
  * area has no sign the solver can trust. The outline is not asked: a single degenerate loop fails honestly
- * downstream, as it does today.
+ * downstream.
  */
 function findDegenerateHole(loops: readonly (readonly Vector2[])[], perceptualFloor: number): LoopConflict | null {
     for (let k = 1; k < loops.length; k++) {
@@ -212,7 +212,7 @@ function findNestingConflict(loops: readonly (readonly Vector2[])[]): LoopConfli
  * in: `solveSkeleton` asks in unit space, on the loops the solver will be given (decision 23).
  *
  * Contact includes A LOOP THAT TOUCHES ITSELF (decision 49), asked of every loop here, because this is asked only
- * of a holed input: a single loop with no holes never reaches it and solves as it always did.
+ * of a holed input: a single loop with no holes never reaches it, and a self-crossing one is decomposed.
  */
 export function findLoopConflict(loops: readonly (readonly Vector2[])[], perceptualFloor: number): LoopConflict | null {
     return findSelfCrossing(loops, perceptualFloor)
@@ -228,7 +228,7 @@ export function loopName(loop: number): string {
 }
 
 /**
- * The prefix a refusal of one loop carries (decision 16): `''` for the outline, whose messages stay word for word, and
+ * The prefix a refusal of one loop carries (decision 16): `''` for the outline, whose messages carry no prefix, and
  * `Hole k: ` for the caller's hole `k`, which is loop `k + 1`.
  */
 export function loopRefusalPrefix(loop: number): string {

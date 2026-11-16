@@ -224,14 +224,12 @@ export function bisectionsForMergeOnWall(
  *   the classic edge-collapse event);
  * - two or more runs — a partition, one new bisector per resulting sub-polygon.
  *
- * PARENTS AND SOURCE ONLY: THE DIRECTION IS NOT THIS FUNCTION'S TO GUESS. Each gap used to be
- * handed an `approximateDirection` — the bisection of the two arrivals bracketing it — for
- * `addBisectionEdge` to flip its parent-derived basis with. That construction is SYMMETRIC in the
- * two arrivals, so a two-run event gave both of its gaps the same hint while the gaps face opposite
- * ways: it was wrong for one of them by construction. It only ever reached the basis where the
- * offset rate is zero, which is the anti-parallel-parent case, and there the ordered parent pair
- * already says which way the corridor runs. Three fixtures were being drawn wrong on the strength
- * of it — see `addBisectionEdge`.
+ * PARENTS AND SOURCE ONLY: THE DIRECTION IS NOT THIS FUNCTION'S TO GUESS. A direction hint taken
+ * from the two arrivals bracketing a gap — their bisection — is SYMMETRIC in the two arrivals, so a
+ * two-run event would give both of its gaps the same hint while the gaps face opposite ways: wrong
+ * for one of them by construction. The ordered parent pair fixes the direction on its own, including
+ * where the offset rate is zero (the anti-parallel-parent case), where it says which way the corridor
+ * runs — see `addBisectionEdge`.
  */
 export function bisectionsForMerge(
     ring: number[],

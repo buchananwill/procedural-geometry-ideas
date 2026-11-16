@@ -50,13 +50,13 @@ export interface WholeEvents {
  * A merge is resolvable as a whole if all its arrivals lie on one wavefront ring, or, ON A STEP OF SEVERAL RINGS,
  * if they are one run on each of two rings (simultaneous-rings spec, decisions 3 and 7): a vertex event across
  * rings, whose two bisectors `bisectionsOfWholeMerge` bears. Any other merge across rings sends the layer to
- * the narrowing and, failing that, to `pairwiseLayerRefusal` (decision 21). And no two merges may claim the same edge —
+ * the narrowing and, failing that, to `pairwiseLayerRefusal` (simultaneous-rings decision 21). And no two merges may claim the same edge —
  * a bisector arrives somewhere once, so an edge in two merges means the first merge resolved would consume it and
  * strand the second. Deciding both for every merge before mutating anything keeps the answer all-or-nothing,
  * rather than leaving half a set resolved two different ways.
  *
- * On a step of one ring every merge lies on the one ring, every placement is `ring`, and the answer is today's
- * (decision 1).
+ * On a step of one ring every merge lies on the one ring and every placement is `ring`: the cross-ring reading is
+ * reached only on a step of several rings (simultaneous-rings spec, decision 1).
  */
 export function asWholeEvents(
     context: StraightSkeletonSolverContext,
@@ -97,8 +97,9 @@ export function asWholeEvents(
  * WHAT A LAYER RESOLVED WHOLE STILL REFUSES: the first merge, in the resolution's order, whose third-front meeting cannot
  * be resolved (flat-ring and third-front spec, decision 44); its {@link ThirdFront}'s resolution is the reason.
  *
- * The decision-21 clauses of {@link pairwiseLayerRefusal} are vacuous here by construction, so they are not asked
- * (decision 45 asked them of the layer's events less the splits of its third-front meetings). `asWholeEvents` resolved
+ * The simultaneous-rings decision-21 clauses of {@link pairwiseLayerRefusal}, which flat-ring and third-front decision 45
+ * states over the layer's events less the splits of its third-front meetings, are vacuous here by construction, so they
+ * are not asked. `asWholeEvents` resolved
  * the layer only because every merge lies on one ring or is one run on each of two, and no two merges share a bisector,
  * and its merges are the clustering at δ of the same interior events.
  */
@@ -114,7 +115,7 @@ export function wholeLayerRefusal(resolution: WholeEvents): Verdict<void> {
 }
 
 /**
- * WHAT A LAYER NOT RESOLVED WHOLE STILL REFUSES:
+ * WHAT A LAYER NOT RESOLVED WHOLE STILL REFUSES (skeleton simultaneous-rings spec):
  *
  *  - DECISION 21: a merge across rings that is not one run on each of two rings — three runs or more, two runs on one
  *    ring with a third ring, or a run that is its whole ring. Its pairing would depend on the angular order round the
@@ -124,8 +125,8 @@ export function wholeLayerRefusal(resolution: WholeEvents): Verdict<void> {
  *    time, which strands an arrival (A′, measured).
  *  - DECISION 22: a meeting on a third front — a split whose instigator is an arrival of a merge while neither end of
  *    its struck segment is ({@link meetsThirdFront}). A split whose struck segment does end on an arrival is a
- *    re-report of the vertex event (decision 18) and is void once the merge has consumed its instigator. (Skeleton
- *    flat-ring and third-front spec, decision 31.)
+ *    re-report of the vertex event (decision 18) and is void once the merge has consumed its instigator. In a layer
+ *    not resolved whole the meeting stays refused (skeleton flat-ring and third-front spec, decision 31).
  *
  * The merges are the layer's clustering at δ, the same `asWholeEvents` refused. `rings` are the step's rings at the
  * layer's start.
@@ -184,7 +185,7 @@ function meetsThirdFront(split: CollisionEvent, merge: CoincidentMerge): split i
 /**
  * A THIRD-FRONT MEETING OF A MERGE RESOLVED WHOLE (skeleton flat-ring and third-front spec, decision 30): the merge's
  * splits `S(M)`, by edge ids (`byEdgeIds`). Its resolution is the gaps of its runs, the one that faces the struck wall,
- * and the struck segment, of the first split (decisions 32 to 36); or, where it cannot be resolved, the reason
+ * and the struck segment, of the first split (that spec's decisions 32 to 36); or, where it cannot be resolved, the reason
  * (decision 44).
  */
 export interface ThirdFront {
@@ -201,8 +202,8 @@ function runsOf(placement: MergePlacement, members: readonly number[]): readonly
 }
 
 /**
- * The resolution with each merge's third-front meeting attached, where it has one (decisions 30 to 36 and 44), read
- * before any event is resolved and from runs, walls and weights only (decision 43). A merge's runs are read at the
+ * The resolution with each merge's third-front meeting attached, where it has one (flat-ring and third-front spec,
+ * decisions 30 to 36 and 44), read before any event is resolved and from runs, walls and weights only (decision 43). A merge's runs are read at the
  * layer's start, over all its members.
  */
 export function withThirdFronts(
@@ -248,7 +249,7 @@ function thirdFrontOf(
  * THE BISECTORS A MERGE RESOLVED WHOLE BEARS at `nodeId`, linked in `layer`, its `arrivals` already terminated there.
  *
  * A VERTEX EVENT ACROSS TWO RINGS (simultaneous-rings spec, decisions 3 to 8) bears the two bisectors of its two runs'
- * cycle; every other merge lies on one ring and bears one bisector per gap between its runs of arrivals, as always
+ * cycle; every other merge lies on one ring and bears one bisector per gap between its runs of arrivals
  * ({@link bisectionsForMerge}). A MERGE WHOSE NODE LIES ON A THIRD FRONT (flat-ring and third-front spec, decisions 37 to
  * 42) bears its clear gaps and, in place of the gap facing the struck wall, the wall's cut at the node. A third front
  * whose resolution was refused never reaches here: the layer was refused before anything was resolved.

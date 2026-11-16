@@ -5,7 +5,7 @@ import {findFirstCrossing} from "./polygon-decomposition";
 import {refuseStep} from "./step-scope";
 import {formatRing} from "./verdict";
 
-// ── Components: which child each ring goes to (decisions 10 to 17) ────────────────────────────────
+// ── Components: which child each ring goes to (skeleton join-and-divide spec, decisions 10 to 17) ────────────────────────────────
 
 /**
  * A ring's polygon at the layer's `time`: each bisector born in the layer (`newborn`) at its source node, and each older

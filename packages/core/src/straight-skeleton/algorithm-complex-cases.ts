@@ -62,17 +62,17 @@ export function selectPartitionEvents(layer: LayerLinks, partitionEvents: Bisect
      * */
     // THE ORDER IS THE ARC ROUND THE PENDING BISECTOR'S RING (skeleton join-and-divide spec, decisions 25 to 27):
     // `partitionArc` sums the gaps between consecutive clockwise parents round the ring, a gap within one loop
-    // counted in clockwise steps and a gap between two loops as 1. It replaced `partitionSpan`, the id interval
-    // `(ws − cw + n) mod n`, which has no meaning across loops; on one loop the arc telescopes to exactly that span,
-    // so the births are numbered as they were. This order decides no child step — the rings do — but it is the order
-    // the partition bisectors are BORN in, and it chooses which of two same-start, same-source re-reports survives.
-    // Ordering by ring size instead (BSA.F96) left out the closed edges inside the arc and renumbered 16 digests.
+    // counted in clockwise steps and a gap between two loops as 1. An id interval `(ws − cw + n) mod n` has no
+    // meaning across loops; on one loop the arc telescopes to exactly that span. This order decides no child step —
+    // the rings do — but it is the order the partition bisectors are BORN in, and it chooses which of two
+    // same-start, same-source re-reports survives. Ring size is not a substitute: it leaves out the closed edges
+    // inside the arc and renumbers the births (16 digests, BSA.F96).
     const arcs = new Map(partitionEvents.map(params => [params, partitionArc(layer, params)] as const));
     const arcOf = (params: BisectionParams) => arcs.get(params)!;
     // NO ACCEPTED-PARENT FILTER (skeleton edge-acceptance spec, decision 7). Acceptance changes only at step
     // boundaries, and at the last one every parent of every birth of this layer was named by a then-live bisector,
-    // so no partition event here can name an accepted edge. A silently refused birth is how early acceptance broke
-    // rings; `addBisectionEdge`'s throw is the one guard left, so such a birth would be a step failure.
+    // so no partition event here can name an accepted edge. A silently refused birth breaks its ring, so
+    // `addBisectionEdge`'s throw is the guard, and such a birth is a step failure.
     const sorted = partitionEvents
         .toSorted((params1, params2) => {
             const arcDelta = arcOf(params1) - arcOf(params2);
@@ -88,14 +88,15 @@ export function selectPartitionEvents(layer: LayerLinks, partitionEvents: Bisect
     // span is the tightest claim and wins. Same-start events from DIFFERENT split nodes are
     // distinct simultaneous splits of that exterior edge — two reflex bisectors splitting it at
     // different points in one layer — and every one of them partitions the polygon, so all
-    // survive. Which child each survivor's bisector lands in is no longer a question of spans: the
-    // child steps below are the rings the layer left.
+    // survive. Which child each survivor's bisector lands in is not a question of spans: the child
+    // steps are the rings the layer left.
     //
     // AND A RE-REPORT IS DROPPED ONLY WHERE THE LINKS AGREE IT IS ONE (BSA.F97 finding 1, BSA.D293). Two
     // splits sited at one point share their node, so their bisectors on the struck edge's far side share a
     // start and a source and look like a re-report; they are two splits, and dropping either leaves its two
-    // neighbours with parents that do not meet. `droppableBirths` keeps any such candidate. Every drop the
-    // rosters make goes with a whole ring of dropped births, and is kept as it was.
+    // neighbours with parents that do not meet. `droppableBirths` keeps any such candidate: a run of candidates
+    // goes only where the parents on either side of it meet. On every roster each drop goes with a whole ring of
+    // dropped births.
     const keptSourcesByStart = new Map<number, Set<number>>();
     const duplicates = new Set<BisectionParams>();
     for (const partitionEvent of sorted) {
@@ -166,7 +167,7 @@ function orderChildren(
 }
 
 /**
- * THE CHILD STEPS OF A STEP OF SEVERAL RINGS: ITS COMPONENTS (decisions 10 to 17). `rings` are the rings the layer left
+ * THE CHILD STEPS OF A STEP OF SEVERAL RINGS: ITS COMPONENTS (join-and-divide spec, decisions 10 to 17). `rings` are the rings the layer left
  * over the step's outgoing bisectors (`outgoing`, in the order they were gathered), less any closed flat; they are
  * classified and grouped by {@link componentsOfRings} at `layerTime`, and each component — an outer ring and the inner
  * rings inside it — is one child, in the order {@link orderChildren} gives.
@@ -202,6 +203,8 @@ function componentsAsChildren(
  *  8. {@link childrenOfSeveralRings} or {@link childrenOfOneRing}: the child steps.
  */
 export function handleInteriorNGon(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepInput[] {
+    // THE GUARD IS "AT LEAST THREE": a step of two bisectors is the pair's. The thrown text's "Greater than 3" is not
+    // the rule; the test below is.
     if (input.interiorEdges.length < 3) {
         throw new Error("Greater than 3 edges required for generic step handling.")
     }
@@ -212,15 +215,15 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     const layer = new LayerLinks(context);
 
     // THE STEP'S RINGS ARE THE LINKS' RINGS, ALWAYS (skeleton join-and-divide spec, decision 1), read at the layer's
-    // start. A step of one ring is every step of a single-loop solve and is handled exactly as before; a step of
-    // several rings — an outline and the holes inside it — resolves a vertex event across two rings whole
-    // (simultaneous-rings spec, decisions 3 to 8), refuses by name what it does not settle (decisions 20 to 22), and
-    // leaves its components as children (join-and-divide spec, decisions 10 to 17; simultaneous-rings decision 12).
+    // start. Every step of a single-loop solve is a step of one ring. A step of several rings — an outline and the
+    // holes inside it — resolves a vertex event across two rings whole (simultaneous-rings spec, decisions 3 to 8),
+    // refuses by name what it does not settle (decisions 20 to 22), and leaves its components as children
+    // (join-and-divide spec, decisions 10 to 17; simultaneous-rings decision 12).
     const rings = ringsOfWavefront(context, input.interiorEdges);
 
-    // DECISION 7: the step's exterior parents as today, duplicates included. An edge bounding two segments of one
-    // step is listed twice, and its two reports of one split are one event: the first resolved retires the
-    // instigator.
+    // THE STEP'S EXTERIOR PARENTS, DUPLICATES INCLUDED (join-and-divide spec, decision 7). An edge bounding two
+    // segments of one step is listed twice, and its two reports of one split are one event: the first resolved
+    // retires the instigator.
     const exteriorParents = context.exteriorParentsOfSubPolygon(input.interiorEdges);
 
     const collisions = createCollisions(input.interiorEdges, exteriorParents, context);
@@ -249,22 +252,18 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
  *
  * W-spec W24: the layer window, on arrivals. `bestArrival` is the earliest by the same
  * comparator, and the window is compared against it, ANCHORED on the earliest arrival (journal
- * decision 155) and stated per pair (C8 spec T13). Census S22: the window is HELD at 1e-8
- * (`HELD_SIMULTANEITY_WINDOW`) — its move to the solve's `simultaneityWindow` (δ, T12) hit T37's
- * STOPs, measured by toggle; see the constant. At unit weights every product is by `1.0` and this
+ * decision 155) and stated per pair (C8 spec T13). The window is the held 1e-8
+ * (`HELD_SIMULTANEITY_WINDOW`, census S22), not the solve's `simultaneityWindow` (δ, T12): see the
+ * constant for the measured STOPs that hold it. At unit weights every product is by `1.0` and this
  * is `fp_compare(offset, bestOffset, 1e-8) <= 0` on an offset-ascending list.
  *
- * REGISTER C12 MEASURED THE PER-PAIR FORM HERE WITH THE COMPLETE ERROR MODEL (journal-5 decision 167)
- * AND IT STOPPED — see "THE WINDOW AND THE BOX" in constants.ts. Two readings of "every arrival within
- * the per-pair window of the earliest" were measured. FILTERING the whole list admits a later arrival
- * with a wide budget while refusing an earlier one of the SAME EDGE with a narrow budget: on `Off-edge
- * Jitter Plus (seed 7919)` the ring [22, 25, 26, 43, 45] took 26 × 43 (4.07e-11 after the earliest,
- * budget 2.79e-11) into the layer with 25 × 45 (budget 1.52e-11) and left 22 × 43 (2.29e-11 after it,
- * budget 2.2e-15) out, and a direction violation appeared. The PREFIX form — this loop's own shape,
- * cut at the first refusal — removes that, but still resolves a wide-budget arrival with the earliest
- * while a narrow-budget arrival of the same edges, unorderable against it, is left out: `Off-edge Jitter
- * Plus`, k = 9, seed 23757 took 164 × 229 (8.6e-11 after a split, budget 9.5e-10) with the split and
- * left 164 × 237 (2.8e-12 later still, budget 1.1e-11), and its strips came out 1.1% short.
+ * THE LAYER IS A PREFIX, CUT AT THE FIRST ARRIVAL OUTSIDE THE WINDOW, NEVER A FILTER OF THE WHOLE LIST.
+ * A filter under a per-pair window admits a later arrival with a wide budget while refusing an earlier
+ * one of the same edge with a narrow budget, and the step then wires against causality. The per-pair
+ * window with the complete error model (journal-5 decision 167) is not spent here: even as a prefix it
+ * resolves a wide-budget arrival with the earliest while leaving out a narrow-budget arrival of the same
+ * edges that is unorderable against it. Measured: tolerance-derivation-decisions.md, "Measurement record",
+ * "The per-pair layer window, filtered and as a prefix".
  */
 function layerWindow(collisions: readonly ResolvableEvent[]): ResolvableEvent[] {
     const collisionsToHandle: ResolvableEvent[] = [];
@@ -291,13 +290,13 @@ function layerWindow(collisions: readonly ResolvableEvent[]): ResolvableEvent[] 
  * A STEP THAT PRODUCED NO EVENT: the completion event that becomes its layer, or `null` when a closure finished the
  * step, its layer settled.
  *
- * DECISION 23: a step of several rings with no event never climbs the terminal ladder; it is refused. Its closures and
- * its coaxial completion are statements about one live set, and would pair bisectors of different rings.
+ * A STEP OF SEVERAL RINGS WITH NO EVENT NEVER CLIMBS THE TERMINAL LADDER; it is refused (join-and-divide spec,
+ * decision 23). Its closures and its coaxial completion are statements about one live set, and would pair bisectors of
+ * different rings.
  *
  * THE TERMINAL LADDER (journal decision 145), the same one the pair and the triangle climb:
  * an n-gon whose live edges produce no event is a generalisation of the triangle that does,
- * and it was refused the same handling only because the terminal cases were first
- * characterised too simply. The throw below stands ONLY where no rung applies and no
+ * and takes the same handling. The throw below stands ONLY where no rung applies and no
  * candidate pair exists.
  */
 function terminalLadderLayer(
@@ -344,33 +343,26 @@ function terminalLadderLayer(
  * where a single point can absorb every edge at once.
  *
  * THE RINGS ARE THE WAVEFRONT'S, READ FROM ITS LINKS (skeleton wavefront-order spec, decision 20; skeleton
- * join-and-divide spec, decision 1), `rings`. `ringsOfSubPolygon`, whose `null` once sent a layer to the
- * pairwise fallback, is deleted: it keyed a ring on a unique widdershins parent, which every joined ring breaks
- * (BSA.F91), and part A found it `null` on no layer of any roster (BSA.F95).
+ * join-and-divide spec, decision 1), `rings`. A ring is never keyed on a unique widdershins parent: every joined
+ * ring breaks that key (BSA.F91).
  *
  * WHEN THE WHOLE-EVENT RESOLUTION REFUSES THE LAYER, THE ANSWER IS A NARROWER LAYER — NOT A
- * PAIRWISE ONE. Journal decision 102: strict linear causality, the earliest arrival wins. That
- * ruling was applied to the ORDER events are read in and not to how many of them one step
- * CONSUMES, and the gap between those two is this defect. `window` ({@link layerWindow}) is an
- * `fp_compare` window — an absolute 1e-8 on offsets of order 1e-1, some 1e8 ulps wide — and the
- * pairwise fallback used to resolve all of it, so arrivals a million ulps apart in the wavefront
- * clock were consumed as though they were simultaneous.
- *
- * WHAT THAT COST, MEASURED. Every refusal on this corpus is an edge claimed by two merges at
- * once, and every one of those is one wavefront closing at two points a few render floors apart
- * at offsets a few hundredths of an ulp-moment apart — a near-degenerate ring, not a
- * simultaneous event. Resolved whole, BOTH closures fire in one step and each emits its own
- * bisector into the corridor between them, where a ridge admits one; on `(seed 55433, k=4)` a
- * three-way arrival is paired two at a time and the leftover wires backwards (that fixture's
- * pinned direction violation, `wavefront-causality.test.ts`, and this narrowing's own
- * conviction). Narrowed to the earliest moment, the earlier closure resolves alone and the later
- * one is RECOMPUTED next step against the wavefront the first one left, so the third arrival of
- * a three-way event terminates on the node the first two built.
+ * PAIRWISE ONE. Journal decision 102: strict linear causality, the earliest arrival wins, and it
+ * governs how many events one step CONSUMES as well as the order they are read in. `window`
+ * ({@link layerWindow}) is an `fp_compare` window — an absolute 1e-8 on offsets of order 1e-1, some
+ * 1e8 ulps wide — so resolving all of it pairwise would consume arrivals a million ulps apart in the
+ * wavefront clock as though they were simultaneous. A refused layer is one wavefront closing at two
+ * points a few render floors apart: resolved in one step, both closures fire and each emits its own
+ * bisector into the corridor between them, where a ridge admits one, and a three-way arrival paired
+ * two at a time wires its leftover backwards. Narrowed to the earliest moment, the earlier closure
+ * resolves alone and the later one is RECOMPUTED next step against the wavefront the first one left,
+ * so the third arrival of a three-way event terminates on the node the first two built.
  *
  * ONLY WHERE THE WHOLE-EVENT RESOLUTION HAS ALREADY REFUSED, and that restraint is load-bearing:
  * narrowing unconditionally breaks the k-way hubs this file's clustering exists for — the
- * reciprocal reports of one 48-way convergence are not within the ulp bar of each other — and
- * was measured at over thirty failures across ten suites, F27's finding restated.
+ * reciprocal reports of one 48-way convergence are not within the ulp bar of each other (F27).
+ * Measured: solver-coincidence-and-terminal-cases-decisions.md, "Measurement record", "Narrowing a
+ * refused layer to its earliest arrival moment".
  *
  * The two nodes still exist and are still a few floors apart. That separation is real structure
  * (journal decision 92 / F26a) and contracting it is downstream's business, not the solver's.
@@ -427,8 +419,8 @@ function refuseUnsettledLayer(
  *
  * THE PAIRWISE FALLBACK IS A PAIRING RULE. Each event here consumes its two edges, so whichever
  * reported pair is handled first is the pair the ring collapses on and every rival report of
- * those edges returns empty. That makes arrival order load-bearing, not cosmetic. It now only
- * ever sees ONE arrival moment, so the pairing it decides is between arrivals no offset separates.
+ * those edges returns empty. That makes arrival order load-bearing, not cosmetic. It only ever
+ * sees ONE arrival moment, so the pairing it decides is between arrivals no offset separates.
  * Within it, a meeting nearer along a bisector both events lie on goes first (BSA.D335), and the
  * tie-break decides only what that leaves unordered: priority, then place (`inPlaceOrder`, BSA.D335
  * stage 2), and the edge ids only between events that meet at one point.
@@ -454,22 +446,18 @@ function resolvePairwise(
  * THE LAYER RESOLVED WHOLE: every merge, in the resolution's order ({@link resolveWholeMerge}), then every split
  * ({@link resolveSplits}); returns each one's bisections, in that order.
  *
- * NO CONCURRENCY GATE HERE, AND THE MEASUREMENT IS WHY. The tolerance audit's placed-node
- * spec would resolve an arrival set to one node only where its PARENT set is concurrent —
- * full rank and residual under a bar — and refuse loudly otherwise, because a least-squares
- * node over a non-concurrent parent set is on none of the pairwise bisector loci (F32/F39).
- * Swept over the 346 merges this branch actually resolves across the corpus: 253 carry three
- * distinct oriented normals, 88 carry four, four are the high-degree hubs (10/16/32/48), and
- * the worst concurrency residual anywhere is 5.56e-12 — three orders inside `EQUIDISTANCE_BAR`,
- * with 344 of the 346 at machine zero. Exactly ONE set is rank-deficient: a two-arrival
- * head-on corridor closure on `(seed 7919)` whose position comes from the collision itself
- * and whose residual is 2.8e-17, which is the case a rank test would have refused wrongly.
- *
- * The pairs the audit measured as rank-2 — the 29/30 class — never reach this branch as one
- * set at all: the narrowing ({@link resolveLayerEvents}) separates them into two arrival moments, so they resolve
- * as two nodes joined by one ridge, which is what the rank-2 ruling prescribes, reached by
- * causality instead of by a rank predicate. The gate is therefore unbuilt because the corpus
- * offers nothing to convict it on, in the manner of journal decision 107(b).
+ * NO CONCURRENCY GATE HERE. A gate would resolve an arrival set to one node only where its PARENT set
+ * is concurrent — full rank and residual under a bar — because a least-squares node over a
+ * non-concurrent parent set is on none of the pairwise bisector loci (F32/F39). Over the corpus every
+ * merge resolved here is concurrent to well inside `EQUIDISTANCE_BAR`, and the one rank-deficient set
+ * is a two-arrival head-on corridor closure whose position comes from the collision itself, which a
+ * rank test would refuse wrongly. The rank-2 pairs — the 29/30 class — never reach this branch as one
+ * set: the narrowing ({@link resolveLayerEvents}) separates them into two arrival moments, so they
+ * resolve as two nodes joined by one ridge, which is what the rank-2 ruling prescribes, reached by
+ * causality instead of by a rank predicate. The gate is unbuilt because the corpus offers nothing to
+ * convict it on, in the manner of journal decision 107(b). Measured:
+ * solver-coincidence-and-terminal-cases-decisions.md, "Measurement record", "Concurrency of the merges
+ * resolved whole".
  */
 function resolveWhole(
     context: StraightSkeletonSolverContext,
@@ -530,14 +518,14 @@ function resolveWholeMerge(
  *
  * Splits of one layer landing on one point are ONE vertex event, and this is where they are
  * told so. `handleCollisionEvent` places a node at whatever position it is handed, so two
- * simultaneous splits a fraction of the render floor apart used to build two nodes joined by
- * a degenerate pair of bisectors. Only the POSITION is resolved here; each split still emits
- * its own bisections, and `findOrAddNode` does the joining.
+ * simultaneous splits a fraction of the render floor apart, each at its own position, would build
+ * two nodes joined by a degenerate pair of bisectors. Only the POSITION is resolved here; each split
+ * still emits its own bisections, and `findOrAddNode` does the joining.
  *
  * THE SPLITS ARE SITED IN EDGE-ID ORDER, so events an offset cannot separate are still resolved in an order
  * that is a function of the events themselves. Each one CREATES A NODE, so an order the offsets decide makes
- * node identity turn on an ulp: `Golf Cart`'s two simultaneous splits of its top edge (journal F12) swapped ids
- * under a translation of 1e3, the defect decision 65 records for the ellipses' mirror pair. Edge ids are
+ * node identity turn on an ulp: in offset order `Golf Cart`'s two simultaneous splits of its top edge (journal
+ * F12) swap ids under a translation of 1e3, the defect decision 65 records for the ellipses' mirror pair. Edge ids are
  * integers from the polygon's own vertex order and carry no arithmetic. Every event here is a split, of one
  * priority, so priority decides nothing among them.
  */
@@ -593,7 +581,8 @@ function bearBirths(
         }
     }
 
-    // A RING MADE ONLY OF THIS LAYER'S BIRTHS, ALL AT ONE NODE, CLOSES THERE AND NONE OF IT IS BORN (decision 32):
+    // A RING MADE ONLY OF THIS LAYER'S BIRTHS, ALL AT ONE NODE, CLOSES THERE AND NONE OF IT IS BORN (skeleton
+    // edge-acceptance spec, decision 32):
     // it has no extent. It is the residue of a vertex event resolved pairwise, two births with each other's parents
     // at the node where their shared face has just closed. Read from the links and the source node alone.
     const closedAtOneNode = birthsClosedAtOneNode(layer);
@@ -611,9 +600,9 @@ function bearBirths(
         return id;
     };
 
-    // NO ACCEPTED-PARENT FILTER ON EITHER KIND OF BIRTH (decision 7). None can fire under the boundary rule, and a
-    // silently refused birth is how early acceptance broke rings: `addBisectionEdge`'s throw is the one guard left,
-    // so a birth with a finished parent becomes a step failure.
+    // NO ACCEPTED-PARENT FILTER ON EITHER KIND OF BIRTH (skeleton edge-acceptance spec, decision 7). None can fire
+    // under the boundary rule, and a silently refused birth breaks its ring: `addBisectionEdge`'s throw is the
+    // guard, so a birth with a finished parent becomes a step failure.
     // Indexed as `finalPartitionEvents`: the bisector each partition event bore.
     const partitionBirths = finalPartitionEvents.map(bear);
     allOutgoingInteriorEdges.push(...partitionBirths)
@@ -655,13 +644,14 @@ function childrenOfSeveralRings(
 
 /**
  * THE CHILD STEPS OF A STEP OF ONE RING: the step's outgoing bisectors as one child where the layer bore no partition;
- * else THE RINGS THE LAYER LEFT (skeleton wavefront-order spec, decision 19). This replaced
- * an assignment of each bisector to the first id interval holding both its parents, which presumed every
- * ring is an interval of ids: on the stage-off along-edge cells it shattered a true ring into one-edge
- * children (BSA.F95), and a ring joined from two loops is no interval at all (BSA.F91).
+ * else THE RINGS THE LAYER LEFT (skeleton wavefront-order spec, decision 19). A child is never an id interval
+ * holding both parents of each of its bisectors: a ring need not be an interval of ids — on the stage-off
+ * along-edge cells an interval assignment shatters a true ring into one-edge children (BSA.F95) — and a ring
+ * joined from two loops is no interval at all (BSA.F91).
  *
- * IN TODAY'S ORDER (decision 13), {@link orderChildren}'s. Part A measured that every child of every partitioning
- * layer of the corpus, the sweep and the census that completed was exactly one ring.
+ * The children are in {@link orderChildren}'s order, because child order numbers what later steps create
+ * (wavefront-order spec, decision 13). On every solve of the corpus, the sweep and the census that completes, every
+ * child of every partitioning layer is exactly one ring (the spec's part A measurement).
  */
 function childrenOfOneRing(
     context: StraightSkeletonSolverContext,

@@ -13,7 +13,7 @@ import {adjacentExteriorEdge} from "./graph-helpers";
  * two segments of one ring. Two bisectors are neighbours when the links say so ({@link areNeighbours}).
  * No id interval is left in the event path: the order a layer's partition births are born in is
  * `partitionArc` (`layer-links.ts`), a walk of the ring (skeleton join-and-divide spec, decisions 25 to 27), which
- * replaced `partitionSpan` and finds no neighbour.
+ * finds no neighbour.
  *
  * THE LINKS ARE THE SOLVER'S ONE SOURCE OF WAVEFRONT ORDER (decisions 19 to 22): an edge's segments, the
  * neighbour guard, a step's rings, a partitioning layer's child steps, whether two colliding bisectors are
@@ -227,9 +227,9 @@ export function wavefrontSegmentsOf(context: StraightSkeletonSolverContext, exte
  * segment of one of the instigator's own parents, or of the edge next to one. Such a strike is the edge
  * event of the instigator and its neighbour misread as a split.
  *
- * THIS REPLACED A COUNT OF UNACCEPTED EXTERIOR EDGE IDS between the struck edge and the instigator's
- * parents, which counted the edges of a sibling ring as if they lay between and so let through strikes on
- * a neighbour's neighbour (BSA.F95). The links count places along the instigator's own ring.
+ * NOT A COUNT OF UNACCEPTED EXTERIOR EDGE IDS between the struck edge and the instigator's parents: that
+ * counts the edges of a sibling ring as if they lay between and so lets through strikes on a neighbour's
+ * neighbour (BSA.F95). The links count places along the instigator's own ring.
  */
 export function linkGuardRefuses(
     context: StraightSkeletonSolverContext,

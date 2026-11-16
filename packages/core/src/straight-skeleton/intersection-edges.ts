@@ -44,37 +44,33 @@ export function symmetricLateralOffset(separation: Vector2, basis1: Vector2, bas
  * entirely on which side of ray 1's source the other source sits.
  *
  * THE LATERAL TEST IS A LANE AT THE CLIENT'S FLOOR, AND IT IS SYMMETRIC (spec A9/A10, journal
- * decisions 135 and 136). Two questions were confused here for as long as the function has existed.
- * "Do these two sources lie on one line?" is POSITIONAL — it is answered in distance, against the
- * bar the client measures visible distance with — and it was answered instead at
- * `FLOATING_POINT_EPSILON`, the arithmetic-equality bar, hybridised with a `Math.max(1, separation)`
- * that made it relative above unit separation and absolute below. That is the live defect journal
- * finding F57 traced: `r0.2.1` of `Off-edge Jitter Reflex L (seed 55433)` at merge 6 / depth 0.5 /
- * floor 1e-6 carries a corridor whose two mid-line sources are laterally offset by `2.754e-8` — 36×
- * INSIDE the client's floor, and 2.75× outside the epsilon — so the pair was refused a head-on
- * verdict, no collision was priced, no closure applied, and the sub-polygon threw.
+ * decisions 135 and 136). "Do these two sources lie on one line?" is POSITIONAL — it is answered in
+ * distance, against the bar the client measures visible distance with — and never at an
+ * arithmetic-equality bar. An arithmetic bar refuses a corridor whose two mid-line sources lie well
+ * inside the floor: journal finding F57 traced `r0.2.1` of `Off-edge Jitter Reflex L (seed 55433)` at
+ * merge 6 / depth 0.5 / floor 1e-6, whose two mid-line sources are laterally offset by `2.754e-8` — 36×
+ * INSIDE the client's floor, and 2.75× outside 1e-8 — so at 1e-8 the pair is refused a head-on verdict,
+ * no collision is priced, no closure applies, and the sub-polygon throws.
  *
- * The retired hybrid's own argument survives its retirement, and is why the bar is a DISTANCE rather
- * than a sine. A relative bar on a separation tending to zero is a bar tending to zero, while
- * head-on-ness is a property of the two DIRECTIONS, which do not shrink with it: a genuinely head-on
- * pair whose sources were 3.9e-8 apart came out with a lateral component of 6.2e-9 (numerically
- * zero) yet a unit direction 0.15 away from its basis, and was misread as 'parallel'. The absolute
- * lane keeps that case and loses the `max(1, …)` discontinuity at unit separation.
+ * AN ABSOLUTE DISTANCE, NOT A RELATIVE BAR OR A SINE. A relative bar on a separation tending to zero is
+ * a bar tending to zero, while head-on-ness is a property of the two DIRECTIONS, which do not shrink
+ * with it: a genuinely head-on pair whose sources are 3.9e-8 apart has a lateral component of 6.2e-9
+ * (numerically zero) yet a unit direction 0.15 away from its basis, which a sine reading calls
+ * 'parallel'. The absolute lane keeps that case and has no discontinuity at unit separation.
  *
  * SYMMETRIC BY DEFINITION, NOT AS A REFINEMENT. `intersectRays` orders its two rays by the winding
  * SIGN of a near-zero cross product, so a one-sided lateral is a verdict that can flip on the bases'
  * last bits. The two laterals differ by up to `|sep| · sine(b₁, b₂)`, and the pair's sine is bounded
- * only by the angular resolution (`1.7721e-5` at the library floor; the retired gate was
- * `1.4142e-4`), so at separations above about `0.06` the two readings straddle a `1e-6` lane and the
- * pair is head-on or parallel according to which ray the caller passed first. The conjunction removes the question: BOTH sources must lie in the lane.
+ * only by the angular resolution (`1.7721e-5` at the library floor), so at separations above about
+ * `0.06` the two readings straddle a `1e-6` lane and the pair is head-on or parallel according to which
+ * ray the caller passed first. The conjunction removes the question: BOTH sources must lie in the lane.
  *
  * THE FORWARD TEST STAYS ONE-SIDED, and that is a measurement rather than an oversight. Reaching
  * here means the pair is anti-parallel to within the angular resolution, so `dot(−sep, b₂)` and
  * `dot(sep, b₁)` agree in sign except where both are within `|sep| · angularResolution` of zero — and a separation that
  * nearly perpendicular carries a lateral of nearly `|sep|`, which the lane above has already
- * refused unless `|sep| < δ`. Until C8 dispatch 3 such a pair left by `intersectRays`' identical-source
- * exit first; that exit is EXACT now (S6), so a pair of distinct sources closer than δ reaches this test
- * and its exact forward sign decides — on the 580 measured cells, with no verdict moving.
+ * refused unless `|sep| < δ`. `intersectRays`' identical-source exit is EXACT (S6), so a pair of
+ * distinct sources closer than δ reaches this test and its exact forward sign decides.
  */
 function sourceLiesAhead(
     separation: Vector2,
@@ -84,7 +80,7 @@ function sourceLiesAhead(
 ): boolean {
     const forward = dotProduct(separation, basis1);
     // STRICTLY within the lane (C8 spec T7): one inequality for "the same point/line, before any node
-    // exists" across the package. This was `≤` until C8 — a boundary of measure zero, measured empty.
+    // exists" across the package. Strict and non-strict differ on a boundary of measure zero, measured empty.
     return forward > 0 && symmetricLateralOffset(separation, basis1, basis2) < coaxialityFloor;
 }
 
@@ -113,74 +109,18 @@ export function intersectRays(
     const relativeRay2Source = subtractVectors(ray2.sourceVector, ray1.sourceVector);
     const [r1SourceToR2Source, distanceToRay2] = normalize(relativeRay2Source);
 
-    /*
-     * THE IDENTICAL-SOURCE EXIT STAYS AT THE ARITHMETIC BAR, AND THAT IS A MEASURED NEGATIVE RESULT
-     * RATHER THAN AN OMISSION — spec A15's identical-source row, measured 2026-09-11 and REFERRED
-     * BACK TO THE LEAD.
-     *
-     * The spec's argument for moving it is sound on its face: "are these two sources one point?" is
-     * the degenerate case of "are these two sources on one line?", so asking the first at `1e-8`
-     * while the second is answered at the floor leaves a band in which a pair is one line and not
-     * one point, decided by nothing. The row was therefore written as `distanceToRay2 <=
-     * coaxialityFloor` and run over the whole corpus at the library floor.
-     *
-     * WHAT IT DOES IS NOT A CURE. Twenty pinned assertions across four suites move, and every one of
-     * them moves the same way: a solve that FAILED LOUDLY starts reporting `complete: true` with an
-     * empty diagnostics list, while still carrying the violations that made it a defect. Audited with
-     * `wavefront-causality.test.ts`'s own three oracles, re-derived from geometry:
-     *
-     *   - `NEAR_REGULAR_CIRCLE_32` jittered 15 epsilons at seed 2 — the cell
-     *     `near-regular-polygons.test.ts` pins expressly as "a signalled failure rather than a
-     *     backwards-bisector pass" — comes back complete with 2 offset violations, 2 DIRECTION
-     *     violations (one at `dot = -0.98`, a bisector wired essentially straight backwards) and 2
-     *     clearance violations;
-     *   - `NEAR_REGULAR_CIRCLE_48` at translation 1e10: complete, with 2 offset, 4 direction and 5
-     *     clearance violations;
-     *   - `NEAR_REGULAR_ROSETTE5_40` at translation 1e11: complete, with 1 offset and 13 clearance
-     *     violations.
-     *
-     * A defect that stops announcing itself is a defect that got WORSE (journal decision 72's
-     * doctrine, decision 134(c), spec A25's STOP 4), and rewriting the corpus's failure register is
-     * the lead's call and not a delegate's — the precedent is journal decision 126, which left
-     * W-spec W33 unimplemented on exactly this reasoning. The mechanism is plain enough to state:
-     * these fixtures fail because a k-way convergence half-merges into hubs a few times `1e-8`
-     * apart, and a `1e-6` identical-source exit swallows the whole half-merge, terminating pairs
-     * that should have collided and reporting the wreck as finished.
-     *
-     * The coaxiality lane itself (`sourceLiesAhead`) is untouched by this and stands; it is a
-     * different site with a different measurement. Left here, reported rather than papered over.
-     *
-     * RE-MEASURED 2026-09-23 UNDER JOURNAL DECISION 138(a)'s INSTRUMENT, AND REVERTED AGAIN (journal
-     * decisions 144 and 146, dispatch 1 of the angular package). The move was made again on top of
-     * the derived angular resolution, and it STANDS only if every causality oracle count (offset,
-     * clearance, direction) is zero or unchanged on every cell AND no solve goes from a signalled
-     * failure to `complete: true` with empty diagnostics. Measured over `FULL_CORPUS`, Circle 48 and
-     * Rosette5 40 at the forty-six fine translations 1e8..1e13, and `NEAR_REGULAR_CIRCLE_32` jittered
-     * at 1/3/10/15/30/100 epsilons of its span over seeds 0..7 (199 cells):
-     *
-     *   - the corpus itself is untouched — every fixture's verdict and oracle counts identical;
-     *   - 32 cells go from a signalled failure to complete with empty diagnostics — 12 of Circle 48
-     *     (2e9, 5e9..1e10, 2e10..6e10), 13 of Rosette5 40 (7e10..1e12) and 7 jittered circles, among
-     *     them 15@2 again (offset 0→2, clearance 0→2, direction 0→2);
-     *   - 68 cells grow an oracle count — Circle 48 at 4e10..6e10 goes to 8 offset and 8 direction
-     *     violations from 2 and 1 — and 15 jittered-circle cells that solved now fail.
-     *
-     * Both halves of the instrument fail, so the exit stays at the arithmetic bar until the tolerance
-     * package (register C8) moves the half-merge windows that feed it.
-     */
-    //
-    // EXACT SINCE C8 DISPATCH 3 (census S6; spec T9, T28, T29; journal decision 161(e)): `separation
+    // THE IDENTICAL-SOURCE EXIT IS EXACT (census S6; spec T9, T28, T29; journal decision 161(e)): `separation
     // === 0`. Acceptance terminates the pair as ONE POINT — it discards an answer the solver has already
     // produced — so under T2 it takes the arithmetic's bar, and for two STORED node positions that bar's
     // degenerate case is bit identity. Two distinct sources within δ are the coaxiality lane's question
     // (S7, S8), which keeps every node; that is F66's asymmetry, ruled by T28.
     //
-    // HISTORY. Held at a named literal `1e-8` through dispatches 1 and 2 while T33 waited on the window;
-    // decision 161(e) dissolved that precondition (the held window IS the tree these sites live on). The
-    // band (0, 1e-8) was measured EMPTY in dispatch 2 over its 580 cells — `FULL_CORPUS` at 1e-6 and
-    // 1e-5, Circle 48 and Rosette5 40 at the 46 fine translations, the off-edge 1e-3 and along-edge 1.0
-    // jitter grids, the jittered Circle 32 ladder — with 0 cells moving, and RE-MEASURED on landing:
-    // still empty, 0 of 580 cells moving. `tolerance-derivation.test.ts` asserts the exit and the band.
+    // NOT THE FLOOR. An exit at δ swallows the half-merges of a k-way convergence (hubs a few times 1e-8
+    // apart), terminating pairs that should have collided, and turns signalled failures into `complete: true`
+    // with empty diagnostics while their violations remain — a defect that stops announcing itself is a
+    // defect that got WORSE (journal decision 72's doctrine). `tolerance-derivation.test.ts` asserts the exit
+    // and the empty band (0, 1e-8). Measured: tolerance-derivation-decisions.md, "Measurement record", "The
+    // identical-source exit (S6)".
     if (distanceToRay2 === 0) {
         return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, 'identical-source'];
     }
@@ -195,12 +135,8 @@ export function intersectRays(
     // division by the sine cannot place the meeting point to within the client's floor (spec A3), and
     // under ordering (i) at equality (spec A11) the pair is IDENTICAL in direction: it leaves by the
     // collinear, head-on or parallel exits below and is never priced. At or above it, it is priced.
-    // Was the retired `PARALLEL_GATE_SINE_BAR`, the scratch epsilon read through `areEqual(|dot|, 1)`.
-    //
-    // MEASURED 2026-09-23: the full-graph digest is bit-identical across all 59 fixtures, and on the
-    // off-edge jitter sweeps the move re-pairs four cells structurally (node counts ±1, no oracle
-    // moves) and gives ONE unpinned cell — the plus at k = 10, seed 23757 — one offset and one
-    // direction violation it did not have, while it still completes. Reported, not pinned.
+    // Measured: tolerance-derivation-decisions.md, "Measurement record", "The near-parallel gate at the
+    // angular resolution".
     if (sineIsBelow(ray1.basisVector, ray2.basisVector, angularResolution)) {
         if (dotOfBasisVectors > 0) {
             // BOTH COLLINEARITY EXITS IN THE COAXIAL FORM — spec A15's row, journal decisions 147(e)
@@ -209,18 +145,18 @@ export function intersectRays(
             // sources on one line — so they take its form: the forward sign exact, and the SYMMETRIC
             // lateral within the coaxiality lane, a distance at the client's floor.
             //
-            // They used to be asked as a SINE at the angular resolution (`directionsAreSame` on the
-            // raw separation), which is the category error spec A9 names: a sine bar on a separation
-            // is a lateral bar that grows with the separation, so two same-way sources half a unit
-            // apart were one line at a lateral of 8.9e-6 — nearly nine times the library floor, a
-            // distance the client can see — and one at a unit's separation at 1.8e-5.
+            // NOT A SINE ON THE RAW SEPARATION (`directionsAreSame` at the angular resolution), which is
+            // the category error spec A9 names: a sine bar on a separation is a lateral bar that grows
+            // with the separation, so two same-way sources half a unit apart would be one line at a
+            // lateral of 8.9e-6 — nearly nine times the library floor, a distance the client can see —
+            // and at a unit's separation at 1.8e-5.
             //
             // The two exits still share one bar and one lateral, and are mirror images: the lateral is
             // symmetric in the two bases, so neither exit can admit a pair the other refuses on
             // lateral grounds, and the forward signs `dot(sep, b₁)` and `dot(sep, −b₂)` agree except
             // where both are within `|sep| · angularResolution` of zero — a separation that nearly
             // perpendicular carries a lateral of nearly `|sep|`, which the lane refuses unless `|sep| < δ`
-            // (the identical-source exit above no longer takes that case: it is exact since C8 dispatch 3).
+            // (the identical-source exit above does not take that case: it is exact).
             const lateral = symmetricLateralOffset(relativeRay2Source, ray1.basisVector, ray2.basisVector);
             // Strictly within the lane (C8 spec T7), as `sourceLiesAhead`.
             if (lateral < coaxialityFloor) {

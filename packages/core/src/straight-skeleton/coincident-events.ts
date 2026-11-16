@@ -21,25 +21,22 @@ import {inwardDistanceFromWall} from "./wall-time";
  * perturbation the boundary stage would have erased must not survive as two skeleton nodes it did
  * not erase, and one tolerance system is the point.
  *
- * WHAT THE EPSILON BAR LEFT BEHIND, MEASURED. On `OFF_EDGE_JITTER_L_SEED_15838` the wavefront
- * reaches a ridge where four walls are equidistant, and resolved it as two events 3.13e-7 apart in
- * unit space — correctly distinct at 31 times the epsilon, and 2.7e-7 of the polygon's extent, so a
- * **7480x** zoom would be needed to put two pixels between the nodes they produced. The pair then
- * carried a bisector leaving one of them 5.2e-6 radians from its neighbour, which is a distinction
- * no downstream planar consumer can act on.
+ * An arithmetic bar keeps as two nodes events no downstream planar consumer can tell apart: a
+ * ridge where four walls are equidistant resolves as two events 2.7e-7 of the polygon's extent
+ * apart, with a bisector between them a few microradians from its neighbour. Measured:
+ * solver-coincidence-and-terminal-cases-decisions.md, "Measurement record", "Coincidence at the
+ * perceptual floor".
  *
  * A DISTANCE, NOT A BOUNDING BOX. `vectorsAreEqual` compares components, which at the epsilon scale
  * is indistinguishable from a distance and at this scale is a square up to sqrt(2) wider on the
  * diagonal than on the axes. The floor is a statement about how far apart two points are.
  *
- * RESOLVED HERE, BEFORE ANY NODE EXISTS, AND THAT IS THE WHOLE MECHANISM. The rejected first
- * attempt widened `findOrAddNode` instead, so a later arrival was absorbed into a node already
- * placed and already carrying edges: the arriving edge was re-pointed at a target its own wavefront
- * vertex never travelled to, which put an edge on `OFF_EDGE_JITTER_L_SEED_15838` running BACKWARDS
- * in the wavefront clock, took its census from 0 failed regions to 4, cost the strips their exact
- * tiling, and stopped two CLEAN fixtures solving under translation. Merged at the event layer the
- * hub is computed from its whole arrival set at once — the path a regular n-gon's k-way hub already
- * takes — and none of that arises. See F27.
+ * RESOLVED HERE, BEFORE ANY NODE EXISTS, AND THAT IS THE WHOLE MECHANISM. Widening `findOrAddNode`
+ * instead would absorb a later arrival into a node already placed and already carrying edges: the
+ * arriving edge is re-pointed at a target its own wavefront vertex never travelled to, and runs
+ * BACKWARDS in the wavefront clock (F27; measured in the same record). Merged at the event layer the
+ * hub is computed from its whole arrival set at once — the path a regular n-gon's k-way hub takes —
+ * and none of that arises.
  *
  * `floor` IS THE CLIENT'S, NOT A MODULE CONSTANT — journal decision 106. It arrives on the solver
  * context, defaulting to `SKELETON_NOISE_FLOOR`, and it is the SAME question the canonicalisation
@@ -80,36 +77,31 @@ export interface CoincidentMerge {
  * separate groups; events at the same point are one vertex event however many pairs
  * reported it.
  *
- * ANCHORED, NOT TRANSITIVE (journal decision 155(b), C8 dispatch 1). "Approximately equals" is not
- * an equivalence relation and the solver must never claim transitivity: A ≈ B and B ≈ C do not give
- * A ≈ C. The clustering used to be CONNECTED COMPONENTS under `isOneEvent` — single linkage, so a run
- * of events each within the floor of the next became one group however far its extremes lay apart —
- * and that is exactly the claim the ruling forbids. It is now anchored: events are visited EARLIEST
- * ARRIVAL FIRST, each joins the nearest existing anchor within the floor, and an event within the
- * floor of no anchor becomes an anchor itself. Every group therefore lies within the floor of its
- * earliest arrival's position and its diameter is below twice the floor, and a many-way meeting the
- * floor cannot hold in one group yields two nodes inside the floor, which decision 141 admits.
+ * ANCHORED, NOT TRANSITIVE (journal decision 155(b)). "Approximately equals" is not an equivalence
+ * relation and the solver must never claim transitivity: A ≈ B and B ≈ C do not give A ≈ C. So the
+ * groups are not CONNECTED COMPONENTS under `isOneEvent` — single linkage, where a run of events each
+ * within the floor of the next becomes one group however far its extremes lie apart — which is
+ * exactly the claim the ruling forbids. They are anchored: events are visited EARLIEST ARRIVAL FIRST,
+ * each joins the nearest existing anchor within the floor, and an event within the floor of no anchor
+ * becomes an anchor itself. Every group therefore lies within the floor of its earliest arrival's
+ * position and its diameter is below twice the floor, and a many-way meeting the floor cannot hold in
+ * one group yields two nodes inside the floor, which decision 141 admits. On the corpus every
+ * component lies inside the floor, so there the anchored partition IS the component partition.
+ * Measured: tolerance-derivation-decisions.md, "Measurement record", "The component-diameter census
+ * of the coincidence clustering".
  *
- * MEASURED BEFORE IT MOVED (C8 dispatch 1, the component-diameter census): over `FULL_CORPUS` at 1e-6
- * and 1e-5, Circle 48 and Rosette5 40 at the 46 fine translations, and the jitter sweeps (the 160-cell
- * off-edge 1e-3 grid, the 160-cell along-edge stage-off grid, the 48-cell jittered Circle 32 ladder),
- * 23 421 components were formed. On the corpus the widest was 5.44e-7 at 1e-6 and 4.42e-6 at 1e-5 —
- * inside the floor, so there the anchored partition IS the component partition and nothing moves. Off
- * it, 15 components were wider than the floor (Circle 48 at 4e10, 5e10, 6e10 and 2e11; eleven
- * off-edge jitter cells; widest 1.906e-6), and those are the cells this restatement moves.
- *
- * NOT FIRST MATCH IN ARRIVAL ORDER. The oldest form of this function joined each event to the first
- * group already within tolerance of it in the order the layer happened to list them, which made the
- * partition depend on list order (a 48-gon fan left it as four groups). The anchored form visits the
- * events in a CANONICAL order — exact arrival, then the colliding edge ids, then position — so the
- * partition is a function of the event set, not of how it was listed.
+ * NOT FIRST MATCH IN LIST ORDER. Joining each event to the first group already within tolerance of
+ * it, in the order the layer happens to list them, makes the partition depend on list order (a 48-gon
+ * fan splits into four groups). The anchored form visits the events in a CANONICAL order — exact
+ * arrival, then the colliding edge ids, then position — so the partition is a function of the event
+ * set, not of how it was listed.
  *
  * THE RESULT IS A CANONICAL FUNCTION OF THE EVENT SET, not of the order it arrived in: each
  * merge's `edgeIds` ascending, and the merges themselves ordered by their smallest edge id. The
  * caller resolves them in this order and therefore NUMBERS THE NODES it creates in this order.
  * Arrival order is the offset sort's order, and offsets that are equal in exact arithmetic differ
- * by an ulp once the input is scaled, so numbering from arrival made node identity turn on an ulp:
- * the two interior nodes of an exact mirror pair swapped ids between a polygon and the same polygon
+ * by an ulp once the input is scaled, so numbering from arrival makes node identity turn on an ulp:
+ * the two interior nodes of an exact mirror pair swap ids between a polygon and the same polygon
  * scaled by 7 (`NEAR_REGULAR_ELLIPSE_16/32`, journal decision 65). Edge ids are integers assigned
  * from the polygon's own vertex order, so the key carries no arithmetic at all.
  *
@@ -134,10 +126,10 @@ export function clusterCoincidentMerges(events: CollisionEvent[], floor: number)
  * The anchored partition's own postcondition: no two ANCHORS of one layer lie inside the perceptual
  * floor of each other, and every merge's representative lies inside the floor of its own anchor.
  *
- * RESTATED UNDER JOURNAL DECISION 155. This gate used to assert that no two merge POSITIONS lie within
- * the floor of each other — a claim that "within the floor" is one event, which is transitivity by
- * another name, and which an anchored partition does not (and must not) guarantee: two clusters whose
- * anchors are a floor apart can have medoids closer than that, and decision 141 admits the two nodes.
+ * IT DOES NOT ASSERT THAT NO TWO MERGE POSITIONS LIE WITHIN THE FLOOR OF EACH OTHER (journal decision
+ * 155). That would claim "within the floor" is one event, which is transitivity by another name, and
+ * which an anchored partition does not (and must not) guarantee: two clusters whose anchors are a floor
+ * apart can have medoids closer than that, and decision 141 admits the two nodes.
  * What the anchored construction DOES guarantee is checked rather than trusted: anchors pairwise
  * separated (an event within the floor of an anchor joins it rather than founding its own), and each
  * representative a member, hence within the floor of its anchor. A CENTROID representative breaks
@@ -173,8 +165,8 @@ export function assertMergesAreAnchored(merges: CoincidentMerge[], floor: number
  * the medoid of the event's own coincidence component, or its own position when it has no company.
  *
  * FOR THE EVENTS THAT NEVER REACH {@link clusterCoincidentMerges} — the split/partition arrivals,
- * which `handleCollisionEvent` resolves in a pass of its own and which therefore built a node each,
- * however close together they landed (journal decision 85). Two splits of one layer at one point are
+ * which `handleCollisionEvent` resolves in a pass of its own and which would otherwise build a node
+ * each, however close together they land (journal decision 85). Two splits of one layer at one point are
  * one vertex event by exactly the argument decision 78 makes about every other kind, and this gives
  * that pass the same identity without giving it the merge machinery: the caller re-points the event
  * at the resolved position and `findOrAddNode` then hands both arrivals the same node.
@@ -184,30 +176,28 @@ export function assertMergesAreAnchored(merges: CoincidentMerge[], floor: number
  * where from. The same medoid convention as the merge path, for the same reason — a member of the
  * set, never a centroid that no arrival visited.
  *
- * A GROUP THE ARITHMETIC SAME-POINT BAR ALREADY UNIFIES IS LEFT EXACTLY ALONE, and that restraint is
- * what keeps this change to the pairs it is for. Where every member is within `findOrAddNode`'s own
+ * A GROUP THE ARITHMETIC SAME-POINT BAR ALREADY UNIFIES IS LEFT EXACTLY ALONE, and that restraint
+ * keeps the re-pointing to the groups it is for. Where every member is within `findOrAddNode`'s own
  * bar ({@link ARITHMETIC_SAME_POINT_BOX}, C8 census S2) of the representative, `findOrAddNode` already
  * hands them one node at the first-established member's position; re-pointing them at the medoid
- * would move that node by whichever member the centroid happens to favour. Measured, that is not
- * hypothetical: it moves one coordinate by one ulp on four CLEAN fixtures, for no gain at all — they
- * were one node before and one node after. The defect is the group the node lookup does NOT unify,
- * and only that group is touched.
+ * would move that node by whichever member the centroid happens to favour — one coordinate by one ulp
+ * on four CLEAN fixtures that are one node either way. The group the node lookup does NOT unify is the
+ * one this exists for, and only that group is touched.
  *
- * REGISTER C12 MEASURED THIS BAR EXACT, WITH THE BOX, AND IT IS HELD WITH IT (journal-5 decision 167;
- * see "THE WINDOW AND THE BOX" in constants.ts). Read as coordinate equality alone it re-points the
- * re-report groups of seven CLEAN fixtures (`Failing Long Octagon`, `Not Solvable Heptagon`, `Long
- * Unbroken Side Then Extreme Acute Angle`, `Incorrect Ordering e38-e30 Collision`, both `Premature
- * Bisector Split`s, `Short Edge Promontory`) — every one a group of reports of ONE split, one instigator,
- * 0.03 to 1.93 ulps apart — and moves their digests by that much. The exact form that moved no clean
- * digest also left alone any group whose members all name one instigator, which acceptance already
- * resolves to one node (the first resolved consumes the instigator; the rest place nothing).
+ * THE BAR IS THE HELD BOX, HELD WITH THE WINDOW (journal-5 decision 167; see "THE WINDOW AND THE BOX"
+ * in constants.ts). Read as coordinate equality alone it re-points groups of reports of ONE split, one
+ * instigator, fractions of an ulp to two ulps apart, and moves clean digests by that much; an exact
+ * form would also have to leave alone any group whose members all name one instigator, which
+ * acceptance already resolves to one node (the first resolved consumes the instigator; the rest place
+ * nothing). Measured: tolerance-derivation-decisions.md, "Measurement record", "The split sites'
+ * same-point bar read exact".
  *
  * The same ANCHORED grouping as {@link clusterCoincidentMerges} (journal decision 155).
  *
  * A MOVED EVENT IS CHARGED FOR THE MOVE (journal-5 decision 171(c)): the caller raises the node's budget to
  * the equi-time residual of the bisectors each re-pointed split emits there — the merge's own term
- * ({@link chargeSitingResidual}, below). Unpaid, the residual rode those bisectors to their
- * next meeting unbudgeted: 13 off-edge plus cells carried a split node up to 2.3e-4 caller units off its
+ * ({@link chargeSitingResidual}, below). Unpaid, the residual rides those bisectors to their next
+ * meeting unbudgeted: 13 off-edge plus cells carry a split node up to 2.3e-4 caller units off its
  * bisectors' loci against a budget of 7.5e-13.
  */
 export function coincidentEventPositions(events: CollisionEvent[], floor: number): Vector2[] {

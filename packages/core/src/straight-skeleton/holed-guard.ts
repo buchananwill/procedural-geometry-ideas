@@ -39,7 +39,7 @@ import type {WallReading} from './wall-time';
  *
  * WHAT IT IS NOT. It reads the graph and changes nothing: no event, link, acceptance or node. It moves no tolerance:
  * every comparison reads the solve's perceptual floor. It runs only on a result with more than one loop that would
- * otherwise be complete, so no single-loop result changes. It does not test containment or the faces.
+ * otherwise be complete, so it never reads a single-loop result. It does not test containment or the faces.
  */
 
 /** The informational kind: the one kind this guard pushes that does not make a result incomplete. */

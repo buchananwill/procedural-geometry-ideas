@@ -49,15 +49,15 @@ import {
  *
  * W-spec W7 and W22, arc journal decision 112(b) and 112(c). Under weights the wavefront of exterior
  * edge `i` stands at perpendicular distance `w_i · t` from its supporting line at time `t`, so every
- * quantity the solver used to compute as a perpendicular distance IS a time once divided by the
- * weight of the edge it was measured against. The division is performed exactly once, by
+ * quantity the solver computes as a perpendicular distance IS a time once divided by the weight of
+ * the edge it was measured against. The division is performed exactly once, by
  * {@link timeOf}, and only for reporting, sorting keys and denormalisation; every TOLERANCE decision
  * is taken on the undivided pair by cross-multiplication.
  *
- * AT UNIT WEIGHTS EVERY ONE OF THESE IS TODAY'S ARITHMETIC. Each product is by `1.0`, which is exact
- * for every finite double, so the operands and the operation order below are the ones the unweighted
- * solver used. That is the whole mechanism behind arc decision 112(d)'s bit-identity bar — there is
- * no branch on unit weights anywhere (W-spec W36).
+ * AT UNIT WEIGHTS EVERY ONE OF THESE IS THE UNWEIGHTED ARITHMETIC. Each product is by `1.0`, which is
+ * exact for every finite double, so the operands and the operation order below are those of an
+ * unweighted solve. That is the whole mechanism behind arc decision 112(d)'s bit-identity bar — there
+ * is no branch on unit weights anywhere (W-spec W36).
  */
 
 /** The `intersectRays` verdicts under which two interior rays have no collision at all. */
@@ -91,18 +91,12 @@ export function timeOf(arrival: Arrival): number {
  *
  * A literal `cap = 0` makes the window `0`: an exact comparison.
  *
- * LANDED AND MEASURED TWICE, NOT SPENT — A MEASURED STOP BOTH TIMES (T16, T37). REGISTER C12 (journal-5
- * decision 167) spent it at all seven sites S22–S28, through {@link compareArrivalsAtPairWindow}, with the
- * budgets of the COMPLETE first-order model and the same-point box exact beside it: the three fixtures
- * dispatch 2 split were gathered and unmoved, and the move STOPPED elsewhere (see "THE WINDOW AND THE BOX"
- * in constants.ts). The sites spend `HELD_SIMULTANEITY_WINDOW` through {@link compareArrivals}.
- *
- * C8 dispatch 2 measured this window with the DIVISION-ONLY budget and it STOPPED (T16, T37): 211
- * of 580 sweep cells moved, `Near Regular Circle 48` and the regular circles stopped solving, and two
- * CLEAN digests moved (`Near Regular Peanut 32`: `e37 × e57`, readings 5.0e-15 apart against a moment bar
- * of 2.9e-15 and budgets of 6.4e-16 each; `Slightly Deformed Peanut 2`). F71 read the gap as the rounding
- * of the bases, the rates and the source offsets that budget did not charge; F74 found the circles'
- * failure was the held BOX re-joining a later layer's merge onto an orphan's own source.
+ * NOT SPENT: the seven sites S22–S28 spend `HELD_SIMULTANEITY_WINDOW` through {@link compareArrivals}.
+ * Spent at all seven through {@link compareArrivalsAtPairWindow} — with the division-only budget, and
+ * again with the COMPLETE first-order model and the same-point box exact beside it — this window is a
+ * measured STOP both times (T16, T37; journal-5 decision 167; "THE WINDOW AND THE BOX" in constants.ts).
+ * Measured: tolerance-derivation-decisions.md, "Measurement record", "The per-pair simultaneity window
+ * spent at the seven sites".
  *
  * NOT FOR PORT: this, {@link compareArrivalsAtPairWindow} and {@link arrivalsAreSimultaneous} have no solver caller.
  */
@@ -153,16 +147,15 @@ export function arrivalsShareMoment(first: Arrival, second: Arrival): boolean {
  * (T22). At unit weights it reads `|d₁ − d₂| < window`, the operands and operation order of the
  * unweighted solver.
  *
- * The seven window sites pass `HELD_SIMULTANEITY_WINDOW`: T12's amended per-pair form
- * ({@link compareArrivalsAtPairWindow}) is landed but its move hit T37's STOPs, in C8 dispatch 2 and again
- * in register C12 (see {@link pairSimultaneityWindow}).
+ * The seven window sites pass `HELD_SIMULTANEITY_WINDOW`, not T12's amended per-pair form
+ * ({@link compareArrivalsAtPairWindow}), which is a measured STOP (see {@link pairSimultaneityWindow}).
  *
  * NO DEFAULT (T4): every caller states its window, or a literal `0` where it only ORDERS (S31).
  *
  * AN EXACTLY ZERO DIFFERENCE IS NEVER AN ORDERING, even at `window = 0`. That is not a widening:
  * `fp_compare` reports `1` for two identical operands at a zero epsilon (its window is strict), and
- * this comparator is handed to `toSorted` in three places where today's `a - b` returns `0` for a
- * tie and leaves the stable order alone. Preserving that is what keeps the layer sort bit-identical.
+ * this comparator is handed to `toSorted`, where a tie must return `0` so the stable sort leaves tied
+ * events in their given order. The layer's order, and the ids it numbers, depend on that.
  */
 export function compareArrivals(a: Arrival, b: Arrival, window: number): -1 | 0 | 1 {
     const left = a.distance * b.weight;
@@ -194,9 +187,9 @@ export function arrivalsAreEqual(a: Arrival, b: Arrival, window: number): boolea
  * `cap·min(w₁, w₂)`; otherwise the sign of the difference. An exactly zero difference is one moment, as in
  * {@link compareArrivals}.
  *
- * LANDED, NOT SPENT: register C12 moved the seven "are these two arrivals one moment?" sites (S22–S28) to
- * it, each passing the solve's `simultaneityWindow` (δ) as the cap, and the move STOPPED (see
- * {@link pairSimultaneityWindow}); the sites hold `HELD_SIMULTANEITY_WINDOW`.
+ * NOT SPENT: the seven "are these two arrivals one moment?" sites (S22–S28) hold `HELD_SIMULTANEITY_WINDOW`.
+ * Moved here, each passing the solve's `simultaneityWindow` (δ) as the cap, they are a measured STOP (see
+ * {@link pairSimultaneityWindow}).
  *
  * NEVER TRANSITIVE (decision 155): it answers for ONE PAIR.
  */
@@ -223,10 +216,10 @@ export function laterArrival(a: Arrival, b: Arrival): Arrival {
 /**
  * The arrival of a bisector `alongRay` units along its own ray, as the pair (W-spec W7).
  *
- * The distance half is {@link makeOffsetDistance}, unchanged and untouched (W-spec W6): the
+ * The distance half is {@link makeOffsetDistance}'s unweighted arithmetic (W-spec W6): the
  * perpendicular distance from the bisector's clockwise parent's supporting line is exactly what a
- * time needs beside a weight, and leaving its arithmetic alone is what makes every unit-weight
- * number downstream bit-identical.
+ * time needs beside a weight, and keeping that arithmetic is what makes every unit-weight number
+ * downstream bit-identical to an unweighted solve.
  *
  * `alongRayUncertainty` is the error budget of `alongRay`, stated by the caller that priced it:
  * {@link rayIntersectionUncertainty} for a ray intersection, {@link meetHeadOn}'s for a head-on meeting,
@@ -338,7 +331,7 @@ export function separationUncertainty(firstBudget: number, secondBudget: number,
  * The error budget of the travel along `ray1` to its intersection with `ray2`, as `intersectRays` prices
  * it — the COMPLETE first-order model's part (i), (iii) and (iv): {@link rayIntersectionAlongUncertainty}
  * (constants.ts), with the sine and the separation read from the rays exactly as `intersectRays` reads
- * them. C8 dispatch 2's division-only `k·u·|sep|/sin²θ` is its term (iv).
+ * them. The division-only `k·u·|sep|/sin²θ` is its term (iv).
  */
 export function rayIntersectionUncertainty(
     ray1: RayProjection,
@@ -357,7 +350,7 @@ export function rayIntersectionUncertainty(
  */
 export function bestNonPhantomCollision(events: CollisionEvent[]): CollisionEvent | undefined {
     // W-spec W27. At unit weights `byArrival` is the sign of `a.distance - b.distance` with a tie
-    // reported as `0`, which is what `a.offsetDistance - b.offsetDistance` gave.
+    // reported as `0`: the order of `a.offsetDistance - b.offsetDistance`.
     return events
             .filter(e => e.eventType !== 'phantomDivergentOffset' && e.eventType !== 'outOfBounds')
             .sort(byArrival)[0]
@@ -373,9 +366,9 @@ export function sourceOffsetDistance(edge: InteriorEdge, context: StraightSkelet
 }
 
 /**
- * The source offset and its error budget ({@link sourceOffsetUncertainty}, part (iii) of the model). The
- * arithmetic of the offset is `sourceOffsetDistance`'s, unchanged; a primary bisector's is exactly `0`
- * with a budget of `0`.
+ * The source offset and its error budget ({@link sourceOffsetUncertainty}, part (iii) of the model);
+ * `sourceOffsetDistance` reads its offset from here. A primary bisector's is exactly `0` with a budget
+ * of `0`.
  */
 export function sourceOffsetWithBudget(edge: InteriorEdge, context: StraightSkeletonSolverContext): [number, number] {
     const edgeRank = context.edgeRank(edge.id);
@@ -414,7 +407,7 @@ export function makeOffsetDistance(edge: InteriorEdge, context: StraightSkeleton
 }
 
 /**
- * {@link makeOffsetDistance}'s distance — its arithmetic unchanged — and the distance's error budget under
+ * {@link makeOffsetDistance}'s distance and the distance's error budget under
  * the COMPLETE first-order model ({@link arrivalUncertainty}, constants.ts): the source offset's budget,
  * the travel's (`alongRayUncertainty`, stated by the caller that priced the travel), and the offset
  * rate's forward error at this edge's basis ({@link offsetRateForwardError}).
@@ -429,37 +422,17 @@ export function offsetDistanceWithBudget(
     const [sourceOffset, sourceBudget] = sourceOffsetWithBudget(edge, context);
     // "There is no offset gradient against this parent" — a substitution of 0 for the computed rate.
     //
-    // HISTORY (the move to the angular resolution, refused): THE BAR STAYED AT THE SCRATCH EPSILON — A
-    // MEASURED STOP, NOT AN OMISSION (spec A15's `makeOffsetDistance` row, A25 STOP 3; journal decision 146). Moved to the angular resolution, on
-    // its own and with every other site at its old bar, and RE-MEASURED 2026-09-23 on the current tree
-    // under the solver's own causality check (journal-5 decisions 148, 149): ONE defect fixture stops
-    // solving — `Off-edge Jitter Reflex L (seed 55433, k=4)`, with step failures and unresolved edges —
-    // and three stay complete while gaining violations, every one of them diagnosed as a
-    // `causality-violation` (offset/clearance/direction): `(seed 15838)` 0/0/0 → 1/1/1, `(seed 55433)`
-    // 0/0/0 → 1/0/1, `Off-edge Jitter Plus (seed 7919)` 0/0/0 → 0/1/0. (The earlier measurement
-    // recorded here had all three reflex-L fixtures stop solving; it no longer holds.) The mechanism is inferred rather than traced: a
-    // ray whose rate against its parent is a few parts in 1e6 — a slightly skewed corridor mid-line —
-    // is then priced as travelling at CONSTANT offset while its partner's arrival is priced at its
-    // true rate, and the equi-time check that follows (`arrivalsAreEqual`, still at the scratch
-    // epsilon) reads the pair as phantom. The time windows are the tolerance package's (register C8),
-    // and this site moves with them.
-    //
-    // THE OFFSET RATE'S FORWARD ROUNDING BOUND, 8u, SINCE C8 DISPATCH 3 (census S20; spec T2, T30; journal
-    // decisions 161(e) and 164). Acceptance SUBSTITUTES 0 for a computed rate, so under T2 it may discard
-    // only what the arithmetic cannot vouch for: whether the exact geometry's rate is zero, which charges
-    // the normalised bases' own direction errors as well as the evaluation — `offsetRateIsArithmeticZero`,
-    // argued at `FORWARD_CROSS_PRODUCT_ROUNDING_UNITS` in constants.ts. `alongRay · rate` has no division
-    // in it, so every rate outside the bound is priced as it is. Held at a named sine literal `1e-8`
-    // through dispatches 1 and 2 (T33's precondition, dissolved by decision 161(e)). `addBisectionEdge`'s
-    // zero rate (S19) asks the same of the same operand; measured at this bar, it stays held (see there).
-    //
-    // MEASURED on dispatch 2's 580 cells. At the retired 1e-8, 37 evaluations of a rate in (2u, 1e-8) were
-    // zeroed, on three cells: `Golf Cart` at 1e-6 and at 1e-5 (e16 and e21, |rate| 7.28e-16 = 3.3u) and the
-    // jittered Circle 32 at 1 × 1e-8, seed 5 (e70, 6.22e-9). `k·u`, landed first in dispatch 3, priced all
-    // of them and moved the `Golf Cart` digest pin (e16 and e21's `maxOffset` by tens of ulps); at 8u the
-    // `Golf Cart` rates are zeroed again and its pin is back to native. What is now priced is e70 alone —
-    // one bisector on one cell, 19 evaluations — and this site moves no cell: geometry,
-    // verdict, node count, every oracle and every digest pin unmoved.
+    // THE BAR IS THE OFFSET RATE'S FORWARD ROUNDING BOUND, 8u (census S20; spec T2, T30; journal decisions
+    // 161(e) and 164). Acceptance SUBSTITUTES 0 for a computed rate, so under T2 it may discard only what the
+    // arithmetic cannot vouch for: whether the exact geometry's rate is zero, which charges the normalised
+    // bases' own direction errors as well as the evaluation — `offsetRateIsArithmeticZero`, argued at
+    // `FORWARD_CROSS_PRODUCT_ROUNDING_UNITS` in constants.ts. `alongRay · rate` has no division in it, so every
+    // rate outside the bound is priced as it is. A perceptual bar (the angular resolution) is wrong here: it
+    // stops solves and grows causality violations, by the inferred (not traced) mechanism that a ray whose
+    // rate is a few parts in 1e6 — a slightly skewed corridor mid-line — is priced at CONSTANT offset while
+    // its partner is priced at its true rate. `addBisectionEdge`'s zero rate (S19) asks the same of the same operand, and stays
+    // held (see there). Measured: tolerance-derivation-decisions.md, "Measurement record", "The offset-rate
+    // zero test (S20)".
     const rate = crossProduct(ray.basisVector, context.clockwiseParent(edge).basisVector);
     const noGradient = offsetRateIsArithmeticZero(rate);
     const deltaOffset = noGradient ? 0 : collisionDistanceFromBasisUnits(ray.basisVector, alongRay, context.clockwiseParent(edge).basisVector);
@@ -500,11 +473,11 @@ function offsetRate(edge: InteriorEdge, ray: RayProjection, context: StraightSke
  *     E_alongA =  E_N/|Δ|  +  |alongA|·E_Δ/|Δ|  +  u·|alongA|
  *     E_alongB =  E_alongA  +  E_sep  +  u·|alongB|
  *
- * — the two rates' FORWARD errors (`E_r`, {@link offsetRateForwardError}) where C8 dispatch 2 charged only
- * the divisor's backward rounding; the two source offsets' budgets (`E_s`, part iii); the separation's
+ * — the two rates' FORWARD errors (`E_r`, {@link offsetRateForwardError}), not only the divisor's backward
+ * rounding; the two source offsets' budgets (`E_s`, part iii); the separation's
  * ({@link separationUncertainty}: the sources' carried budgets and its own rounding); the three products
  * and two sums of the numerator rounding once each; and the quotient and the final subtraction. The
- * GUARD above is unchanged: it asks whether the evaluated divisor has a sign, a backward question (T19).
+ * GUARD below is the backward question, whether the evaluated divisor has a sign (T19), not this budget.
  */
 function meetHeadOn(
     edgeA: InteriorEdge,
@@ -522,8 +495,8 @@ function meetHeadOn(
     const termB = rateB * weightA;
     const combinedRate = termA + termB;
 
-    // A DIVISION-SAFETY TEST, NOT AN ANGLE QUESTION (spec A15's `meetHeadOn` row), RE-DERIVED FROM THE
-    // UNIT ROUNDOFF (spec A6 as amended, journal decision 144) — it was `FLOATING_POINT_EPSILON·wA·wB`.
+    // A DIVISION-SAFETY TEST, NOT AN ANGLE QUESTION (spec A15's `meetHeadOn` row), DERIVED FROM THE
+    // UNIT ROUNDOFF (spec A6 as amended, journal decision 144).
     // The question is whether the evaluated sum is distinguishable from an arithmetic zero, so the bar
     // is the sum's own rounding-error bound. Each rate is a cross product of unit vectors, off by at
     // most `k·u` absolutely (`k` = `CROSS_PRODUCT_ROUNDING_UNITS` = 2, argued in constants.ts); each
@@ -533,10 +506,9 @@ function meetHeadOn(
     //
     // A sum inside that bound has no sign and no magnitude the arithmetic can vouch for, so no time
     // at which the two agree can be computed from it: the pair has no head-on meeting (`null`).
-    // At unit weights the bound is at most `8u ≈ 8.9e-16`, seven orders inside the old `1e-8`;
-    // measured 2026-09-23, no evaluation on `FULL_CORPUS` falls between the two.
-    // The bound is now one shared function (C8 spec T19), the same expression in the same order, so
-    // this site and the two split divisors it is the pattern for (S33, S34) spend one bound bit for bit.
+    // At unit weights the bound is at most `8u ≈ 8.9e-16`; no evaluation on `FULL_CORPUS` falls between
+    // it and 1e-8. The bound is one shared function (C8 spec T19), the same expression in the same order,
+    // so this site and the two split divisors it is the pattern for (S33, S34) spend one bound bit for bit.
     const cancellationBound = weightedRateSumRoundingBound(termA, termB, weightA, weightB);
     if (Math.abs(combinedRate) <= cancellationBound) {
         return null;
@@ -576,36 +548,24 @@ function meetHeadOn(
  * arrivals has HAPPENED — the offset by which both participants have reached the meeting point, not the offset at
  * which whichever of them reported the event got there. {@link priceHeadOnPair} reads its pair the same way.
  *
- * ONE EVENT MUST CARRY ONE TIME, and until this existed it did not. `offsetDistance` is measured
- * from `edgeA`'s clockwise parent and `offsetTarget` from `edgeB`'s, and `createCollisions` reports
- * every pair from both directions, so one physical arrival reached the solver as two events with two
- * different offsets. Measured on `OFF_EDGE_JITTER_L_SEED_55433_K4`: `ie42 x ie52` is reported at
- * 2.929716788515e-1 by `ie42` and 2.929716789418e-1 by `ie52` — 9.03e-11 apart, on an offset of
- * 2.93e-1 — while `ie42 x ie54` at the same point agrees to one ulp. With linear causality as the
- * solver's model (journal decision 102) that asymmetry is not cosmetic: it decides pairings, and it
- * let the LATEST arrival of a five-edge ring present itself as the earliest by naming the faster
- * participant's clock.
+ * ONE EVENT MUST CARRY ONE TIME. The pair's two readings are measured from `edgeA`'s clockwise parent
+ * and from `edgeB`'s, and `createCollisions` reports every pair from both directions, so without this
+ * rule one physical arrival reaches the solver as two events with two different offsets. On
+ * `OFF_EDGE_JITTER_L_SEED_55433_K4`, `ie42 x ie52` is reported at 2.929716788515e-1 by `ie42` and
+ * 2.929716789418e-1 by `ie52` — 9.03e-11 apart, on an offset of 2.93e-1 — while `ie42 x ie54` at the
+ * same point agrees to one ulp. With linear causality as the solver's model (journal decision 102)
+ * that asymmetry is not cosmetic: it decides pairings, and it lets the LATEST arrival of a five-edge
+ * ring present itself as the earliest by naming the faster participant's clock.
  *
- * NOT ROUNDING — THE WALLS ARE NOT CONCURRENT, and this was measured before the correction was
- * written. At that meeting point the perpendicular distance to `ie42`'s two parents is
- * 2.929716788515e-1 and to `ie52`'s is 2.929716789418e-1: each ray sits on its own equidistant locus
- * to within 3e-19, and the loci genuinely cross 9.03e-11 out of step. So there is no single true
- * offset to recover by computing more carefully — there is only the question of when the pair may be
- * treated as met, and the answer is when the slower of the two has arrived. The
- * `phantomDivergentOffset` test below already says the two readings must agree, at
- * `FLOATING_POINT_EPSILON`; this decides what to do inside that tolerance instead of picking the
- * instigator's reading and calling it the event's.
- *
- * WHAT IT COSTS THE CORPUS, MEASURED AGAINST A FULL-GRAPH DIGEST OF ALL 59 FIXTURES. Five of them —
- * `Near Regular Peanut 32`, `Near Regular Ellipse 32`, `Slightly Deformed Peanut 1` and `2`, and
- * `Near Regular Rosette5 40` — move by a node COORDINATE and nothing else: same nodes, same in and
- * out edges, same parents, worst movement 1.17e-13 in caller units on a 500-unit extent, which is
- * 2.3e-16 of extent and so under an ulp of the shape. The layer window and the coincidence medoid
- * both read this offset, and a member set at the window's edge is what shifts. The other 54 are
- * bit-identical. Three instrument counters move with it and are re-pinned where they live:
- * `near-regular-ring-loss-diagnosis` 40 to 33 fired, `offset-event-boundary-regression` 179 to 176
- * fired — both with `silentLosses` still empty, so those mutations became HARMLESS rather than
- * unreported — and `large-coordinate-known-failures`' half-merge split, [12,40] to [10,40].
+ * NOT ROUNDING — THE WALLS ARE NOT CONCURRENT. At that meeting point the perpendicular distance to
+ * `ie42`'s two parents is 2.929716788515e-1 and to `ie52`'s is 2.929716789418e-1: each ray sits on its
+ * own equidistant locus to within 3e-19, and the loci genuinely cross 9.03e-11 out of step. So there
+ * is no single true offset to recover by computing more carefully — there is only the question of when
+ * the pair may be treated as met, and the answer is when the slower of the two has arrived. The
+ * `phantomDivergentOffset` test below says the two readings must agree, at `HELD_SIMULTANEITY_WINDOW`;
+ * this decides what to do inside that tolerance instead of picking the instigator's reading and calling
+ * it the event's. Measured: weighted-offsets-decisions.md, "Measurement record", "The pair event's later
+ * reading, against the full-graph digest".
  */
 export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, context: StraightSkeletonSolverContext): CollisionEvent[] {
     const ray1 = context.projectRayInterior(edgeA);
@@ -669,8 +629,7 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     // because the weight is positive and cannot change it.
     //
     // S23 (C8 spec T14): the phantom test asks whether the two readings are ONE MOMENT. Its window is
-    // held with the other six at `HELD_SIMULTANEITY_WINDOW` (T37 STOP, C8 dispatches 1 and 2 and register
-    // C12; see the constant), per pair.
+    // held with the other six at `HELD_SIMULTANEITY_WINDOW` (a measured T37 STOP; see the constant), per pair.
     const eventType: PairEvent['eventType'] | 'phantomDivergentOffset' = !arrivalsAreEqual(arrivalA, arrivalB, HELD_SIMULTANEITY_WINDOW)
         || arrivalA.distance <= 0
         ? 'phantomDivergentOffset'
@@ -857,7 +816,7 @@ export function findOrComputeCollision(
 }
 
 /**
- * Which parents two bisectors share. NOT A TEST OF ADJACENCY, and the solver no longer asks it as one: two
+ * Which parents two bisectors share. NOT A TEST OF ADJACENCY, and the solver does not ask it as one: two
  * bisectors are neighbours when the wavefront's links say so (`areNeighbours`, BSA.D293).
  *
  * NOT FOR PORT: no solver caller; it is exported for two debug tests (`step3-trace`, `duck-octagon-debug`).

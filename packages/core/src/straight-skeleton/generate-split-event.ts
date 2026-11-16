@@ -65,8 +65,7 @@ interface SplitPricing {
  * of an exact zero, and each split offset keeps the spelling it has.
  *
  * A DIVISION GUARD (C8 spec T19, census S33 and S34): two rates, each a unit cross product off by `k·u`, each scaled by
- * a weight, summed — `meetHeadOn`'s structure exactly, so its bound. It was `FLOATING_POINT_EPSILON · w_e · w_cw`, seven
- * to eight orders wider.
+ * a weight, summed — `meetHeadOn`'s structure exactly, so its bound.
  */
 function splitPricing(
     context: StraightSkeletonSolverContext,
@@ -141,15 +140,14 @@ function splitOffsetResult(
  * Where along the instigator's ray its own wavefront clock reads the same as the split edge's — the
  * split event, solved in closed form (W-spec W21, arc journal decision 115).
  *
- * THE ONE SITE WHERE UNIT-WEIGHT BIT-IDENTITY IS NOT ACHIEVABLE, and it is named as such. This
- * replaced a construction that built a temporary node on whichever parent was more perpendicular to
- * the split edge, bisected there with `makeBisectedBasis`, and intersected two rays. That
- * construction reaches THE SAME POINT by different arithmetic, so its unit-weight bits are not
- * these bits; arc decision 115 amends 112(d) to make this the single named exception, with the
- * movement measured and attributed pin by pin. Movement is bounded by ulps BY CONSTRUCTION — same
- * point, different route — so a pin that moves by more than a few ulps is a defect in this form and
- * not an attribution. Keeping the old construction "when both weights are one" was rejected: that is
- * a branch on unit weights, which W-spec W36 forbids on journal decision 105's ground.
+ * THE ONE SITE WHERE UNIT-WEIGHT BIT-IDENTITY IS NOT ACHIEVABLE, and it is named as such (arc decision
+ * 115 amends 112(d) to make this the single named exception). The unweighted construction — a
+ * temporary node on whichever parent is more perpendicular to the split edge, bisected there with
+ * `makeBisectedBasis`, and two rays intersected — reaches THE SAME POINT by different arithmetic, so
+ * its unit-weight bits are not these bits. The difference is bounded by ulps BY CONSTRUCTION — same
+ * point, different route — so a unit-weight answer that differs from the unweighted one by more than
+ * a few ulps is a defect in this form. There is no unit-weight branch back to that construction: W-spec
+ * W36 forbids a branch on unit weights, on journal decision 105's ground.
  *
  * THE FORM. With `D₀` the instigator's source distance from its own clockwise parent's line, `E₀`
  * its source distance from the split edge's line, `r = cross(d, c)` the rate against the clockwise
@@ -186,9 +184,9 @@ function findOffsetViaIncenter(
     const travelledOffset = alongInstigator * rateAgainstParent;
     const distance = sourceFromParent + travelledOffset;
 
-    // THE SPLIT'S ERROR BUDGET, COMPLETE TO FIRST ORDER (journal-5 decisions 162(a), 167). C8 dispatch 2
-    // charged only the divisor's backward rounding; the travel `a = N/Δ` also carries its numerator's
-    // inputs and the two rates' FORWARD errors:
+    // THE SPLIT'S ERROR BUDGET, COMPLETE TO FIRST ORDER (journal-5 decisions 162(a), 167). The travel
+    // `a = N/Δ` carries its numerator's inputs and the two rates' FORWARD errors, not only the divisor's
+    // backward rounding:
     //
     //     E_E₀ = e_P + |P − A|·(η_e + 3u) + λ·|E₀|  the source's distance from the split line (the line's
     //                                              turn about its stored source A, the subtraction and
@@ -215,11 +213,10 @@ function findOffsetViaIncenter(
         return null;
     }
 
-    // INTERPRETATION (recorded in the delegate's report): the closed form has no second ray to
-    // classify, and `SplitOffsetResult.intersectionData` is consumed only as a classification of the
-    // two PARTICIPANTS. It is therefore the instigator against the split edge's own ray — the same
-    // pair `findOffsetByDirectStrike` reports, so both split paths now describe their event the same
-    // way.
+    // The closed form has no second ray to classify, and `SplitOffsetResult.intersectionData` is
+    // consumed only as a classification of the two PARTICIPANTS. It is therefore the instigator against
+    // the split edge's own ray — the same pair `findOffsetByDirectStrike` reports, so both split paths
+    // describe their event the same way.
     const intersectionData = intersectRays(
         instigatorRay, context.projectRay(edgeToSplit), context.coaxialityFloor,
         context.angularResolution);
@@ -239,8 +236,8 @@ function findOffsetViaIncenter(
  * by their own edges' weights before the split of `rayLength1` is taken, which is the same
  * clearing-of-denominators as `meetHeadOn`. At unit weights every product is by `1.0` and this is
  * `rayLength1 · negT / (crossCw + negT)` in the same operation order — measured 0 mismatches in
- * 100 000 random operands. The formula keeps today's primary-only assumption (the instigator's
- * source lies on its parent's line, so there is no source term); that is not new.
+ * 100 000 random operands. The formula assumes a primary instigator (its source lies on its
+ * parent's line, so there is no source term).
  */
 function findOffsetByDirectStrike(
     instigatorData: InteriorEdge,
@@ -267,18 +264,18 @@ function findOffsetByDirectStrike(
         rayLength1 * negativeInstigatorCrossTarget * clockwiseWeight / crossSumDivisor;
     const distance = distanceToSplitAlongInstigator * crossClockwiseParent;
 
-    // THE SPLIT'S ERROR BUDGET, COMPLETE TO FIRST ORDER (journal-5 decisions 162(a), 167). C8 dispatch 2
-    // charged only S34's divisor rounding, and — dispatch 2's interpretation 2 — NOT the intersection
-    // behind `rayLength1`, which is `intersectRays`' travel of the instigator to the split edge's line and
-    // carries that intersection's whole budget. With `a = L₁·n·w_cw/Δ`, `n = cross(−b̂, ê)`:
+    // THE SPLIT'S ERROR BUDGET, COMPLETE TO FIRST ORDER (journal-5 decisions 162(a), 167). Besides S34's
+    // divisor rounding it charges the intersection behind `rayLength1`, which is `intersectRays`' travel of
+    // the instigator to the split edge's line and carries that intersection's whole budget. With
+    // `a = L₁·n·w_cw/Δ`, `n = cross(−b̂, ê)`:
     //
     //     E_L₁ = rayIntersectionUncertainty(instigator, split edge)       (bases, sources, division)
     //     E_n  = η_b + η_e + k·u                                          (a rate's forward error)
     //     E_Δ  = w_e·E_r + w_cw·E_n + 2u·(|r·w_e| + |n·w_cw|)
     //     E_a  = (E_L₁·|n| + |L₁|·E_n)·w_cw/|Δ| + |a|·E_Δ/|Δ| + 3u·|a|
     //
-    // The arrival `a·r` has no source term — the primary-only assumption this form has always made (a
-    // primary instigator's source lies on its clockwise parent's line, `s = 0` exactly).
+    // The arrival `a·r` has no source term — this form's primary-only assumption (a primary instigator's
+    // source lies on its clockwise parent's line, `s = 0` exactly).
     const [, rayLength2] = initialIntersection;
     const rayLength1Budget = rayIntersectionUncertainty(
         instigatorRay, context.projectRay(edgeToSplit),
@@ -294,8 +291,8 @@ function findOffsetByDirectStrike(
 
 /**
  * The first of these validating segments the neighbour guard does not refuse (skeleton join-and-divide spec,
- * decision 5), or `undefined` when it refuses them all. On one loop no split validated on more than one segment
- * (BSA.F95), so this is the guard asked of the one segment, as before.
+ * decision 5), or `undefined` when it refuses them all. On one loop no split validates on more than one segment
+ * (BSA.F95), so there this is the guard asked of the one segment.
  */
 function firstUnrefused(
     context: StraightSkeletonSolverContext,
@@ -331,7 +328,8 @@ function splitEventOf(
 
 /**
  * The split by the incenter form ({@link findOffsetViaIncenter}), validated against the edge's live segments, on the
- * first validating segment the neighbour guard does not refuse (spec decision 19; join-and-divide spec, decision 5), or
+ * first validating segment the neighbour guard does not refuse (wavefront-order spec, decision 19: the guard reads the
+ * links; join-and-divide spec, decision 5), or
  * `null`. Each caller asks its own guards first.
  */
 function incenterSplit(
@@ -350,7 +348,7 @@ function incenterSplit(
         return null;
     }
 
-    // Can't split your neighbour (spec decision 19): asked of the segment the split strikes, in the links, and of
+    // Can't split your neighbour (wavefront-order spec, decision 19): asked of the segment the split strikes, in the links, and of
     // every validating segment in turn — the first it does not refuse is struck (join-and-divide spec, decision 5).
     const struckSegment = firstUnrefused(context, instigatorData.id, validating);
     if (struckSegment === undefined) {
@@ -421,11 +419,11 @@ export function generateSplitEventViaBisector(
  * `generateSplitEventFromTheEdgeItself` row, journal decisions 144 and 146). "Does this strike land
  * at the split edge's own end?" is a distance-to-zero question along the edge's unit ray, so it is
  * asked in the floor's category: a strike within the client's floor of the vertex IS a strike at the
- * vertex. Was `areEqual(alongEdge, 0)`, the scratch epsilon, which decision 144 retires. STRICTLY
- * BELOW the floor (C8 spec T7): "the same point, before any node exists" is one inequality across the
- * package, the one canonicalisation and the coincidence clustering use; this was `≤` until C8, a
- * boundary of measure zero (no lateral on the corpus, the fine translations or the jitter sweeps equals
- * the floor exactly — 0 of 10.5 million evaluations measured).
+ * vertex, not the scratch epsilon decision 144 retires. STRICTLY BELOW the floor (C8 spec T7): "the
+ * same point, before any node exists" is one inequality across the package, the one canonicalisation
+ * and the coincidence clustering use. Strict and non-strict differ on a boundary of measure zero: no
+ * lateral on the corpus, the fine translations or the jitter sweeps equals the floor exactly (0 of
+ * 10.5 million evaluations measured).
  *
  * EXPORTED FOR ITS OWN TEST, not for other callers — see `slightly-deformed-peanut.test.ts`.
  */
@@ -451,7 +449,7 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
         instigatorRay, backwardsEdgeSplitRay, context.coaxialityFloor, context.angularResolution);
     if (!reachesSupportingLine(initialIntersectionTest, context.coaxialityFloor)
         && !reachesSupportingLine(initialIntersectionTest2, context.coaxialityFloor)) {
-        // We expect now to handle the "near miss" scenarios via the intersections of the bisectors themselves.
+        // A near miss is handled by the intersections of the bisectors themselves.
         return null;
     }
 
@@ -463,7 +461,7 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
     // --- Path 1: Direct-strike offset ---
     const directResult = findOffsetByDirectStrike(instigatorData, edgeToSplit, initialIntersectionTest, context);
     if (directResult !== null) {
-        // THE FIRST VALIDATING SEGMENT, UNGUARDED, as before (join-and-divide spec, decision 5): asking the guard
+        // THE FIRST VALIDATING SEGMENT, UNGUARDED (join-and-divide spec, decision 5): asking the neighbour guard
         // here moves seven complete sweep cells (BSA.F98).
         const [struckSegment] = context.validateSplitReachesEdge(instigatorId, targetId, directResult.arrival);
         if (struckSegment === undefined) {
@@ -485,10 +483,10 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
         return null;
     }
 
-    // THE THROW THE SPAN GUARD THAT STOOD HERE MADE, KEPT BY A DIRECT TEST (spec decision 21's reasoning,
-    // applied to this site). Measuring a span threw on an accepted instigator parent or struck edge, and that
-    // throw is a step failure. Since the edge-acceptance cure an edge is accepted only when no live bisector names
-    // it, so this cannot fire; it stays as the guard it was.
+    // AN ACCEPTED INSTIGATOR PARENT OR STRUCK EDGE IS A STEP FAILURE, by a direct throw (wavefront-order spec,
+    // decision 21's reasoning, applied to this site). An edge is accepted only when no live bisector names it
+    // (skeleton edge-acceptance spec), so this cannot fire; it is the guard. The thrown text speaks of a span;
+    // the test is the rule.
     if (context.isAccepted(edgeToSplit.id)
         || context.isAccepted(instigatorClockwiseParent.id)
         || context.isAccepted(instigatorWiddershinsParent.id)) {

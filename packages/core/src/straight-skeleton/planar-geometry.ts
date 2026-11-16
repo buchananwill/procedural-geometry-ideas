@@ -5,7 +5,7 @@ import {CROSS_PRODUCT_ROUNDING_UNITS, UNIT_ROUNDOFF} from "./constants";
 /*
  * PLANAR GEOMETRY THE SOLVER OWNS: rings, segments and lines in the plane, with no graph in sight. The solver's own
  * port boundary is this package, so these live here; `random-polygon/geometry-helpers.ts`,
- * `stroke-spline/vertex-budget.ts` and `terrain/polygon-slope.ts` re-export what they used to define.
+ * `stroke-spline/vertex-budget.ts` and `terrain/polygon-slope.ts` re-export these for their own callers.
  */
 
 /** Result of a finite segment-segment intersection test */
@@ -27,10 +27,10 @@ export interface SegmentIntersection {
  * S46): `cross(dA, dB)` is `|dA|·|dB|·sin θ` evaluated from raw (unnormalised) segment vectors, so its
  * absolute rounding error is `k·u·|dA|·|dB|` with `k` = `CROSS_PRODUCT_ROUNDING_UNITS` (the unit-vector
  * argument of constants.ts, scaled by the operands' lengths). Inside that bound the divisor has no sign
- * the arithmetic can vouch for, and the pair is parallel. It was an absolute `1e-10` on a raw cross
- * product — an AREA, so a different angle at every segment length.
+ * the arithmetic can vouch for, and the pair is parallel. An absolute bar on a raw cross product would be
+ * a bar on an AREA, so a different angle at every segment length.
  *
- * CONTAINMENT IS EXACT: `t ∈ [0, 1]` with no slack. The `1e-10` slack widened every segment by a
+ * CONTAINMENT IS EXACT: `t ∈ [0, 1]` with no slack. A slack on `t` would widen every segment by a
  * parameter, not a length; a caller that wants touches at a shared vertex treated as no crossing says
  * so with a length of its own (`polygon-decomposition.ts`, T24).
  */
