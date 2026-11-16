@@ -362,6 +362,70 @@ export function settleLayerLinks(layer: LayerLinks): void {
 
 // ── The events' link writes (spec decision 9) ────────────────────────────────────────────────────
 
+/*
+ * EVERY EVENT'S LINK WRITE IS ONE OF TWO REWRITES. A GAP: one new bisector closes the arc between the participant
+ * before it (`lastArrival`) and the participant after it (`firstDeparture`), standing between the clockwise neighbour
+ * of the one and the widdershins neighbour of the other ({@link linkGap}). A CUT: two new bisectors stand where the
+ * gap's one would, each running on to one end of the piece of a wall's segment the strike takes, and the cut is
+ * recorded ({@link cutSegment}). The five writers below are those two, each reading its participants' neighbours as a
+ * {@link Bracket} before anything is retired.
+ *
+ * THE ORDER OF READ, RETIRE AND LINK IS EACH WRITER'S OWN, AND IS KEPT: the pair collapse, the vertex-to-vertex event
+ * and the split retire their participants before linking; a merge's gaps link before the merge retires its arrivals.
+ * On a ring of two a participant is its own neighbour's neighbour, so the order decides the links.
+ */
+
+/** A gap's two sides: the participants bracketing it, and the neighbours they had when it was read. */
+interface Bracket {
+    /** The participant before the gap, whose clockwise side the new bisector takes over. */
+    lastArrival: number;
+    /** The participant after the gap, whose widdershins side the new bisector takes over. */
+    firstDeparture: number;
+    /** `lastArrival`'s clockwise neighbour. */
+    clockwise: number;
+    /** `firstDeparture`'s widdershins neighbour. */
+    widdershins: number;
+}
+
+/** Read the gap between `lastArrival` and `firstDeparture`: their outer neighbours, as the layer has them now. */
+function bracketOf(layer: LayerLinks, lastArrival: number, firstDeparture: number): Bracket {
+    return {
+        lastArrival,
+        firstDeparture,
+        clockwise: layer.clockwiseOf(lastArrival),
+        widdershins: layer.widdershinsOf(firstDeparture),
+    };
+}
+
+/** THE GAP: `params`' bisector stands between the bracket's two neighbours, the successor on both of its sides. */
+function linkGap(layer: LayerLinks, bracket: Bracket, params: BisectionParams): void {
+    const token = linkPendingBirth(layer, params, bracket.widdershins, bracket.clockwise);
+    layer.clockwiseSuccessor.set(bracket.lastArrival, token);
+    layer.widdershinsSuccessor.set(bracket.firstDeparture, token);
+}
+
+/**
+ * THE CUT: `piece` of a segment of wall `edge` is cut at `position`. `towardsClockwise` stands between the piece's
+ * `from` and the bracket's clockwise neighbour, the successor on `lastArrival`'s clockwise side; `towardsWiddershins`
+ * between the bracket's widdershins neighbour and the piece's end, the successor on `firstDeparture`'s widdershins side;
+ * and the cut is recorded on `towardsClockwise`, for a later strike of the layer to read.
+ */
+function cutSegment(
+    layer: LayerLinks,
+    bracket: Bracket,
+    piece: Piece,
+    edge: number,
+    position: Vector2,
+    towardsClockwise: BisectionParams,
+    towardsWiddershins: BisectionParams,
+): void {
+    const before = linkPendingBirth(layer, towardsClockwise, piece.from, bracket.clockwise);
+    const after = linkPendingBirth(layer, towardsWiddershins, bracket.widdershins, piece.end);
+    layer.clockwiseSuccessor.set(bracket.lastArrival, before);
+    layer.widdershinsSuccessor.set(bracket.firstDeparture, after);
+    layer.divisions.set(before, {edge, position, after});
+}
+
 /**
  * `initInteriorEdges`: THE FIRST RINGS, ONE PER LOOP (spec decision 8; skeleton loops-input spec, decisions 9,
  * 12 and 13). `bisectorAtNode[e]` is the bisector born at exterior node `e`. Each bisector's clockwise neighbour
@@ -437,12 +501,10 @@ export function linkPairCollapse(
         throw new Error(`Pair collapse of e${widdershinsCollider} and e${clockwiseCollider}, which are not neighbours `
             + `on the wavefront (e${widdershinsCollider}'s clockwise neighbour is e${layer.clockwiseOf(widdershinsCollider)}).`);
     }
-    const widdershins = layer.widdershinsOf(widdershinsCollider);
-    const clockwise = layer.clockwiseOf(clockwiseCollider);
+    // A gap from the clockwise collider round to the widdershins one: the collapse bisector takes the outer sides.
+    const gap = bracketOf(layer, clockwiseCollider, widdershinsCollider);
     retireBisectors(layer.context, participants);
-    const token = linkPendingBirth(layer, params, widdershins, clockwise);
-    layer.clockwiseSuccessor.set(clockwiseCollider, token);
-    layer.widdershinsSuccessor.set(widdershinsCollider, token);
+    linkGap(layer, gap, params);
 }
 
 /**
@@ -458,17 +520,12 @@ export function linkVertexToVertex(
     first: BisectionParams,
     second: BisectionParams,
 ): void {
-    const instigatorClockwise = layer.clockwiseOf(instigator);
-    const instigatorWiddershins = layer.widdershinsOf(instigator);
-    const targetClockwise = layer.clockwiseOf(target);
-    const targetWiddershins = layer.widdershinsOf(target);
+    // Two gaps, both read before either participant retires: instigator round to target, and target round to it.
+    const firstGap = bracketOf(layer, instigator, target);
+    const secondGap = bracketOf(layer, target, instigator);
     retireBisectors(layer.context, [instigator, target]);
-    const firstToken = linkPendingBirth(layer, first, targetWiddershins, instigatorClockwise);
-    const secondToken = linkPendingBirth(layer, second, instigatorWiddershins, targetClockwise);
-    layer.clockwiseSuccessor.set(instigator, firstToken);
-    layer.widdershinsSuccessor.set(target, firstToken);
-    layer.clockwiseSuccessor.set(target, secondToken);
-    layer.widdershinsSuccessor.set(instigator, secondToken);
+    linkGap(layer, firstGap, first);
+    linkGap(layer, secondGap, second);
 }
 
 /**
@@ -604,17 +661,10 @@ export function linkSplit(
     towardsWiddershins: BisectionParams,
 ): void {
     const struck = struckPiece(layer, segment, position, () => ringThrough(layer, instigator));
-    const from = struck.from;
-    const pieceEnd = struck.end;
-
-    const instigatorClockwise = layer.clockwiseOf(instigator);
-    const instigatorWiddershins = layer.widdershinsOf(instigator);
+    // The instigator is both sides of the gap it cuts the wall in.
+    const gap = bracketOf(layer, instigator, instigator);
     retireBisector(layer.context, instigator);
-    const before = linkPendingBirth(layer, towardsClockwise, from, instigatorClockwise);
-    const after = linkPendingBirth(layer, towardsWiddershins, instigatorWiddershins, pieceEnd);
-    layer.clockwiseSuccessor.set(instigator, before);
-    layer.widdershinsSuccessor.set(instigator, after);
-    layer.divisions.set(before, {edge: segment.exteriorEdge, position, after});
+    cutSegment(layer, gap, struck, segment.exteriorEdge, position, towardsClockwise, towardsWiddershins);
 }
 
 /**
@@ -629,10 +679,7 @@ export function linkMergeGap(
     firstDeparture: number,
     params: BisectionParams,
 ): void {
-    const token = linkPendingBirth(layer, params,
-        layer.widdershinsOf(firstDeparture), layer.clockwiseOf(lastArrival));
-    layer.clockwiseSuccessor.set(lastArrival, token);
-    layer.widdershinsSuccessor.set(firstDeparture, token);
+    linkGap(layer, bracketOf(layer, lastArrival, firstDeparture), params);
 }
 
 /**
@@ -657,13 +704,8 @@ export function linkMergeGapOnWall(
 ): void {
     const struck = struckPiece(layer, segment, position,
         () => new Set([...ringThrough(layer, lastArrival), ...ringThrough(layer, firstDeparture)]));
-    const gapClockwise = layer.clockwiseOf(lastArrival);
-    const gapWiddershins = layer.widdershinsOf(firstDeparture);
-    const before = linkPendingBirth(layer, towardsClockwise, struck.from, gapClockwise);
-    const after = linkPendingBirth(layer, towardsWiddershins, gapWiddershins, struck.end);
-    layer.clockwiseSuccessor.set(lastArrival, before);
-    layer.widdershinsSuccessor.set(firstDeparture, after);
-    layer.divisions.set(before, {edge: segment.exteriorEdge, position, after});
+    cutSegment(layer, bracketOf(layer, lastArrival, firstDeparture), struck, segment.exteriorEdge, position,
+        towardsClockwise, towardsWiddershins);
 }
 
 // ── The current step (skeleton join-and-divide spec, decisions 4 and 22) ─────────────────────────
