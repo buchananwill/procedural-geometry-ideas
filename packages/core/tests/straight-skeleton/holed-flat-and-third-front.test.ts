@@ -441,9 +441,12 @@ describe('flatRingVerdict on hand-built rings (decision 51)', () => {
         }
         expect(verdict.value.nodes).toEqual([{x: 2, y: 2}, {x: 5, y: 2}, {x: 8, y: 2}]);
         expect(verdict.value.stretches).toEqual([
-            {from: 0, to: 1, clockwiseWall: T1, widdershinsWall: B, forward: a},
-            {from: 1, to: 2, clockwiseWall: T2, widdershinsWall: B, backward: b},
+            {from: 0, to: 1, clockwiseWall: T1, widdershinsWall: B},
+            {from: 1, to: 2, clockwiseWall: T2, widdershinsWall: B},
         ]);
+        // a runs forward along P–M to M, node 1; b runs backward along M–Q to M, node 1; no stretch is left a ridge.
+        expect(verdict.value.levelEnd).toEqual(new Map([[a, 1], [b, 1]]));
+        expect(verdict.value.ridges).toEqual([]);
     });
 
     it('passes a ring whose members all fall in one node (decision 20)', () => {

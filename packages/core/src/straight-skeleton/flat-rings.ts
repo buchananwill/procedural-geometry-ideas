@@ -43,25 +43,31 @@ export type FlatRingClause =
 
 /**
  * A stretch between two nodes (node indices of the plan), covered once each way (decision 15). The front running from
- * `from` to `to` is `clockwiseWall`'s, and the front running back is `widdershinsWall`'s. `forward` is the level member
- * running from `from` to `to`, `backward` the one running from `to` to `from`, where one does (decision 19).
+ * `from` to `to` is `clockwiseWall`'s, and the front running back is `widdershinsWall`'s.
  */
 export interface FlatStretch {
     from: number;
     to: number;
     clockwiseWall: number;
     widdershinsWall: number;
-    forward?: number;
-    backward?: number;
 }
 
-/** A ring that passed the test: its members, its nodes, the node of each member (by ring index), and its stretches. */
+/**
+ * A ring that passed the test: its members, its nodes, the node of each member (by ring index), and its stretches; the
+ * node each level member runs to, the far end of the stretch it runs along (decision 19); and the stretches no level
+ * member runs along, each born as one ridge (decision 26).
+ */
 export interface FlatRingPlan {
     ring: number[];
     nodes: Vector2[];
     nodeOf: number[];
     stretches: FlatStretch[];
+    levelEnd: ReadonlyMap<number, number>;
+    ridges: FlatStretch[];
 }
+
+/** Where a ring's level members run: the node each runs to, and the stretches none runs along. */
+type LevelRuns = Pick<FlatRingPlan, 'levelEnd' | 'ridges'>;
 
 /** Why a ring is not a flat termination: the clause it fails, and the reason in that clause's words. */
 export interface FlatRingRefusal extends Refused {
@@ -72,7 +78,7 @@ export interface FlatRingRefusal extends Refused {
 export type FlatRingVerdict = Verdict<FlatRingPlan, FlatRingRefusal>;
 
 /** A piece of a ring's segment between two nodes, on the front of `wall` (decision 14). */
-interface Piece {
+interface FrontSpan {
     from: number;
     to: number;
     wall: number;
@@ -120,8 +126,8 @@ function frontSegments(
     nodes: Vector2[],
     nodeOf: number[],
     time: number,
-): Verdict<Piece[], FlatRingRefusal> {
-    const segments: Piece[] = [];
+): Verdict<FrontSpan[], FlatRingRefusal> {
+    const segments: FrontSpan[] = [];
     ring.forEach((id, index) => {
         const next = (index + 1) % ring.length;
         if (nodeOf[index] !== nodeOf[next]) {
@@ -146,7 +152,7 @@ function frontSegments(
 }
 
 /** Each segment cut at every other node within δ of its line and more than δ from both its ends along it (decision 14). */
-function piecesOf(segments: Piece[], nodes: Vector2[], floor: number): Piece[] {
+function piecesOf(segments: FrontSpan[], nodes: Vector2[], floor: number): FrontSpan[] {
     return segments.flatMap(segment => {
         const start = nodes[segment.from];
         const span = subtractVectors(nodes[segment.to], start);
@@ -157,7 +163,7 @@ function piecesOf(segments: Piece[], nodes: Vector2[], floor: number): Piece[] {
             .filter(cut => cut.index !== segment.from && cut.index !== segment.to && cut.off <= floor
                 && cut.along > floor && cut.along < length - floor)
             .sort((first, second) => first.along - second.along);
-        const pieces: Piece[] = [];
+        const pieces: FrontSpan[] = [];
         let from = segment.from;
         for (const cut of cuts) {
             pieces.push({from, to: cut.index, wall: segment.wall});
@@ -172,8 +178,8 @@ function piecesOf(segments: Piece[], nodes: Vector2[], floor: number): Piece[] {
  * The stretches the pieces cover (decision 15): every pair of nodes a piece joins is joined by exactly two pieces,
  * running opposite ways, on antiparallel walls. Each clause is tested over every pair before the next.
  */
-function stretchesOf(context: StraightSkeletonSolverContext, pieces: Piece[]): Verdict<FlatStretch[], FlatRingRefusal> {
-    const byPair = new Map<string, Piece[]>();
+function stretchesOf(context: StraightSkeletonSolverContext, pieces: FrontSpan[]): Verdict<FlatStretch[], FlatRingRefusal> {
+    const byPair = new Map<string, FrontSpan[]>();
     for (const piece of pieces) {
         const key = `${Math.min(piece.from, piece.to)}-${Math.max(piece.from, piece.to)}`;
         byPair.set(key, [...(byPair.get(key) ?? []), piece]);
@@ -264,25 +270,30 @@ function stretchShape(
 /**
  * Decision 19 (and 20): every level member is newborn; on a ring of more than one node it runs along a stretch at its
  * node whose walls are its parents, its clockwise parent being the stretch's wall for the way away from its node; and at
- * most one level member runs each way along a stretch. Records each level member on its stretch. Each clause is tested
- * over every level member before the next.
+ * most one level member runs each way along a stretch. Returns where the level members run: the node each runs to, the
+ * far end of its stretch, and the stretches none runs along. Each clause is tested over every level member before the
+ * next.
  */
-function levelFailure(
+function levelRuns(
     context: StraightSkeletonSolverContext,
-    plan: FlatRingPlan,
+    ring: readonly number[],
+    nodeOf: readonly number[],
+    nodeCount: number,
+    stretches: readonly FlatStretch[],
     newborn: ReadonlySet<number>,
-): Verdict<void, FlatRingRefusal> {
-    const levels = plan.ring.map((id, index) => ({id, node: plan.nodeOf[index]})).filter(member => isLevel(context, member.id));
+): Verdict<LevelRuns, FlatRingRefusal> {
+    const levels = ring.map((id, index) => ({id, node: nodeOf[index]})).filter(member => isLevel(context, member.id));
     const old = levels.find(member => !newborn.has(member.id));
     if (old !== undefined) {
         return fail('level-not-newborn', `the level member e${old.id} was not born in this layer`);
     }
-    if (plan.nodes.length === 1) {
-        return PASSED;
+    // A ring of one node has no stretch (decision 20), so its level members end where they stand.
+    if (nodeCount === 1) {
+        return accept({levelEnd: new Map(), ridges: []});
     }
     const runs = levels.map(member => {
         const {clockwiseExteriorEdgeIndex: clockwise, widdershinsExteriorEdgeIndex: widdershins} = context.getInteriorWithId(member.id);
-        const stretch = plan.stretches.find(candidate => (candidate.from === member.node && candidate.clockwiseWall === clockwise
+        const stretch = stretches.find(candidate => (candidate.from === member.node && candidate.clockwiseWall === clockwise
             && candidate.widdershinsWall === widdershins) || (candidate.to === member.node
             && candidate.widdershinsWall === clockwise && candidate.clockwiseWall === widdershins));
         return {...member, stretch};
@@ -291,15 +302,23 @@ function levelFailure(
     if (off !== undefined) {
         return fail('level-off-stretch', `the level member e${off.id} runs along no stretch of its parents at node ${off.node}`);
     }
-    for (const {id, node, stretch} of runs) {
-        const way = stretch!.from === node ? 'forward' : 'backward';
-        if (stretch![way] !== undefined) {
-            return fail('level-doubled', `the level members e${stretch![way]} and e${id} run the same way along the stretch `
-                + `${stretch!.from}-${stretch!.to}`);
+    const located = runs.filter((run): run is typeof run & {stretch: FlatStretch} => run.stretch !== undefined);
+    // The level member running each way along each stretch: `forward` from `from` to `to`, `backward` from `to` to `from`.
+    const forward = new Map<FlatStretch, number>();
+    const backward = new Map<FlatStretch, number>();
+    const levelEnd = new Map<number, number>();
+    for (const {id, node, stretch} of located) {
+        const runsForward = stretch.from === node;
+        const way = runsForward ? forward : backward;
+        const earlier = way.get(stretch);
+        if (earlier !== undefined) {
+            return fail('level-doubled', `the level members e${earlier} and e${id} run the same way along the stretch `
+                + `${stretch.from}-${stretch.to}`);
         }
-        stretch![way] = id;
+        way.set(stretch, id);
+        levelEnd.set(id, runsForward ? stretch.to : stretch.from);
     }
-    return PASSED;
+    return accept({levelEnd, ridges: stretches.filter(stretch => !forward.has(stretch) && !backward.has(stretch))});
 }
 
 /**
@@ -315,25 +334,25 @@ export function flatRingVerdict(
     polygon: Vector2[] = ringPolygonAt(context, ring, time, newborn),
 ): FlatRingVerdict {
     const {nodes, nodeOf} = clusterIntoNodes(polygon, context.perceptualFloor);
-    const plan: FlatRingPlan = {ring, nodes, nodeOf, stretches: []};
+    let stretches: FlatStretch[] = [];
     // A RING WHOSE MEMBERS ALL FALL IN ONE NODE has no segment and no stretch (decision 20).
     if (nodes.length > 1) {
         const segments = frontSegments(context, ring, nodes, nodeOf, time);
         if (!segments.ok) {
             return segments;
         }
-        const stretches = stretchesOf(context, piecesOf(segments.value, nodes, context.perceptualFloor));
-        if (!stretches.ok) {
-            return stretches;
+        const covered = stretchesOf(context, piecesOf(segments.value, nodes, context.perceptualFloor));
+        if (!covered.ok) {
+            return covered;
         }
-        const shape = stretchShape(stretches.value, nodes, context);
+        const shape = stretchShape(covered.value, nodes, context);
         if (!shape.ok) {
             return shape;
         }
-        plan.stretches = stretches.value;
+        stretches = covered.value;
     }
-    const levels = levelFailure(context, plan, newborn);
-    return levels.ok ? accept(plan) : levels;
+    const levels = levelRuns(context, ring, nodeOf, nodes.length, stretches, newborn);
+    return levels.ok ? accept({ring, nodes, nodeOf, stretches, ...levels.value}) : levels;
 }
 
 /**
@@ -350,23 +369,13 @@ function closeFlatRing(context: StraightSkeletonSolverContext, plan: FlatRingPla
         return first !== undefined ? graph.edges[first].source : context.findOrAddNode(seed, 0).id;
     });
     const at = (node: number) => graph.nodes[nodeIds[node]].position;
-    const levelEnd = new Map<number, number>();
-    for (const stretch of plan.stretches) {
-        if (stretch.forward !== undefined) {
-            levelEnd.set(stretch.forward, stretch.to);
-        }
-        if (stretch.backward !== undefined) {
-            levelEnd.set(stretch.backward, stretch.from);
-        }
-    }
     plan.ring.forEach((id, index) => {
-        context.terminateEdgesAtPoint([id], at(levelEnd.get(id) ?? plan.nodeOf[index]), 0);
+        context.terminateEdgesAtPoint([id], at(plan.levelEnd.get(id) ?? plan.nodeOf[index]), 0);
         if (graph.edges[id].target === graph.edges[id].source) {
             context.getInteriorWithId(id).culled = true;
         }
     });
-    const ridges = plan.stretches
-        .filter(stretch => stretch.forward === undefined && stretch.backward === undefined)
+    const ridges = plan.ridges
         .map(stretch => {
             const id = bisectWithParams(context, {clockwiseExteriorEdgeIndex: stretch.clockwiseWall,
                 widdershinsExteriorEdgeIndex: stretch.widdershinsWall, source: nodeIds[stretch.from]});
