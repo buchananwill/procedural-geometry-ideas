@@ -94,58 +94,40 @@ Carried by reference: [session 1 §3](./building-shell-arc-journal.md#3-operatio
 
 ## 4. Next work
 
-**Session 5 was cut short on 2026-11-15 by the user's reboot, with the implementer of BSA.D348 still running and not yet
-reported.** Branch `feature/skeleton-holes`, nothing pushed or merged.
+**As at 2026-11-16, `ae63ed7`: the build of BSA.D348 is verified, reviewed and revised (BSA.D354), and the
+entropy-reducing pass is complete (BSA.D366). Branch `feature/skeleton-holes`, nothing pushed or merged. Session 6's
+journal entries from BSA.D355 on are uncommitted.**
 
-**As at 2026-11-16: the build of BSA.D348 is verified on `68a00b3` (BSA.F116) and accepted for review (BSA.D350). An
-independent Opus review of `6df75c3..68a00b3` has reported (BSA.F117) and its facing-test finding is disproved by a
-specimen (BSA.F118), so the rule stands. The revision is in at `0bee318` and `ad8b323` (BSA.D354), and the build is
-complete. Next: the close-out below, beginning with the entropy-reducing pass, on the user's word. The paragraph that
-follows is the verification's brief as session 5 left it, now done.**
-
-**First, on resuming: verify the build of BSA.D348, which has no report.**
-- Its commits: `8e14378` (flat-ring termination and the third-front rule in core), `17a8d55` (dashboard specimen and
-  headings), `3d546a4` (cured layouts into the holed fixtures and goldens), `add41b8` (grid fuzz, the `uniform-1-129`
-  issue note, a test of the kernel's weight terms). The spec's status and the facts it settled were committed by the
-  lead at wrap as the implementer left them, unreviewed.
-- The implementer was waiting on its own last runs when the session ended. **No suite figure, sweep comparison, probe
-  count or mutation gate has reached the lead.** Whether it had further uncommitted work is unknown: check `git status`
-  and its scratch folder `apps/building-shell/experiments/flat-third-build/`.
-- Dispatch a verifier on the tree as found: the suites of core, test-fixtures, dashboard and building-shell, with the
-  named red tests; then check the spec's section 6 facts and decision 55's mutation gates against the code. Baseline
-  before the build, at `9307395`: core 6,668 passed, 9 failed by design, 10 skipped; building-shell 9,728 passed, 0
-  failed; dashboard 609.
-- Then an independent review of `6df75c3..` for the build.
-
-**Then the arc's close-out (BSA.D346, as amended):**
-1. The entropy-reducing pass over the holed solver in `packages/core/src/straight-skeleton/` and building-shell's holed
-   roof path: decomposition, architecture, readability, duplication. Its bar is the suites and oracles; a
-   before-and-after comparison of sweep output and digests is its detector, each divergence diagnosed. No sweep output
-   is committed (BSA.F114), so the pass generates its own "before" set.
-2. Amendments owed to other documents by the build (the spec's section 5): node 5's spec, the three-front and
-   zero-area-ring issue notes, the holed roof spec, the dashboard holed spec, CLAUDE.md. And the mixed-pitch issue note,
-   whose four tests are green since `ec96bc4`: resolve it with `verified_by`.
-3. The merge to `main`, with the user. The branch this one was cut from,
+**The arc's close-out, what is left, in order:**
+1. **An independent verification of `ae63ed7`,** which no verifier has run: the suites of core, building-shell and
+   dashboard against the figures below; the sweep against `apps/building-shell/experiments/entropy-pass/baseline/`; and
+   the mutation gates of the flat-ring spec's decision 55 run again on the restructured code. Recommended by the lead
+   before the merge; not dispatched.
+2. **Small things the pass left:** node 5's decision 22 narrowed to layers not resolved whole; `HOLED_REFUSAL_ISSUES`
+   re-pointed from the resolved three-front note, which needs a ruling on where decision 21's three-run refusals are
+   recorded; core's README moved off the deprecated entries.
+3. **The merge to `main`, with the user.** The branch this one was cut from,
    `feature/building-shell-covered-storeys-and-sections`, is not on `main` either.
-4. A handoff document for the C++ port: the delta in rules since the port's last sync, each tied to its decision and
-   tests; the nine red-by-design core tests as known defects; the refusals that remain by name; the parity risk of the
-   position-based tie-break (BSA.D347).
+4. **A handoff document for the C++ port:** the delta in rules since the port's last sync, each tied to its decision and
+   tests; a full file map of the solver as the pass left it, by function name and never by line; the ten kinds of
+   `SkeletonInputRefusal` and building-shell's `IslandRefusal` as the port's status types; the ownership of `LayerLinks`
+   and the step scope (BSA.D360); the nine red-by-design tests as known defects; the refusals that remain by name; the
+   parity risk of the position-based tie-break (BSA.D347).
+5. **After the merge, its own unit:** the flat rule on single-loop steps, in its shallow form (BSA.D349).
 
-**Decided this session, by the user:** the nearer-first tie-break and the place order are kept (BSA.D335, BSA.D347); a
-test is never green because it asserts a defect, now in CLAUDE.md (BSA.D336, BSA.D337); flat-ring termination with the
-third-front rule is the solution for multi-ring steps (BSA.D345); review before merge is an entropy-reducing pass
-(BSA.D346).
+**Figures to verify against, the implementers' own on `aa82032`:** core 6,714 passed, 8 failed, 10 skipped;
+building-shell 9,886 passed, 1 failed; dashboard 609; typecheck clean on core, test-fixtures and building-shell, the
+dashboard's 4 known errors in `DolProductionComposer.tsx`. The nine red tests: five in `weighted-time-order.test.ts`,
+three in `straight-bisector.test.ts`, `uniform-1-129` in `holed-grid-fuzz.test.ts`, each with an open issue note.
 
 **Left for the user, none decided by the lead:**
 - Converting the legacy pins of `KNOWN_DEFECT_POLYGONS` and core's remaining "still alive" tests (BSA.D337).
-- ~~The flat rule on single-loop steps, and the 4-floor stretch bar.~~ Ruled by the user on 2026-11-16 (BSA.D349): the
-  rule is extended in its shallow form as its own unit after the merge, the constant kept with a probe. Deriving the bar
-  from position budgets stays open.
-- The weighted defect, item 1 of session 4's list: BSA.F115 shows the primary-only rule can be relaxed narrowly, at zero
-  offset, without the side effects of relaxing it generally.
-- The along-edge class with canonicalisation off is still wrong below magnitude 0.1 (BSA.F110); why order matters for
-  `plus k4 s47514` at 1e-3 is untraced.
+- The weighted defect: BSA.F115 shows the primary-only rule can be relaxed narrowly, at zero offset.
+- The along-edge class with canonicalisation off is still wrong below magnitude 0.1 (BSA.F110).
 - Node 8, contact between loops: approved spec, not built, no caller.
+- The seven items BSA.D356 did not order, chief among them the unechoed step refusal, the selector DSL off the shell
+  path, and the dashboard off the legacy entries.
+- Whether the ten refusal kinds of BSA.D363 keep their names before the port takes them as an enum.
 - Session 4's list, items 4 to 9, and session 3's carried items, untouched.
 
 ## 5. Open items
@@ -358,6 +340,310 @@ session 3's own.
     byte-identical sweeps, and the entropy pass reads the same files next.
   - **Left as it is:** the message of `0bee318` has a quoting slip, `E'"'"'s` for `E′'s`. Rewriting a commit is the
     user's call.
+- **355. The user, 2026-11-16: The journals are committed at `1503dac` and the entropy-reducing pass of BSA.D346
+  begins.** The user's words: "Commit then go with the e-r pass."
+  - **The lead's shape for it, in two stages.** First, three read-only Opus reviews in parallel: core's event path
+    (`algorithm-complex-cases.ts`, `wavefront.ts`, `coincident-events.ts`, `flat-rings.ts`, the collision files,
+    `generate-split-event.ts`); core's structure and consumers (`types.ts`, `solver-context.ts`, `graph-helpers.ts`,
+    `algorithm-termination-cases.ts`, `algorithm-helpers.ts`, `skeleton-loops.ts`, `holed-guard.ts`,
+    `causality-check.ts`, `strip-decomposition.ts`, `offset-projection.ts`); and building-shell's holed roof path
+    (`roof/skeleton.ts`, `roof/model.ts`, `roof/algoB.ts`, `storey.ts`, `fixture.ts`, `rise.ts`). Then the lead rules on
+    the findings and one implementer at a time applies them.
+  - **Scope is what the C++ port must take,** read as the branch's diff from `ee84976`, where it was cut. The dashboard
+    and the fixtures package are outside it.
+  - **The bar is as the user amended BSA.D346:** the suites and oracles; a before-and-after comparison of sweep output,
+    digests and goldens is the detector, each divergence diagnosed.
+  - **Carried into it:** decision 45's vacuous filter (BSA.D351) and a facing verdict read from the arrangement before
+    the event (BSA.D353), as candidates.
+- **356. The lead's rulings on the three entropy reviews (BSA.F119, BSA.F120, BSA.F121): eight work packages in order,
+  one implementer in the tree at a time, each committed alone and held to BSA.D346's bar. Put to the user before any is
+  dispatched.**
+  - **The full reports are kept as files** in the untracked folder `apps/building-shell/experiments/entropy-pass/`
+    (`review-core-event-path.md`, `review-core-structure.md`, `review-building-shell.md`), written by the reviewers with
+    the labels E, S and R this journal uses. A brief cites a finding by label and the implementer reads it there.
+  - **P1, core, dead surface and exact types:** E1, E6, E16, S10's two dead members and its `this`, S9's held bars and
+    non-tolerances, S11's `AlgorithmStepOutput` split. Shrinks the surface before anything moves.
+  - **P2, core, shared primitives:** S4 and S5 as one planar-geometry and one wall-time module; E8's ordering
+    primitives; E12, with one distance from a wall's line and one antiparallel predicate.
+  - **P3, core, the link layer:** E2, then E3, then E11, then E9 and E10. E3 keeps each writer's order of read, retire
+    and link, which is a hard constraint.
+  - **P4, core, verdicts and the n-gon driver:** E7, then E5, E13, E14, then E4.
+  - **P5, core, the termination file and the boundary:** S1, then S2 with `canonicaliseForSolve` left out of the fold so
+    it refuses nothing new, then S8 with each check kept in the space it runs in today, S7 and S6.
+  - **P6, core's diagnostic vocabulary and its readers:** S3's exported set of informational kinds and typed
+    `SkeletonInputRefusal`, message text unchanged; the barrel regrouped and the two legacy entries marked deprecated
+    (S11); then building-shell reads kinds in place of substrings (R3 and its `classify`).
+  - **P7, building-shell:** R1 and R9; R6 and R12; R2, R5, R4 and R13; R8 and R7's first step; R10; R14.
+  - **P8, comments and names, last:** E15, S12, R11, with measurement history moved to the specs it belongs to; and the
+    amendments the build of BSA.D348 owes other documents (its spec's section 5).
+  - **Declined:** E17, a rounding risk for a clearer loop; R15, low value; reading the facing verdict from the
+    arrangement (BSA.D353's candidate), which the review shows is not behaviour-preserving, kept as a possible assertion
+    only.
+  - **Not ordered, to the open items:** S3's unechoed step refusal, which removes a diagnostic from the public list;
+    R7's second step, taking the selector DSL off the shell path; unifying `gapDirection` with the bisector's own basis;
+    migrating the dashboard off the legacy entries; dropping `context.simultaneityWindow`, which a spec adds; the
+    comment at `solver-context.ts:408-410` that says never to remove it; merging the guard's time-order check with the
+    causality oracle, which date nodes by different walls.
+  - **The possible defects the reviews raised, as the lead reads them:** holed hip solids standing from the floor is the
+    amendment of BSA.D326, and the holed roof spec's decision 25 is stale text owed a correction in P8;
+    `canonicaliseForSolve` without a finiteness check, the `<= floor` clustering in `flat-rings.ts`, the unreachable
+    catch in `runSimplePolygonStepped`, `builtSurface` reading the outer loop only, and `viewer-defects.test.ts` listing
+    a short roster are recorded and none is fixed in this pass, which changes no answer. The roster is put right by R10.
+  - **Each package's detector:** sweep output for all seven groups, `full-graph-digest`, the recursion census and
+    building-shell's goldens compared before and after, each divergence diagnosed; the suites with their nine named red
+    tests; typecheck. A package that moves an answer stops and reports.
+- **357. The user, 2026-11-16: All eight packages of BSA.D356 go ahead, in order.** The user's words: "Go on all fixes."
+  - **The review reports stay where they are,** untracked in `apps/building-shell/experiments/entropy-pass/`. The user:
+    committing is inappropriate for transient review documents, and they are moved only if the folder is about to be
+    cleaned. Nothing in this arc cleans it; the lead raised the risk and has no plan to.
+  - **The pass's shared "before" set** is generated once by the first package's implementer on `1503dac`, into
+    `apps/building-shell/experiments/entropy-pass/baseline/`, and every later package compares against it (BSA.F114).
+- **358. P1 of the entropy pass is in at `5ec8d0d`, with no solver answer moved; P2 follows.**
+  - **The implementer's figures, not re-run by the lead:** sweep output byte-identical to the baseline on all seven
+    groups and the three region depths; core 6,714 passed, 8 failed, 10 skipped; building-shell 9,887 passed, 1 failed;
+    dashboard 609; typecheck as before. The nine red tests are the nine of BSA.F116.
+  - **Checked by the lead against the tree:** one commit of 21 files, 14 of core's source and 7 of its tests, 327 lines
+    in and 351 out; the journal left unstaged.
+  - **Each "unreachable" was confirmed before deletion:** by throwing traps on the unedited tree run through core's
+    suite, the full sweep and building-shell's suite, none firing; or by the type system once `collidingEdges` was a
+    pair and a split's `struckSegment` required.
+  - **Landed:** `multiRingRefusal` split into `wholeLayerRefusal` and `pairwiseLayerRefusal` with decision 45's filter
+    deleted (E1); `CollisionEvent` as a union of pair, split and unresolvable events, with four dead branches gone (E6);
+    `NO_COLLISION_SENTINEL` deleted and `createCollisions` returning one flat list (E16); the four held bars together in
+    `constants.ts` (S9); two dead `GraphHelpers` members deleted (S10); handlers returning `AlgorithmStepInput[]` (S11).
+  - **The implementer's choice, accepted:** `collideEdges` marks an event out of bounds by returning a copy with
+    identical fields, where it used to mutate. Only object identity differs, and nothing holds those events.
+  - **No consumer outside core needed a change.** Seven core tests were rewritten for the new types; none removed, none
+    re-pinned.
+  - **The shared baseline of BSA.D357** is in `apps/building-shell/experiments/entropy-pass/baseline/`, with a hash per
+    sweep file.
+  - **For P8:** `cpp-port-handoff.md`, the flat-ring spec, the simultaneous-rings spec and the weighted-offsets spec
+    still name symbols P1 deleted or renamed. The scratch copies under `experiments/` that import core's source no
+    longer compile against the new types.
+- **359. P2 of the entropy pass is in at `e394418`, `5af80cb` and `4c54bdb`, with no solver answer moved; P3 follows.**
+  - **The implementer's figures, not re-run by the lead:** all ten sweep files identical by SHA-256 to the baseline
+    after each of the three commits; core 6,714 passed, 8 failed, 10 skipped; building-shell 9,887 passed, 1 failed;
+    dashboard 609; typecheck as before; the nine red tests of BSA.F116. The lead checked the three commits are on the
+    branch and the tree holds only the unstaged journal.
+  - **Landed:** `planar-geometry.ts` and `wall-time.ts` in the solver, the old homes re-exporting what moved, so the
+    solver no longer imports from `random-polygon`, `stroke-spline` or `terrain` (S4, S5); `event-order.ts` with the
+    ordering toolkit, `byEventPriority` replaced by the edge-id sort it always was (E8); `splitPricing`, `splitEventOf`
+    and `incenterSplit` in `generate-split-event.ts`, with `inwardDistanceFromWall` and `wallsAreAntiparallel` serving
+    every site (E12).
+  - **Every merged duplicate was compared operation by operation, by reading.** Three sites were left on their own
+    spelling because the arithmetic is not identical: the two rates towards the struck edge, which differ in the sign of
+    an exact zero; the causality oracle's antiparallel test, which scales by `Math.hypot` where `directionsAreSame` uses
+    a square root of a sum; and the causality check's comparison form, as S4 asked.
+  - **Not merged, for a cycle:** `mergeDisplacementUncertainty` keeps its own body, since `constants.ts` imports only
+    types and `wall-time.ts` imports it.
+  - **The line count did not fall:** 876 in and 864 out. The reviews' estimates of 60 and 80 fewer lines were not
+    reached, because each shared helper carries its own doc. The gain is that each rule is stated once.
+  - **One side effect that is not an answer:** path 2 of the split generator now writes the log line
+    `generateSplitEvent` writes on a failed validation.
+  - **For P8:** specs citing `byEventPriority`, `areSimultaneousArrivals`, `lateness` or the old homes of the planar
+    primitives are stale.
+- **360. P3 of the entropy pass is in at `249a961`, `b0df174`, `dd029b5`, `71517f9` and `484806b`, every step
+  byte-identical on the sweep; P4 follows.**
+  - **The implementer's figures, not re-run by the lead:** all ten sweep files identical by SHA-256 to the baseline
+    after each of the five steps; core 6,714 passed, 8 failed, 10 skipped; building-shell 9,887 passed, 1 failed;
+    dashboard 609; typecheck as before; the nine red tests of BSA.F116. The lead saw the five commits on the branch and
+    the tree holding only the unstaged journal.
+  - **The ownership model as it now stands:** `handleInteriorNGon` constructs one `LayerLinks` per call and passes it by
+    reference to every reader and writer of pending births; it is settled at the foot of the call and dies with it.
+    `handleAlgorithmStepInput` sets `context.step` before dispatch and clears it in `finally`. The probe is
+    `context.probe`, copied at construction from the test-side install. The module-level `WeakMap`s and the lazy
+    `layerOf` are gone.
+  - **The five link writers are a gap and a cut** over a `Bracket` read before anything retires, each writer keeping its
+    order of read, retire and link (E3).
+  - **One `orbit` generator walks the links** (E11). The size caps of `ringThrough` and `ringsOfWavefront` could never
+    fire before a natural stop. The hop caps of `partitionArc` and `droppableBirths` are replaced by a revisit guard,
+    which differs from them only on links already broken; that equivalence is the implementer's reading and is not
+    measured. The 64 of `struckPiece` is kept, named `MAX_CUTS_WALKED`.
+  - **`wavefront.ts` is now a re-export of five modules:** `wavefront-links.ts`, `layer-links.ts`, `ring-components.ts`,
+    `step-scope.ts` and `wavefront-check.ts` (E9). It can be retired once tests import the new modules.
+  - **One definition of a degenerate ring,** `ringArea`, and one ordering of children for both tails (E10). The premise
+    that `closeFlatRing` writes no link but its own members' was confirmed in the code.
+  - **Callers outside the driver:** `handleCollisionEvent` is called outside core's source only by tests; two debug
+    tests that used to get a layer nobody settled now pass one and still do not settle it. No barrel import the
+    dashboard uses changed signature.
+  - **The source grew by about 160 lines,** five files from one and their headers.
+  - **For P8:** `layer-links.ts` still carries the stale "sorted by span" line; specs and `cpp-port-handoff.md` cite
+    `wavefront.ts`, `beginLayerLinks` and the `WeakMap`s.
+- **361. P4 of the entropy pass is in at `d0faa86`, `d04c75b`, `e6654ae`, `7df20d7` and `6a9f24a`, every step
+  byte-identical on the sweep; P5 follows.**
+  - **The implementer's figures, not re-run by the lead:** all ten sweep files identical by SHA-256 to the baseline
+    after each of the five steps; core 6,714 passed, 8 failed, 10 skipped; building-shell 9,887 passed, 1 failed;
+    dashboard 609; typecheck as before; the nine red tests of BSA.F116. The lead saw the five commits on the branch, the
+    tree holding only the unstaged journal, and no worktree left behind.
+  - **One `Verdict<T, R>` in `verdict.ts`** is returned by `gapDirection`, `wallFacingGap`, the third front's
+    resolution, the two layer refusals and every clause of `flat-rings.ts`; the `typeof` tests and the
+    `'clause' in value` sniff are gone (E7).
+  - **A merge resolved whole is a `WholeMerge` with a placement, ring or cross, and its third front attached;** the
+    parallel arrays, the index join and three `!` are gone (E5).
+  - **`vertex-event.ts` holds the rewrite of a vertex event and `coincident-events.ts` is pure clustering,** importing
+    nothing from the link layer; one `bearGaps` serves ring merges, cross merges and a third front's clear gaps (E13).
+  - **`levelRuns` returns the level members' ends and the ridges** where `levelFailure` mutated the stretches it tested
+    (E14).
+  - **`handleInteriorNGon` reads as eight phases:** `createCollisions`, `layerWindow`, `terminalLadderLayer`,
+    `resolveLayerEvents`, `refuseUnsettledLayer`, `resolvePairwise` or `resolveWhole`, `bearBirths`, and
+    `childrenOfSeveralRings` or `childrenOfOneRing`; the whole-event machinery is in `whole-events.ts` (E4).
+    `componentsAsChildren` stays in the driver beside `orderChildren`, against the review, to avoid a cycle.
+  - **Refusal texts were checked unchanged three ways:** by reading; by 18,166 diagnostic lines from both grids and
+    every holed fixture, identical before and after; and by logging every step refusal through the holed core tests. The
+    third-front and most flat-clause texts are reached only by their exact-text unit tests.
+  - **Not unified, an open question:** `thirdFrontOf` reads a merge's runs over its `edgeIds` and bearing reads them
+    over its arrivals. They are equal on every path the implementer could read, and it is not proved for the terminal
+    ladder's completion. The review's suspected vacuous `arrivals.length < 2` is the same question.
+  - **The source grew by about 280 lines,** three new files and a doc per phase.
+  - **For P5:** `tolerance-derivation.test.ts` spies on `handleInteriorNGon` through the module object of
+    `algorithm-complex-cases.ts`, so that export stays there.
+- **362. P5 of the entropy pass is in at `8a7511a`, `b12ba28`, `85bc145`, `900f12f` and `c8e9723`, every step
+  byte-identical on the sweep; P6 follows.**
+  - **The implementer's figures, not re-run by the lead:** all ten sweep files identical by SHA-256 to the baseline
+    after each of the five steps; core 6,714 passed, 8 failed, 10 skipped; building-shell 9,887 passed, 1 failed;
+    dashboard 609; typecheck as before; the nine red tests of BSA.F116. The lead saw the five commits on the branch and
+    the tree holding only the unstaged journal.
+  - **The termination file is five modules and the cycle with the n-gon driver is gone** (S1): `terminal-ladder.ts`,
+    `algorithm-termination-cases.ts` (the pair and the triangle), `step-driver.ts`, `boundary-stage.ts` and
+    `solve-entry.ts`. Checked by a strongly-connected-components pass over every relative import, before and after. Two
+    cycles remain that predate the pass: `collision-helpers.ts` with `generate-split-event.ts`, and a type-only one
+    around `types.ts`.
+  - **One `prepareBoundary` serves every solve entry** (S2), in seven phases: count and finiteness per loop, one
+    normalisation, the weight door, canonicalisation and winding per loop, the loop table and maps, the loop relations,
+    the flattening. `canonicaliseForSolve` is left out of it and refuses nothing new.
+  - **`solveSkeletonObserved` is four phases** (S8), and `verifySolvedGraph` states the spaces its checks run in, each
+    kept as it was: causality per sub-polygon in unit space; the holed guard on the unit-space graph; the simple path's
+    causality in caller space.
+  - **Loop naming, the loop table's rule and the walk within a loop are each stated once** (S7). Every site whose
+    message differs from its twin keeps its own text: three wordings of the weight-length refusal, the two sets of
+    loop-table texts, the winding refusals.
+  - **One `driveSteps`** serves core's two loops and test-fixtures' capture (S6); the barrel gains that one name, 438
+    from 437.
+  - **Texts and stepped observations were checked by an observation harness,** 355 keys covering every refusal text
+    across the entries, the boundary diagnostics, snapshot hashes for all 60 corpus fixtures and 21 holed ones, and a
+    recording probe's 2,148 calls: byte-identical to the tree before P5 after each step.
+  - **One flagged difference:** in `runSimplePolygonStepped` the first boundary now calls the probe before the snapshot,
+    and inside the `try`. It shows only with a probe that throws or writes the graph; every install in core and
+    building-shell only records.
+  - **The user, 2026-11-16, on the pass's net growth of a few hundred lines:** "Gaining a few lines for better
+    organization is a win." Line count is not a target of this pass, and no package is asked to reduce it.
+  - **For P8:** the project CLAUDE.md's V5 table names `algorithm-termination-cases.ts` as the entry point's file, which
+    is now `solve-entry.ts`; core's README, `cpp-port-handoff.md` and several specs cite the old file.
+- **363. P6 of the entropy pass is in at `efe827d`, `8dfc504`, `f45ed31`, `525ce8a`, `dea5ac3` and `6d8bf3e`, with no
+  solver answer moved; P7 follows.**
+  - **The implementer's figures, not re-run by the lead:** all ten sweep files identical by SHA-256 to the baseline
+    after the first two steps and at the end; P5's observation harness, 355 keys, byte-identical throughout; core 6,714
+    passed, 8 failed, 10 skipped; building-shell 9,887 passed, 1 failed; dashboard 609; typecheck as before; the nine
+    red tests of BSA.F116. Building-shell's golden test is green by inference, the reporter listing only the one failing
+    file. The lead saw the six commits on the branch and the tree holding only the unstaged journal.
+  - **Which diagnostic kinds block is stated once,** in `diagnostic-kinds.ts`: six informational kinds and eight
+    blocking ones, each kind's status the same as under the inline list it replaces, enumerated against every push site
+    in core (S3a). The dashboard's two sets were element-for-element equal to core's and now re-export them.
+  - **Input refusals are a `SkeletonInputRefusal` with a kind, a loop and an index,** every message unchanged and `name`
+    left as "Error" (S3b). **The ten kinds are the implementer's coinage, accepted by the lead:** `too-few-vertices`,
+    `non-finite-vertex`, `weight-count`, `weight-not-finite-positive`, `weight-ratio`, `weight-change-without-corner`,
+    `mis-wound-loop`, `loop-conflict`, `loop-table`, `holes-on-legacy-entry`. Three sets of throws stay plain `Error`,
+    none on the solver's path: `groupLoopsByNesting`, the debug overlay's, and the pinned-index check.
+  - **Building-shell classifies by kind** (R3): `DIAGNOSTIC_CAUSES` keyed on core's diagnostic kinds, `REFUSAL_CAUSES`
+    on its own refusal kinds, `HOLED_CAUSES` kept with its ten keys and strings; its informational set is core's less
+    `causality-violation`, named `REFUSED_BY_THE_ROOF`. Of 46 refusals run through both the old substring classifier and
+    the new table, 44 agree and the other two are plain errors the roof never reaches.
+  - **One narrow difference, accepted:** a throw out of the solver that is not an input refusal and whose text contains
+    "eight" or "ratio" was classed `door-other` and is now `threw`. No input constructed reaches one.
+  - **The barrel is in four groups,** Solve, Consumers, Diagnostics and Internals, 446 names from 438, the eight added
+    being this package's; the two legacy entries are marked deprecated (S11).
+  - **`wavefront.ts` is retired,** its eleven tracked importers repointed. Nine untracked scripts under `experiments/`
+    still import it and no longer resolve; the lead accepts that, as scratch, each a one-line repoint if it is run
+    again. Among them are the probes of BSA.F118 in `facing-band/`.
+  - **For P8:** a dashboard test reads `SkeletonDiagnosticKind` from core's `types.ts` by regex, so that union stays
+    there.
+- **364. P7 of the entropy pass is in at `8f6b90f`, `c0ef31a`, `9d49949`, `b3e277e`, `bedf667` and `5327ea3`, with no
+  golden byte moved; P8 follows, in two parts.**
+  - **The implementer's figures, not re-run by the lead:** the golden test run by name, 814 passed, and no file under
+    `golden/` modified after a re-export at every step; copy integrity at 44 pass, 6 cheek, 3 fail, 0 blocked, 0 none,
+    and all 53 verdicts; building-shell 9,886 passed, 1 failed, one test fewer than the baseline because the drift test
+    between the wall-line copies is retired with the copies; typecheck clean. The red test is `uniform-1-129`, unedited.
+    The lead saw the six commits on the branch, and that the range touches neither `golden/` nor `packages/`.
+  - **One `roof/wall-line.ts`** (R1): the copies in `algoB.ts`, `rise.ts` and `storey.ts` were read side by side and
+    none differed.
+  - **The seam's input is assembled in `skeleton.ts`** (`skeletonInput`, `solveIsland`), and `facesOfStrips` is geometry
+    only (R2, R5).
+  - **An island's refusal is an `IslandRefusal`** (R4) with `island`, `at`, `holes`, `kind`, `reason` and `detail`,
+    constructed in `solveRoofParts` with the old message exactly and re-wrapped by `planBuilding` through `relabelled`,
+    which keeps the class. Its user-facing field is `reason` and not `cause`, since an error's `cause` is its chain. Its
+    `name` is `'IslandRefusal'`, following `PlanRefusal`, where core's `SkeletonInputRefusal` keeps "Error".
+  - **Residue classes are `LIVE_RESIDUE_CLASSES`, five, and `RETIRED_RESIDUE_CLASSES`, seven,** the source of truth
+    moved into `src` (R12). The implementer read "retired" as all seven the old emptied list held, not only the two the
+    review called unreachable; accepted.
+  - **`HOLED_REFUSALS` is in `src/fixture.ts`** and the viewer's roster is one export, `viewer/rosters.ts`, read at all
+    four sites (R10). `viewer-defects.test.ts` now lists the page's own roster, 15 holed fixtures and two refusals more
+    than before, and found nothing. A table in `fixture.ts` names each holed layout's role for the port: oracle input,
+    known refusal or legacy-named.
+  - **Loops are traced once** (R7, first step), `applySelectors` returns its hits, and wall attributes are `WallAttrs`
+    (R8). `runB` and `solveRoofParts` share the island solve and keep their two policies (R14).
+  - **Not done, as ordered:** R7's second step; R5's optional derivation of `causality`, which a test asserts as a
+    field.
+  - **P8 is split by the lead into two runs:** first the code's comments and names (E15, S12, R11, the three legacy
+    names), then the documents (stale references in specs, issue notes, core's README, the existing
+    `cpp-port-handoff.md` and the project CLAUDE.md, and the amendments the build of BSA.D348 owes).
+- **365. P8a of the entropy pass is in at `000f73e`, `097c477`, `6cb388e` and `aa82032`, with no answer moved; P8b, the
+  documents, follows and ends the pass.**
+  - **The implementer's figures, not re-run by the lead:** core's built JavaScript identical before and after apart from
+    two comments the bundler keeps inline; all ten sweep files identical by SHA-256 to the baseline; golden 814 and copy
+    integrity 5 passed, nothing under `golden/` modified; core 6,714 passed, 8 failed, 10 skipped; building-shell 9,886
+    passed, 1 failed; dashboard 609; typecheck as before; the nine red tests of BSA.F116. The lead saw the four commits
+    on the branch, 64 files, and the tree holding only the unstaged journal.
+  - **Comments across core's solver and building-shell's roof path now state the rule and its reason.** About thirty
+    sites read like history and were kept as reasons in the present tense, each naming what breaks without the rule; the
+    report lists them.
+  - **Twenty-seven measurement narratives moved to a "Measurement record" section of the spec that owns each,** with a
+    one-line pointer at the site: sixteen to the tolerance-derivation spec, five to the coincidence and terminal-cases
+    spec, three to the angular-predicate spec, two to the weighted-offsets spec, one to the input-canonicalisation spec.
+  - **The three legacy names are `courtyardJutFixtures`, `CourtyardJutName` and `COURTYARD_JUT_DEFECTS`;** `unionLoops`
+    throws a typed `PinchError` with the same message and `PINCH_PREFIX` is gone.
+  - **Ruled by the lead on the implementer's three flags.** The tolerance-derivation spec grew from 300 lines to 633 and
+    now trips the schema's length warning: its measurement record moves to a technical-reference note of its own in P8b,
+    the code's pointers following. A throw in `viewer/pinned-cases.ts` that cannot be reached while its table is empty
+    now names `courtyardJutFixtures`: accepted, since the message should name a function that exists. Two more scratch
+    scripts under `experiments/` no longer resolve: accepted.
+  - **How it was run:** the implementer split the files among four forks of itself, which is four editors in the tree
+    against this journal's manual. Their file sets were disjoint and the result is verified on the merged tree, so it
+    stands; later briefs say one editor means one.
+  - **Not covered:** building-shell's `src` outside the roof path was searched for the history wording only and not
+    read. `residue-pins.ts`' cure log, the only record of each pin's former signature, was left as written.
+  - **Stale and unrecorded:** the input-canonicalisation spec's record says the usable noise-floor band's premise, a
+    root floor not yet wired, is stale, and whether the band was re-measured after the wiring is recorded nowhere.
+- **366. P8b is in at `c903386`, `bb5b66a`, `7b44926` and `ae63ed7`, and the entropy-reducing pass of BSA.D346 is
+  complete: 28 commits from `1503dac` to `ae63ed7`, with no solver answer and no golden byte moved at any package.**
+  - **The pass in figures, from `git diff --shortstat 1503dac ae63ed7`:** 129 files, 8,507 lines in and 7,136 out; in
+    `packages` and `apps` alone, 108 files, 7,600 in and 6,991 out. The lead ran the notes check on the final tree: 0
+    errors, 2 length warnings, both older than the pass.
+  - **No independent verifier has run the final tree.** Every package's suite and sweep figures are its own
+    implementer's, the last full suites on `aa82032`; P8b after it changed sixteen comment pointers, with core's built
+    JavaScript byte-identical. An independent verification of `ae63ed7`, with the mutation gates of the flat-ring spec's
+    decision 55 run again on the restructured code, is the lead's recommendation before the merge.
+  - **P8b's stale references:** corrected across the specs, the issue notes and `cpp-port-handoff.md`, found by diffing
+    the symbols of `1503dac` against the head's and searching the documents for each. Eighteen dated amendment lines sit
+    under decisions whose code no longer has their shape, the decisions' text kept. References already stale before the
+    pass, records anchored to an earlier commit, and line numbers into files the pass did not split were left, each
+    listed in the report.
+  - **The amendments the build of BSA.D348 owed are made,** but one. Node 5's decision 22 is not replaced whole, because
+    the flat-ring spec's decision 31 and `pairwiseLayerRefusal` still cite it as live for a layer not resolved whole; it
+    wants narrowing to those layers, and that wording is not yet written.
+  - **Three issue notes are resolved with `verified_by`:** the three-front meeting and the straight vertex in a
+    zero-area ring (for multi-ring steps), on `holed-flat-and-third-front.test.ts`, 46 of 46, and
+    `holed-fixtures.test.ts`, 111; the mixed-pitch island on `mixed-pitch-island.test.ts`, 5 of 5.
+  - **The flat-ring spec is `completed`,** on BSA.D354 and those tests. The holed roof spec's decision 25 is amended to
+    the floor-standing holed hip solid of BSA.D326.
+  - **The tolerance spec's measurement record is its own technical-reference note,**
+    `tolerance-derivation-measurement-record.md`; the spec is back to 305 lines.
+  - **The project CLAUDE.md, factual corrections only, in a commit of its own:** the V5 entry point's file is
+    `solve-entry.ts`, and the V5 file table gains `step-driver.ts`, `boundary-stage.ts`, `terminal-ladder.ts`,
+    `event-order.ts` and `whole-events.ts`. Ten lines.
+  - **Left by the pass, to the open items:** `HOLED_REFUSAL_ISSUES` in `apps/building-shell/src/fixture.ts` points the
+    two remaining refusals, both decision-21 three-run meetings, at the three-front note that is now resolved; core's
+    README teaches the two entries the pass deprecated; the old `cpp-port-handoff.md` never listed the holed modules and
+    needs a full file map in the new handoff.
 
 ## Findings
 
@@ -472,3 +758,139 @@ session 3's own.
   - **Not established:** that the code's gap pairing is the pairing of neighbours in angle is measured on every logged
     call, not proved; the argument excludes flat and grazing geometry; runs of more than one arrival are argued, not
     tested; no suite run; the specimen is checked at skeleton level, not built in building-shell.
+- **F119. Building-shell's holed roof path has a sound seam with core, one file with named refusal kinds, and its
+  entropy sits around that seam: wall-line geometry copied three times, the refusal carried as a formatted string, and
+  the deleted cut surviving in names, comments and two residue classes.** (a read-only Opus review under @D355,
+  2026-11-16, on 1503dac; by reading and search, nothing run)
+  - **R1, wall-line primitives in three copies:** `algoB.ts:23-94` (the originals), `rise.ts:62-118` and
+    `storey.ts:266-275`, each marked "copied (it is not exported)", with a test in `rise.test.ts` holding them equal.
+    The pin that forced the copies was released by the holed roof spec's decision 35. One module, `roof/wall-line.ts`.
+  - **R2, the call to core is rebuilt outside the seam:** `loopWeights` lives in `algoB.ts:209`, and the grid fuzz test
+    calls `solveSkeleton` by hand.
+  - **R3, the cause tables mix two key spaces and are typed `string`** (`skeleton.ts:29-73`): core diagnostic kinds
+    beside one refusal kind, with `refused()` special-casing it.
+  - **R4, an island's refusal reaches callers only as a message** (`algoB.ts:233-236`, `storey.ts:58-66`), and
+    `holed-roof.test.ts:153-171` reads it by regex. A typed `IslandRefusal` with the same text.
+  - **R5, `facesOfStrips` mixes geometry with result assembly** (`skeleton.ts:110-165`).
+  - **R6, dead exports:** `UPSTREAM_MAX_RATIO`, `NodeSet` and `makeNodeSet` in `skeleton.ts`; `storeyBuilding` in
+    `storey.ts`; a stale core hash in the header of `skeleton.ts`.
+  - **R7, loops traced twice and two ignored parameters on `buildingOf`** (`storey.ts:90-107`, `model.ts:254-276`). A
+    further step, taking the selector DSL off the shell path, would remove it from the port's surface at a risk to
+    ordering only.
+  - **R8, hit counts passed through a type cast, and wall attributes typed `Partial<Wall>`** (`model.ts:142-154`,
+    `:228-274`), so a spread could overwrite `id`, `loop` or `edge`.
+  - **R9, "walls of loop k" written out four times,** and `compLoops` hand-rolled at three sites in `rise.ts`.
+  - **R10, fixtures and catalogue:** production `viewer/main.ts:8` imports `HOLED_REFUSALS` from `tests/`; the viewer's
+    listed roster is restated in four places that disagree, `viewer-defects.test.ts:28` omitting the holed fixtures and
+    refusals; no one table tells a porter which holed layouts are oracle inputs, known refusals or legacy names.
+  - **R11, history in comments and names:** about fifteen sites of "as before", "under the cut", "today's", "free cut",
+    and the names `jutCutFixtures`, `JutCutName`, `JUT_CUT_DEFECTS`, none in any golden.
+  - **R12, two residue classes that cannot occur** remain in the enum of `golden.ts:213-226`, their retirement recorded
+    only in tests.
+  - **R13 to R15, smaller:** `triangulate` duplicating `triangulateLoops` and two identical catch blocks in `storey.ts`;
+    the per-island solve loop duplicated between `runB` and `solveRoofParts`; the research viewer re-implementing two
+    private helpers of `ring-forms.ts`.
+  - **Duplicated from core:** which diagnostic kinds are informational is restated in `skeleton.ts:58` because core
+    exports no such set; core's refusals are classified by message substring (`skeleton.ts:63-70`, matching 'eight' for
+    "weight") because core throws plain `Error`.
+  - **Raised as possible defects, not pursued:** the holed roof spec's decision 25 says every hip solid's bottom is at
+    the plate, and `storey.ts:241-253` stands holed hip solids from the floor, citing an issue note; `builtSurface` at
+    `rise.ts:416` tests the outer loop only.
+  - **Not examined:** `roof/cases.ts`, `measure.ts` and `surface.ts` beyond the diff; most of `rise.ts` and the gable
+    functions of `storey.ts`. No golden-neutrality claim was run.
+- **F120. Core's structure around the holed solver is one 2,393-line file doing five jobs in an import cycle with the
+  n-gon handler, a boundary pipeline written three times, and diagnostics in several vocabularies that the dashboard and
+  building-shell each restate.** (a read-only Opus review under @D355, 2026-11-16, on 1503dac; by reading and search,
+  nothing run)
+  - **S1, `algorithm-termination-cases.ts` holds the terminal ladder, the pair and triangle handlers, the step driver,
+    the boundary stage and all four entry points,** and imports `handleInteriorNGon` from `algorithm-complex-cases.ts`,
+    which imports the ladder back from it. Five modules, no cycle: `terminal-ladder.ts`, the handlers, `step-driver.ts`,
+    `boundary-stage.ts`, `solve-entry.ts`; the option and result types to `types.ts`. Code moves only.
+  - **S2, the boundary pipeline exists three times:** `runAlgorithmV5` (1803-1822) and `runAlgorithmV5Stepped`
+    (2305-2327) carry the same single-loop sequence, and `solveSkeletonObserved` (2000-2116) its general form. The
+    context is denormalised by hand twice. Folding `canonicaliseForSolve` in would make it refuse non-finite input,
+    which it does not today.
+  - **S3, diagnostics:** which kinds block is stated in `types.ts` prose, inline in the solver (2199-2210), in the
+    dashboard's `holed-fixture-text.ts:55-81` and in building-shell's `skeleton.ts:58`. Input refusals are plain `Error`
+    thrown from about ten sites and classified downstream by substring. A step refusal is pushed as a diagnostic,
+    thrown, recorded again as a step failure with the same text, and removed in the dashboard by string equality
+    (`skeleton-solve-boundary.ts:204-216`); a typed refusal that is not echoed would remove a diagnostic from the public
+    list and move `firstFailedSnapshot`.
+  - **S4, wall-time and node-dating primitives copied:** `distanceToSupportingLine` four times, bit-identical;
+    `distanceToSegment` twice; dating a node by its first incident edge's clockwise parent twice; the gap on the faster
+    wall three times.
+  - **S5, the solver imports ring geometry from `random-polygon`, `stroke-spline` and `terrain`,** and
+    `strip-decomposition.ts:315` keeps a private `signedArea`. One planar-geometry module makes the port's boundary the
+    solver.
+  - **S6, the step loop exists three times,** two in core and one in test-fixtures (`test-helpers.ts:61-98`), with two
+    observation mechanisms at the same boundary, a per-call observer and the module-global probe.
+  - **S7, loop naming and loop tables:** `loopName` in two files; one hole named in three index conventions across
+    messages; loop-table validation twice with different messages; the weight-length refusal in three wordings.
+  - **S8, `solveSkeletonObserved` is one function of about 225 lines and 12 phases,** and its post-solve checks run in
+    three different spaces: causality per sub-polygon in unit space, causality on the simple path in caller space, the
+    holed guard on the unit-space graph. Unifying the spaces would move verdicts.
+  - **S9, tolerances:** two held `1e-8` bars live outside `constants.ts`, whose header says every tolerance lives there;
+    two entries in it are not tolerances; `context.simultaneityWindow` is read by no production code; `constants.ts` is
+    about 630 comment lines of 891, much of it measurement history.
+  - **S10, `GraphHelpers`:** two members with no caller (`clockwiseVertexAtOffset`, `widdershinsVertexAtOffset`), two
+    used by one debug test, and `makeMergedSolverContext` stubbing every member by hand for the legacy entry alone.
+  - **S11, the public surface:** the holed API is spread over six sections of the barrel; internal step machinery is
+    exported; the outline takes `(vertices, options.weights)` and a hole `{vertices, weights}`; the dashboard still
+    calls the two legacy entries on every single-loop path; `AlgorithmStepOutput.errors` is optional and always set;
+    per-edge solver state sits in six arrays over three index spaces with no one table saying so.
+  - **S12, history in comments:** about a dozen blocks, the longest 70 and 64 lines of dated measurement on one
+    predicate each.
+  - **An overlap, not a duplication to merge:** the holed guard's time-order check and the causality oracle test one
+    property and date nodes by different walls, so one backwards edge on a holed solve yields both diagnostics.
+  - **Raised as possible defects, not pursued:** `canonicaliseForSolve` has no finiteness check; the catch in
+    `runSimplePolygonStepped` is unreachable for step failures.
+  - **Not examined:** `strip-decomposition.ts` beyond the diff; whether tests pin message strings S3 and S7 would touch.
+- **F121. Core's event path is one 415-line driver of nine phases in a file of four jobs, a 1,130-line `wavefront.ts` of
+  nine jobs, per-layer state held in module-level `WeakMap`s whose lifetime no signature shows, and verdicts typed four
+  different ways.** (a read-only Opus review under @D355, 2026-11-16, on 1503dac; by reading and search, nothing run)
+  - **E1, `multiRingRefusal` is two disjoint functions and decision 45's filter is vacuous**
+    (`algorithm-complex-cases.ts:503-550`): with third fronts present its first two clauses cannot fire, because
+    `asWholeEvents` already proved what they test. Split into a whole-layer and a pairwise refusal; delete `:509-510`.
+  - **E2, the layer's link state has no visible owner:** pending tokens, successor maps and divisions live in a
+    `WeakMap` keyed by the context (`wavefront.ts:86-177`), the step record in another (`:710-725`), the probe in a
+    module global. `layerOf` creates a layer nobody settles if a link-writer runs outside `handleInteriorNGon`, and
+    `handleCollisionEvent` is exported. An explicit `LayerLinks` and `StepScope`, passed.
+  - **E3, the five link-writers are two primitives,** a gap and a cut (`wavefront.ts:450-698`). Each writer's order of
+    read, retire and link is a hard constraint: on a ring of two a participant is its own neighbour's neighbour.
+  - **E4, `handleInteriorNGon` (`:641-1055`) into seven named phases,** and its file into the driver, `event-order.ts`
+    and `whole-events.ts`.
+  - **E5, `WholeEvents` keeps two parallel arrays of which exactly one entry is defined,** joined to third fronts by
+    index; a placement union removes three `!` and a nested ternary.
+  - **E6, the event types are looser than every producer:** `collidingEdges` is always two, and every split carries its
+    struck segment. Exact types delete four dead branches, among them `collision-handling.ts:41-44`, `:92-101` and
+    `:122-124`.
+  - **E7, refusals are `string | T` unions told apart by `typeof`** in `gapDirection`, `wallFacingGap`, `ThirdFront` and
+    `multiRingRefusal`, with a fourth idiom in `flat-rings.ts`. One `Verdict<T>`.
+  - **E8, ordering primitives written twice or more:** the lexicographic edge-id compare, the arrival comparator at five
+    sites, the moment partition, the priority compare; `byEventPriority` only ever sorts splits, so its priority clause
+    never decides.
+  - **E9, `wavefront.ts` by job:** links, ring components, the checker and probe, the step scope.
+  - **E10, ring reading duplicated across the layer's tail:** rings among a set three times, the degenerate-area test
+    twice, the ordering of children twice, a polygon recomputed by its callee.
+  - **E11, seven hand-rolled ring walks, each with its own cycle guard,** two of them the magic numbers 8 and 64.
+  - **E12, `generate-split-event.ts` restates the split pricing and the event literal three times;** the distance from a
+    wall's line is spelled three ways across three files.
+  - **E13, `coincident-events.ts` is pure clustering in its first half and link mutation in its second.**
+  - **E14, `levelFailure` in `flat-rings.ts:269-302` is a test that mutates the plan it tests.**
+  - **E15, history in comments,** one stale outright: `wavefront.ts:71` says partitions are sorted by span, and they are
+    sorted by `partitionArc`.
+  - **E16, vestigial surface in `collision-helpers.ts`:** `NO_COLLISION_SENTINEL` is never written; the
+    simultaneity-window trio has no production caller; `createCollisions` returns per-edge lists its one caller
+    flattens.
+  - **E17, the layer window's `bestArrival` update is unreachable on a consistent sort;** replacing it risks rounding on
+    weighted input.
+  - **The facing verdict cannot be read from the arrangement as a behaviour-preserving change:** `wallFacingGap` has
+    three refusal outcomes an arrangement cannot reproduce, and the struck segment can lie on a ring neither run
+    touches. It could stand as an assertion beside the velocity.
+  - **`gapDirection` solves the kernel by Cramer's rule and `addBisectionEdge` by `makeWeightedBisectedBasis`,** whose
+    doc rejects Cramer as 0 to 3 ulps off, so the verdict is taken on a direction not bit-for-bit the bisector's.
+  - **Raised as possible defects, not pursued:** `flat-rings.ts:100` and `:155` cluster and cut at `<= floor` where the
+    package rule is strictly below; the `arrivals.length < 2` test at `algorithm-complex-cases.ts:905` appears vacuous
+    on a sound wavefront.
+  - **Not examined:** the error-budget arithmetic of the collision and split files; no spec was consulted for the
+    decision numbers cited in comments.
