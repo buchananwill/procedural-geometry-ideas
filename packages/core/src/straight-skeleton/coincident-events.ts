@@ -87,7 +87,7 @@ export interface CoincidentMerge {
  * position and its diameter is below twice the floor, and a many-way meeting the floor cannot hold in
  * one group yields two nodes inside the floor, which decision 141 admits. On the corpus every
  * component lies inside the floor, so there the anchored partition IS the component partition.
- * Measured: tolerance-derivation-decisions.md, "Measurement record", "The component-diameter census
+ * Measured: tolerance-derivation-measurement-record.md, "Measurement record", "The component-diameter census
  * of the coincidence clustering".
  *
  * NOT FIRST MATCH IN LIST ORDER. Joining each event to the first group already within tolerance of
@@ -189,7 +189,7 @@ export function assertMergesAreAnchored(merges: CoincidentMerge[], floor: number
  * instigator, fractions of an ulp to two ulps apart, and moves clean digests by that much; an exact
  * form would also have to leave alone any group whose members all name one instigator, which
  * acceptance already resolves to one node (the first resolved consumes the instigator; the rest place
- * nothing). Measured: tolerance-derivation-decisions.md, "Measurement record", "The split sites'
+ * nothing). Measured: tolerance-derivation-measurement-record.md, "Measurement record", "The split sites'
  * same-point bar read exact".
  *
  * The same ANCHORED grouping as {@link clusterCoincidentMerges} (journal decision 155).

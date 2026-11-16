@@ -164,7 +164,7 @@ export function angularResolution(perceptualFloor: number): number {
  * geometrically collinear sliver carries an area of `1e-13` and never an exact `0`.
  *
  * The form ("no visible width", not `δ²`) is O3's, ruled by its settling measurement (decision 159(b)).
- * Measured: tolerance-derivation-decisions.md, "Measurement record", "degenerateAreaBar: O3's settling measurement".
+ * Measured: tolerance-derivation-measurement-record.md, "Measurement record", "degenerateAreaBar: O3's settling measurement".
  */
 export function degenerateAreaBar(floor: number, perimeter: number): number {
     return floor * perimeter / 2;
@@ -243,7 +243,8 @@ export function simultaneityWindow(perceptualFloor: number): number {
  * every derived form measured so far stops a fixture solving, grows a violation, or moves a clean digest. Each is
  * kept here: {@link HELD_SIMULTANEITY_WINDOW} and {@link ARITHMETIC_SAME_POINT_BOX}, one matched pair (the section
  * below); {@link POINT_ON_RAY_SINE_BAR}, the snap's point-on-ray sine; and {@link ZERO_RATE_SINE_BAR},
- * `addBisectionEdge`'s zero-rate sine. The measurements are in the C8 spec's "Measurement record".
+ * `addBisectionEdge`'s zero-rate sine. The measurements are in the C8 spec's measurement record
+ * (tolerance-derivation-measurement-record.md).
  */
 
 /*
@@ -270,7 +271,7 @@ export function simultaneityWindow(perceptualFloor: number): number {
  * parents `φ` apart), so a near-straight jittered vertex's budget reaches the δ cap — the perceptual window
  * again, locally — and an anchored per-pair layer resolves a wide-budget arrival with the earliest while
  * leaving out a narrow-budget arrival of the same edges that is unorderable against it. The exact box alone
- * also moves verdicts, and at S5 cannot be exact at all (see the box). Measured: tolerance-derivation-decisions.md,
+ * also moves verdicts, and at S5 cannot be exact at all (see the box). Measured: tolerance-derivation-measurement-record.md,
  * "Measurement record", "The window and the box: register C12's measurement".
  */
 
@@ -281,7 +282,7 @@ export function simultaneityWindow(perceptualFloor: number): number {
  *
  * Three moves have been measured and each STOPS: the flat δ window (F70), the per-pair window
  * (`pairSimultaneityWindow`, collision-helpers.ts) on a division-only budget, and the per-pair window on the
- * complete first-order model beside an exact box. Measured: tolerance-derivation-decisions.md, "Measurement
+ * complete first-order model beside an exact box. Measured: tolerance-derivation-measurement-record.md, "Measurement
  * record", "HELD_SIMULTANEITY_WINDOW: the three measured moves".
  */
 export const HELD_SIMULTANEITY_WINDOW = 0.00000001;
@@ -302,7 +303,7 @@ export const HELD_SIMULTANEITY_WINDOW = 0.00000001;
  * the four sites would read: S1 and S4 coordinate equality; S2 coordinate equality OR one instigator (a
  * group of re-reports of ONE split is one node by acceptance, and equality alone moves clean digests by
  * ulps); S5 cannot be exact, because the two ends of a zero-length offset segment are computed apart and
- * differ by ulps, and an exact S5 keeps a repeated vertex. Measured: tolerance-derivation-decisions.md,
+ * differ by ulps, and an exact S5 keeps a repeated vertex. Measured: tolerance-derivation-measurement-record.md,
  * "Measurement record", "ARITHMETIC_SAME_POINT_BOX: O1's histogram and the exact box".
  */
 export const ARITHMETIC_SAME_POINT_BOX = 0.00000001;
@@ -314,7 +315,7 @@ export const ARITHMETIC_SAME_POINT_BOX = 0.00000001;
  * T32's target is the coaxial form, which the closure's point-on-ray test (S11) reads. At the lane the snap
  * gives `Off-edge Jitter Plus`, k = 3, seed 47514 (the off-edge 1e-3 grid) an offset violation of its own,
  * diagnosed as a `causality-violation` on a cell that has none at `1e-8` — T37 STOP 3 — so it stays here.
- * `tolerance-derivation.test.ts` asserts the held state on that cell. Measured: tolerance-derivation-decisions.md,
+ * `tolerance-derivation.test.ts` asserts the held state on that cell. Measured: tolerance-derivation-measurement-record.md,
  * "Measurement record", "POINT_ON_RAY_SINE_BAR (held)".
  */
 export const POINT_ON_RAY_SINE_BAR = 0.00000001;
@@ -322,7 +323,7 @@ export const POINT_ON_RAY_SINE_BAR = 0.00000001;
 /**
  * `addBisectionEdge`'s zero-rate sine bar (algorithm-helpers.ts), HELD at `1e-8` (census S19). Three
  * re-derivations are measured and refused: T17's ρ (decision 161(b)), `k·u` and the forward bound 8u (decision
- * 164). Measured: tolerance-derivation-decisions.md, "Measurement record", "ZERO_RATE_SINE_BAR (held)".
+ * 164). Measured: tolerance-derivation-measurement-record.md, "Measurement record", "ZERO_RATE_SINE_BAR (held)".
  */
 export const ZERO_RATE_SINE_BAR = 0.00000001;
 

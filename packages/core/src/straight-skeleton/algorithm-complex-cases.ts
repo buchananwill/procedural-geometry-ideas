@@ -262,7 +262,7 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
  * one of the same edge with a narrow budget, and the step then wires against causality. The per-pair
  * window with the complete error model (journal-5 decision 167) is not spent here: even as a prefix it
  * resolves a wide-budget arrival with the earliest while leaving out a narrow-budget arrival of the same
- * edges that is unorderable against it. Measured: tolerance-derivation-decisions.md, "Measurement record",
+ * edges that is unorderable against it. Measured: tolerance-derivation-measurement-record.md, "Measurement record",
  * "The per-pair layer window, filtered and as a prefix".
  */
 function layerWindow(collisions: readonly ResolvableEvent[]): ResolvableEvent[] {

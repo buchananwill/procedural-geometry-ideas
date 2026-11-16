@@ -61,7 +61,7 @@ function stringifyFinalData(context: StraightSkeletonSolverContext, input: Algor
  * is a defect that got worse (journal decisions 72 and 134(c)), the failure mode decision 138(a) found at
  * `intersectRays`' identical-source exit. The bar is held until the half-merge windows these displaced nodes come
  * from are moved (see {@link POINT_ON_RAY_SINE_BAR}).
- * Measured: tolerance-derivation-decisions.md, "Measurement record", "pointLiesOnRay: the snap's measurements".
+ * Measured: tolerance-derivation-measurement-record.md, "Measurement record", "pointLiesOnRay: the snap's measurements".
  */
 function pointLiesOnRay(separation: Vector2, basis: Vector2): boolean {
     return directionsAreSame(separation, basis, POINT_ON_RAY_SINE_BAR);

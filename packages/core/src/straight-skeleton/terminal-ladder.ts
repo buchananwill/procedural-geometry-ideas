@@ -32,7 +32,7 @@ import {HELD_SIMULTANEITY_WINDOW} from "./constants";
  *
  * A LATERAL BAR, NOT A SINE: a sine bar on a raw separation is a lateral bar that grows with the separation
  * (spec A9). The snap's point-on-ray ({@link pointLiesOnRay}, S10) is a different site and keeps the sine.
- * Measured: tolerance-derivation-decisions.md, "Measurement record", "anchorLiesOnRay: the closure's point-on-ray at the lane".
+ * Measured: tolerance-derivation-measurement-record.md, "Measurement record", "anchorLiesOnRay: the closure's point-on-ray at the lane".
  */
 function anchorLiesOnRay(separation: Vector2, basis: Vector2, coaxialityFloor: number): boolean {
     return dotProduct(separation, basis) > 0 && lateralOffset(separation, basis) < coaxialityFloor;

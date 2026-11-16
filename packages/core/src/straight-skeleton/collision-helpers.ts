@@ -95,7 +95,7 @@ export function timeOf(arrival: Arrival): number {
  * Spent at all seven through {@link compareArrivalsAtPairWindow} — with the division-only budget, and
  * again with the COMPLETE first-order model and the same-point box exact beside it — this window is a
  * measured STOP both times (T16, T37; journal-5 decision 167; "THE WINDOW AND THE BOX" in constants.ts).
- * Measured: tolerance-derivation-decisions.md, "Measurement record", "The per-pair simultaneity window
+ * Measured: tolerance-derivation-measurement-record.md, "Measurement record", "The per-pair simultaneity window
  * spent at the seven sites".
  *
  * NOT FOR PORT: this, {@link compareArrivalsAtPairWindow} and {@link arrivalsAreSimultaneous} have no solver caller.
@@ -431,7 +431,7 @@ export function offsetDistanceWithBudget(
     // stops solves and grows causality violations, by the inferred (not traced) mechanism that a ray whose
     // rate is a few parts in 1e6 — a slightly skewed corridor mid-line — is priced at CONSTANT offset while
     // its partner is priced at its true rate. `addBisectionEdge`'s zero rate (S19) asks the same of the same operand, and stays
-    // held (see there). Measured: tolerance-derivation-decisions.md, "Measurement record", "The offset-rate
+    // held (see there). Measured: tolerance-derivation-measurement-record.md, "Measurement record", "The offset-rate
     // zero test (S20)".
     const rate = crossProduct(ray.basisVector, context.clockwiseParent(edge).basisVector);
     const noGradient = offsetRateIsArithmeticZero(rate);

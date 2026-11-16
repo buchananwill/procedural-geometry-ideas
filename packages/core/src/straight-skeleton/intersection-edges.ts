@@ -119,7 +119,7 @@ export function intersectRays(
     // apart), terminating pairs that should have collided, and turns signalled failures into `complete: true`
     // with empty diagnostics while their violations remain — a defect that stops announcing itself is a
     // defect that got WORSE (journal decision 72's doctrine). `tolerance-derivation.test.ts` asserts the exit
-    // and the empty band (0, 1e-8). Measured: tolerance-derivation-decisions.md, "Measurement record", "The
+    // and the empty band (0, 1e-8). Measured: tolerance-derivation-measurement-record.md, "Measurement record", "The
     // identical-source exit (S6)".
     if (distanceToRay2 === 0) {
         return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, 'identical-source'];
@@ -135,7 +135,7 @@ export function intersectRays(
     // division by the sine cannot place the meeting point to within the client's floor (spec A3), and
     // under ordering (i) at equality (spec A11) the pair is IDENTICAL in direction: it leaves by the
     // collinear, head-on or parallel exits below and is never priced. At or above it, it is priced.
-    // Measured: tolerance-derivation-decisions.md, "Measurement record", "The near-parallel gate at the
+    // Measured: tolerance-derivation-measurement-record.md, "Measurement record", "The near-parallel gate at the
     // angular resolution".
     if (sineIsBelow(ray1.basisVector, ray2.basisVector, angularResolution)) {
         if (dotOfBasisVectors > 0) {

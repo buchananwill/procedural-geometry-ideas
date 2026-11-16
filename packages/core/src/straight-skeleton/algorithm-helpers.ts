@@ -177,7 +177,7 @@ export function addBisectionEdge(context: StraightSkeletonSolverContext, clockwi
     // ulp below 400), which no rounding bound on the rate separates from a genuine negative rate of
     // −6.22e-9. The bar is held beside the simultaneity window and the same-point box, measured with them
     // as one set (register C12; journal-5 decisions 165, 167(d); see constants.ts).
-    // Measured: tolerance-derivation-decisions.md, "Measurement record", "addBisectionEdge: the zero-rate bar's re-derivations".
+    // Measured: tolerance-derivation-measurement-record.md, "Measurement record", "addBisectionEdge: the zero-rate bar's re-derivations".
     const zeroRate = sineIsBelow(bisectedBasis, context.clockwiseParent(newEdge).basisVector,
         ZERO_RATE_SINE_BAR);
     if (!zeroRate) {
